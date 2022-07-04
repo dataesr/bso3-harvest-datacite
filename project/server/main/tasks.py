@@ -6,7 +6,6 @@ import pandas as pd
 
 from urllib import parse
 from project.server.main.utils_swift import download_container, upload_object
-from project.server.main.elastic import reset_index
 from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
