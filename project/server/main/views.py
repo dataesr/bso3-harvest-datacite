@@ -30,6 +30,7 @@ def run_task_tmp():
     }
     return jsonify(response_object), 202
 
+
 @main_blueprint.route("/tasks/<task_id>", methods=["GET"])
 def get_status(task_id):
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
