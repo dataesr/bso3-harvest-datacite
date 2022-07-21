@@ -4,6 +4,7 @@ from rq import Queue, Connection
 from flask import render_template, Blueprint, jsonify, request, current_app
 
 from project.server.main.tasks import create_task_analyze, create_task_tmp, create_task_download, create_task_harvest, import_es
+from project.server.main.utils_dataclasses import split_dump_file
 
 main_blueprint = Blueprint("main", __name__,)
 from project.server.main.logger import get_logger
@@ -48,3 +49,8 @@ def get_status(task_id):
     else:
         response_object = {"status": "error"}
     return jsonify(response_object)
+
+@main_blueprint.route("/split_ndjson")
+def run_split_ndjson():
+    split_dump_file()
+    return("split complet")

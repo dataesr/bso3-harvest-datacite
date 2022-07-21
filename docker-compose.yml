@@ -1,0 +1,9 @@
+
+services:
+  web:
+    build: .
+    volumes:
+      - .:/src
+    ports:
+      - "8099:5000"
+    command: bash -c "sleep 10 && python3 manage.py run -h 0.0.0.0"
