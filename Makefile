@@ -22,6 +22,8 @@ docker-compose-down:
 	docker-compose down
 	@echo Project ecosystem stopped
 
+docker-compose-restart: docker-compose-down docker-compose-up
+
 install:
 	@echo Installing dependencies...
 	pip install -r requirements.txt
@@ -32,3 +34,6 @@ release:
 	git commit -am '[release] version $(VERSION)'
 	git tag $(VERSION)
 	@echo If everything is OK, you can push with tags i.e. git push origin main --tags
+
+unit-tests:
+	python3 -m pytest --disable-warnings tests

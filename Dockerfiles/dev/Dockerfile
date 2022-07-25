@@ -2,7 +2,8 @@ FROM golang:1.19-rc-bullseye
 
 RUN apt-get update
 RUN apt-get install -y python3.9 \
-    python3-pip
+    python3-pip \
+    make
 
 WORKDIR /src
 

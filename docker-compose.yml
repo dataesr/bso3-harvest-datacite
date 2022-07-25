@@ -15,6 +15,7 @@ services:
       - DB_MONGO_USER=${DB_MONGO_USER}
       - DB_MONGO_PASSWORD=${DB_MONGO_PASSWORD}
       - DB_MONGO_NAME=${DB_MONGO_NAME}
+      - DB_MONGO_AUTH_MECH=${DB_MONGO_AUTH_MECH}
     command: bash -c "sleep 10 && python3 manage.py run -h 0.0.0.0"
     depends_on:
       - mongodb
@@ -30,3 +31,12 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=${DB_MONGO_PASSWORD}
       - DB_MONGO_PORT=${DB_MONGO_PORT}
       - MONGO_INITDB_DATABASE:${DB_MONGO_NAME}
+  postgres:
+    container_name: postgres
+    image: postgres:12.0-alpine
+    ports:
+      - ${DB_POSTGRES_PORT}:5432
+    environment:
+      - POSTGRES_USER=${DB_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${DB_POSTGRES_PASSWORD}
+      - POSTGRES_DB=${DB_POSTGRES_DB}
