@@ -1,29 +1,19 @@
 import json
 from pathlib import Path
-from project.server.main.dataclasses_dc import *
+from project.server.main.dataclasses_dc.root import *
 import unittest
-import dataclasses
-from typing import Any, List
+
 
 class TestCase(unittest.TestCase):
     doi=None
 
     @classmethod
     def setUpClass(cls):
-         path_file=Path.cwd() /'project/server/tests/test_doi_dataclasses/doi.json'
+         path_file=Path.cwd() /'project/server/tests/test_doi_dataclasses/dcdump-test.ndjson'
          with path_file.open( 'r', encoding='utf-8') as f:
              jsonstring= json.load(f)
              cls.doi = Root.from_dict_custom(jsonstring)
-                
-    def test_link(cls):
-        cls.assertEqual(cls.doi.links.self,"https://api.datacite.org/dois?affiliation=true&page%5Bcursor%5D=1&page%5Bsize%5D=100&query=updated%3A%5B2022-07-05T00%3A00%3A00Z+TO+2022-07-05T23%3A59%3A59Z%5D&state=findable")
-        cls.assertEqual(cls.doi.links.next,"https://api.datacite.org/dois?affiliation=true&page%5Bcursor%5D=MTQzMTUxMTM0OTAwMCwxMC4xNTQ2OC91aHJoc3o&page%5Bsize%5D=100&query=updated%3A%5B2022-07-05T00%3A00%3A00Z+TO+2022-07-05T23%3A59%3A59Z%5D")
 
-    def test_data(cls):
-        #print(cls.doi.data[0].to_dict())
-        cls.assertEqual(cls.doi.data[0].id,"10.1594/pangaea.52464")
-        cls.assertNotEqual(cls.doi.data[0].id,"10.1574/pangaea.52464")
-        cls.assertEqual(cls.doi.data[0].type,"dois")
     
     def test_attributtes(cls):
 
@@ -58,29 +48,3 @@ class TestCase(unittest.TestCase):
         cls.assertEqual(cls.doi.data[0].attributes.registered,"2005-04-08T04:11:40Z")
         cls.assertEqual(cls.doi.data[0].attributes.published,None)
         cls.assertEqual(cls.doi.data[0].attributes.updated,"2022-07-05T01:06:26Z")
-
-
-
-    def test_relationships(cls):
-        cls.assertDictEqual(cls.doi.data[0].relationships.client.to_dict(),{"data":{"id":"pangaea.repository","type":"clients"}})
-        
-    def test_client(cls):
-        cls.assertDictEqual(cls.doi.data[0].relationships.client.data.to_dict(),{"id":"pangaea.repository","type":"clients"})
-    
-    def test_subjects(cls):
-        cls.assertEqual(cls.doi.data[0].attributes.subjects[0].subject,"Event label")
-        cls.assertEqual(cls.doi.data[0].attributes.subjects[0].subjectScheme,"Parameter")
-
-        
-    def test_creators(cls):
-        cls.assertEqual(cls.doi.data[0].attributes.creators[1].name,"Klas, Mieczyslawa")
-        cls.assertEqual(cls.doi.data[0].attributes.creators[1].givenName,"Mieczyslawa")
-        cls.assertEqual(cls.doi.data[0].attributes.creators[1].familyName,"Klas")
-        cls.assertListEqual(cls.doi.data[0].attributes.creators[1].affiliation,[])
-        cls.assertListEqual(cls.doi.data[0].attributes.creators[1].nameIdentifiers,[])
-   
-    def test_descriptions(cls):
-        cls.assertEqual(cls.doi.data[0].attributes.descriptions[1].description,"depth is the apparent mixing depth, as determined by a downcore series of radiocarbon age")
-        cls.assertEqual(cls.doi.data[0].attributes.descriptions[1].descriptionType,"TechnicalInfo")
-
-        

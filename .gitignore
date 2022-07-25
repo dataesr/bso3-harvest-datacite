@@ -1,4 +1,7 @@
 .env
-*.ndjson
-*.json
+project/Data/*.ndjson
+project/results/*.json
 __pycache__
+
+
+
