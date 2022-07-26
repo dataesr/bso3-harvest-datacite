@@ -1,9 +1,6 @@
-import gzip
 import os
-import pandas as pd
 import swiftclient
 
-from io import BytesIO, TextIOWrapper
 from retry import retry
 
 from project.server.main.logger import get_logger
@@ -26,9 +23,10 @@ init_cmd = f"swift --os-auth-url https://auth.cloud.ovh.net/v3 --auth-version 3 
       --os-region-name GRA"
 conn = None
 
+
 def download_container(container, skip_download, download_prefix, volume_destination):
     if skip_download is False:
-        cmd =  init_cmd + f' download {container} -D {volume_destination}/{container} --skip-identical'
+        cmd = init_cmd + f' download {container} -D {volume_destination}/{container} --skip-identical'
         if download_prefix:
             cmd += f" --prefix {download_prefix}"
         os.system(cmd)
@@ -57,7 +55,7 @@ def get_connection() -> swiftclient.Connection:
 
 
 @retry(delay=2, tries=50)
-def upload_object(container: str, source: str, target:str) -> str:
+def upload_object(container: str, source: str, target: str) -> str:
     logger.debug(f'Uploading {source} in {container} as {target}')
     cmd = init_cmd + f' upload {container} {source} --object-name {target}' \
                      f' --segment-size 1048576000 --segment-threads 100'

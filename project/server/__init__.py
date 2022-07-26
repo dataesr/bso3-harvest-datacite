@@ -5,6 +5,7 @@ from flask_bootstrap import Bootstrap
 from flask.json import JSONEncoder
 from datetime import datetime
 import decimal
+import json
 
 # instantiate the extensions
 bootstrap = Bootstrap()
@@ -22,8 +23,8 @@ def create_app(script_info=None):
     # set config
     app_settings = os.getenv("APP_SETTINGS")
     app.config.from_object(app_settings)
-    
-    #custom encoder
+
+    # custom encoder
     app.json_encoder = CustomJSONEncoder
 
     # set up extensions
@@ -38,6 +39,7 @@ def create_app(script_info=None):
     app.shell_context_processor({"app": app})
 
     return app
+
 
 class CustomJSONEncoder(JSONEncoder):
     """Redefine default JSON encoder."""

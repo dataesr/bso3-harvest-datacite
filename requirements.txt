@@ -24,3 +24,4 @@ dataclasses-json==0.5.7
 pathlib==1.0.1
 pytest==7.1.2
 sqlalchemy==1.4.39
+flake8==4.0.1

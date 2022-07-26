@@ -1,4 +1,5 @@
 import redis
+import unittest
 from rq import Connection, Worker
 from flask.cli import FlaskGroup
 

@@ -13,7 +13,7 @@ class BaseConfig(object):
 
 class DevelopmentConfig(BaseConfig):
     """Development configuration."""
-    
+
     DEBUG = True
     WTF_CSRF_ENABLED = False
 

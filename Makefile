@@ -35,5 +35,15 @@ release:
 	git tag $(VERSION)
 	@echo If everything is OK, you can push with tags i.e. git push origin main --tags
 
+lint: lint-syntax lint-style
+
+lint-style:
+	@echo Checking style errors - PEP 8
+	flake8 . --count --exit-zero --max-complexity=10 --max-line-length=200 --statistics
+
+lint-syntax:
+	@echo Checking syntax errors
+	flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
 unit-tests:
 	python3 -m pytest --disable-warnings tests
