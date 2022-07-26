@@ -9,7 +9,7 @@ class TestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-         path_file=Path.cwd() /'project/server/tests/test_doi_dataclasses/dcdump-test.ndjson'
+         path_file=Path.cwd() /'tests/unit_test/test_doi_dataclasses/dcdump-test.ndjson'
          with path_file.open( 'r', encoding='utf-8') as f:
              jsonstring= json.load(f)
              cls.doi = Root.from_dict_custom(jsonstring)
