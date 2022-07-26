@@ -27,6 +27,7 @@ docker-compose-restart: docker-compose-down docker-compose-up
 install:
 	@echo Installing dependencies...
 	pip install -r requirements.txt
+	pip install -r requirements-dev.txt
 	@echo End of dependencies installation
 
 release:

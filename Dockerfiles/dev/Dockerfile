@@ -8,9 +8,11 @@ RUN apt-get install -y python3.9 \
 WORKDIR /src
 
 COPY requirements.txt /src/requirements.txt
+COPY requirements-dev.txt /src/requirements-dev.txt
 
 RUN pip3 install --upgrade pip
 RUN pip3 install -r requirements.txt --proxy=${HTTP_PROXY}
+RUN pip3 install -r requirements-dev.txt --proxy=${HTTP_PROXY}
 
 RUN go version
 RUN cd /src && git clone https://github.com/miku/dcdump.git
