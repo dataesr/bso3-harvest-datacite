@@ -1,2 +1,4 @@
 .env
+*.ndjson
+*.json
 __pycache__

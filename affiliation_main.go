@@ -78,8 +78,9 @@ func unrollPages(s, e time.Time, directory, prefix string) error {
 	vs := url.Values{
 		"query":        []string{fmt.Sprintf("updated:[%s TO %s]", from, to)},
 		"state":        []string{"findable"},
-		"page[size]":   []string{"100"},
+		"page[size]":   []string{"1000"},
 		"page[cursor]": []string{"1"}, // https://support.datacite.org/docs/pagination#section-cursor
+		"schema-version":	[]string{"4"},
 	}
 	link := fmt.Sprintf("https://api.datacite.org/dois?affiliation=true&%s", vs.Encode())
 	// Fetch into temporary file, then move to destination.
