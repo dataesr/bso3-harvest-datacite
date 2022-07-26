@@ -1,10 +1,10 @@
 import json
 from pathlib import Path
 from project.server.main.dataclasses_dc.root import *
-import unittest
+from unittest import TestCase
 
 
-class TestCase(unittest.TestCase):
+class TestAttributes(TestCase):
     doi=None
 
     @classmethod
