@@ -1,30 +1,35 @@
-from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session
+
+from unittest.mock import Mock
 
 from contextlib import contextmanager
 
-from domain.databases.abstract_session import AbstractSession
+from adapters.databases.postgres_session import PostgresSession
 
 
-class PostgresSession(AbstractSession):
+class MockPostgresSession(PostgresSession):
     session: Session
     engine: Engine
+    nb_calls_getSession: int = 0
+    nb_calls_getEngine: int = 0
+    nb_calls_sessionScope: int = 0
 
     def __init__(self, host: str, port: int, username: str, password: str, database_name: str):
-        connection_string = (f"postgresql+psycopg2://{username}:{password}@{host}:{port}/{database_name}")
-
-        self.engine: Engine = create_engine(connection_string)
-        self.session: Session = Session(self.engine)
+        self.engine: Engine = Mock(spec=Engine)
+        self.session: Session = Mock(spec=Session)
 
     def getSession(self) -> Session:
+        self.nb_calls_getSession += 1
         return self.session
 
     def getEngine(self) -> Engine:
+        self.nb_calls_getEngine += 1
         return self.engine
 
     @contextmanager
     def sessionScope(self):
+        self.nb_calls_sessionScope += 1
         """Provide a transactional scope around a series of operations."""
         session = self.session
         try:

@@ -16,6 +16,11 @@ services:
       - DB_MONGO_PASSWORD=${DB_MONGO_PASSWORD}
       - DB_MONGO_NAME=${DB_MONGO_NAME}
       - DB_MONGO_AUTH_MECH=${DB_MONGO_AUTH_MECH}
+      - DB_POSTGRES_USER=${DB_POSTGRES_USER}
+      - DB_POSTGRES_PASSWORD=${DB_POSTGRES_PASSWORD}
+      - DB_POSTGRES_NAME=${DB_POSTGRES_NAME}
+      - DB_POSTGRES_HOST=${DB_POSTGRES_HOST}
+      - DB_POSTGRES_PORT=${DB_POSTGRES_PORT}
     command: bash -c "sleep 10 && python3 manage.py run -h 0.0.0.0"
     depends_on:
       - mongodb
@@ -39,4 +44,4 @@ services:
     environment:
       - POSTGRES_USER=${DB_POSTGRES_USER}
       - POSTGRES_PASSWORD=${DB_POSTGRES_PASSWORD}
-      - POSTGRES_DB=${DB_POSTGRES_DB}
+      - POSTGRES_DB=${DB_POSTGRES_NAME}
