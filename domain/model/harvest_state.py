@@ -3,7 +3,7 @@ from datetime import datetime
 
 
 @dataclass
-class HarvestState():
+class HarvestState:
     id: int
     number_missed: int
     date_debut: datetime

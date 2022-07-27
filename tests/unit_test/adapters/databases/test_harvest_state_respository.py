@@ -3,7 +3,7 @@ from unittest import TestCase
 from adapters.databases.harvest_state_respository import HarvestStateRepository
 from adapters.databases.mock_postgres_session import MockPostgresSession
 
-TESTED_MODULE = 'adapters.databases.harvest_state_repository'
+TESTED_MODULE = "adapters.databases.harvest_state_repository"
 
 
 class TestHarvestStateRepository(TestCase):
@@ -11,15 +11,13 @@ class TestHarvestStateRepository(TestCase):
         # Given
         host: str = "fake_host"
         port: int = 0
-        username: str = 'fake_username'
-        password: str = 'fake_password'
-        database_name: str = 'fake_db_name'
+        username: str = "fake_username"
+        password: str = "fake_password"
+        database_name: str = "fake_db_name"
 
-        self.mock_postgres_session = MockPostgresSession(
-            host, port, username, password, database_name)
+        self.mock_postgres_session = MockPostgresSession(host, port, username, password, database_name)
 
-        self.harvest_state_repository = HarvestStateRepository(
-            self.mock_postgres_session)
+        self.harvest_state_repository = HarvestStateRepository(self.mock_postgres_session)
 
     def test_given_mock_postgres_session_and_a_harvest_state_repository_when_using_get_from_repository_then_all_methods_of_the_repository_are_called_once_except_getEngine_called_0_time(self):
         # Given after setUp
@@ -62,7 +60,7 @@ class TestHarvestStateRepository(TestCase):
         nb_calls_getSession_expected: int = 1
         nb_calls_sessionScope_expected: int = 1
 
-        elements_to_update: dict = {'number_missed': 0}
+        elements_to_update: dict = {"number_missed": 0}
 
         # When
         self.harvest_state_repository.update(elements_to_update)
@@ -80,7 +78,7 @@ class TestHarvestStateRepository(TestCase):
         nb_calls_getSession_expected: int = 0
         nb_calls_sessionScope_expected: int = 0
 
-        elements_to_update: dict = {'key_nonexistant': 'value'}
+        elements_to_update: dict = {"key_nonexistant": "value"}
 
         exception_msg_expected: str = "Element to update not available in HarvestStateTable : 'key_nonexistant'"
 
@@ -103,7 +101,7 @@ class TestHarvestStateRepository(TestCase):
         nb_calls_getSession_expected: int = 0
         nb_calls_sessionScope_expected: int = 0
 
-        elements_to_update: dict = {'date_debut': 'toto'}
+        elements_to_update: dict = {"date_debut": "toto"}
 
         exception_msg_expected: str = "Element type to update not correct for HarvestStateTable : got '<class 'str'>' and expected '<class 'datetime.datetime'>' for 'date_debut' attribute"
 

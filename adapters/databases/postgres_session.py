@@ -12,8 +12,7 @@ class PostgresSession(AbstractSession):
     engine: Engine
 
     def __init__(self, host: str, port: int, username: str, password: str, database_name: str):
-        connection_string = (
-            f"postgresql+psycopg2://{username}:{password}@{host}:{port}/{database_name}")
+        connection_string = f"postgresql+psycopg2://{username}:{password}@{host}:{port}/{database_name}"
 
         self.engine: Engine = create_engine(connection_string)
         self.session: Session = Session(self.engine)
