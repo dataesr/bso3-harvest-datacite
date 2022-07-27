@@ -6,4 +6,4 @@ class AbstractSession(metaclass=ABCMeta):
 
     @abstractmethod
     def getSession(self) -> any:
-        pass
+        raise NotImplementedError

@@ -23,3 +23,4 @@ dataclasses==0.6
 dataclasses-json==0.5.7
 pathlib==1.0.1
 sqlalchemy==1.4.39
+psycopg2-binary==2.9.3
