@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 from domain.model.harvest_state import HarvestState
 from sqlalchemy import Column, DateTime, Integer, String, Table
 from sqlalchemy.orm import registry

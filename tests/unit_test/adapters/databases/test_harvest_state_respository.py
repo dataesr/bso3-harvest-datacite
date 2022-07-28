@@ -15,9 +15,11 @@ class TestHarvestStateRepository(TestCase):
         password: str = 'fake_password'
         database_name: str = 'fake_db_name'
 
-        self.mock_postgres_session = MockPostgresSession(host, port, username, password, database_name)
+        self.mock_postgres_session = MockPostgresSession(
+            host, port, username, password, database_name)
 
-        self.harvest_state_repository = HarvestStateRepository(self.mock_postgres_session)
+        self.harvest_state_repository = HarvestStateRepository(
+            self.mock_postgres_session)
 
     def test_given_mock_postgres_session_and_a_harvest_state_repository_when_using_get_from_repository_then_all_methods_of_the_repository_are_called_once_except_getEngine_called_0_time(self):
         # Given after setUp
@@ -35,7 +37,7 @@ class TestHarvestStateRepository(TestCase):
         assert self.mock_postgres_session.nb_calls_getSession == nb_calls_getSession_expected
         assert self.mock_postgres_session.nb_calls_sessionScope == nb_calls_sessionScope_expected
 
-    def test_given_mock_postgres_session_and_a_harvest_state_repository_when_using_update_from_repository_with_empty_arg_dict_then_all_methods_of_the_repository_are_called_once_except_getEngine_called_0_time(self):
+    def test_given_mock_postgres_session_and_a_repository_when_using_update_from_repository_with_empty_arg_dict_then_all_methods_of_repository_are_called_once_except_getEngine_called_0_time(self):
         # Given after setUp
         nb_calls_init_expected: int = 1
         nb_calls_getEngine_expected: int = 0
@@ -53,8 +55,7 @@ class TestHarvestStateRepository(TestCase):
         assert self.mock_postgres_session.nb_calls_getSession == nb_calls_getSession_expected
         assert self.mock_postgres_session.nb_calls_sessionScope == nb_calls_sessionScope_expected
 
-
-    def test_given_mock_postgres_session_and_a_harvest_state_repository_when_using_update_from_repository_with_empty_arg_dict_then_all_methods_of_the_repository_are_called_once_except_getEngine_called_0_time(self):
+    def test_given_mock_postgres_session_and_a_repository_when_using_update_from_repository_with_not_empty_arg_dict_then_all_methods_of_repository_are_called_once_except_getEngine_called_0_time(self):
         # Given after setUp
         nb_calls_init_expected: int = 1
         nb_calls_getEngine_expected: int = 0
@@ -71,7 +72,6 @@ class TestHarvestStateRepository(TestCase):
         assert self.mock_postgres_session.nb_calls_getEngine == nb_calls_getEngine_expected
         assert self.mock_postgres_session.nb_calls_getSession == nb_calls_getSession_expected
         assert self.mock_postgres_session.nb_calls_sessionScope == nb_calls_sessionScope_expected
-
 
     def test_given_mock_postgres_session_and_a_harvest_state_repository_when_using_update_from_repository_with_wrong_element_in_dict_arg_then_raise_specific_exception(self):
         # Given after setUp
@@ -106,7 +106,7 @@ class TestHarvestStateRepository(TestCase):
         elements_to_update: dict = {'date_debut': 'toto'}
 
         exception_msg_expected: str = "Element type to update not correct for HarvestStateTable : got '<class 'str'>' and expected '<class 'datetime.datetime'>' for 'date_debut' attribute"
-        
+
         # When
         with self.assertRaises(Exception) as context:
             self.harvest_state_repository.update(elements_to_update)
