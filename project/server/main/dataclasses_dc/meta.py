@@ -1,8 +1,7 @@
 from typing import List, Any
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
-from  project.server.main.dataclasses_dc.meta_childs import *
-
+from project.server.main.dataclasses_dc.meta_childs import State, ResourceType, Created, Published, Registered, Provider, Clients, Prefix, License, SchemaVersion, Subjects, FieldsOfScience
 
 
 @dataclass_json
@@ -31,12 +30,12 @@ class Meta:
     downloads: List[object]
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'Meta':
+    def from_dict_custom(obj: Any) -> "Meta":
         _total = int(obj.get("total"))
         _totalPages = int(obj.get("totalPages"))
-        if (obj.get("page") != None) : 
+        if obj.get("page") is not None:
             _page = int(obj.get("page"))
-        else : 
+        else:
             _page = None
 
         _states = [State.from_dict_custom(y) for y in obj.get("states")]
@@ -57,4 +56,26 @@ class Meta:
         _citations = [str(y) for y in obj.get("citations")]
         _views = [str(y) for y in obj.get("views")]
         _downloads = [str(y) for y in obj.get("downloads")]
-        return Meta(_total, _totalPages, _page, _states, _resourceTypes, _created, _published, _registered, _providers, _clients, _affiliations, _prefixes, _certificates, _licenses, _schemaVersions, _linkChecksStatus, _subjects, _fieldsOfScience, _citations, _views, _downloads)
+        return Meta(
+            _total,
+            _totalPages,
+            _page,
+            _states,
+            _resourceTypes,
+            _created,
+            _published,
+            _registered,
+            _providers,
+            _clients,
+            _affiliations,
+            _prefixes,
+            _certificates,
+            _licenses,
+            _schemaVersions,
+            _linkChecksStatus,
+            _subjects,
+            _fieldsOfScience,
+            _citations,
+            _views,
+            _downloads,
+        )

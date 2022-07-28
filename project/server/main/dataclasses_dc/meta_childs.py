@@ -1,8 +1,6 @@
-from typing import List
-from typing import Any, Tuple, Optional
-from dataclasses import dataclass, field
+from typing import Any
+from dataclasses import dataclass
 from dataclasses_json import dataclass_json
-
 
 
 @dataclass_json
@@ -13,12 +11,11 @@ class Clients:
     count: int
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'Clients':
+    def from_dict_custom(obj: Any) -> "Clients":
         _id = str(obj.get("id"))
         _title = str(obj.get("title"))
         _count = int(obj.get("count"))
         return Clients(_id, _title, _count)
-
 
 
 @dataclass_json
@@ -29,11 +26,12 @@ class Created:
     count: int
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'Created':
+    def from_dict_custom(obj: Any) -> "Created":
         _id = str(obj.get("id"))
         _title = str(obj.get("title"))
         _count = int(obj.get("count"))
         return Created(_id, _title, _count)
+
 
 @dataclass_json
 @dataclass
@@ -43,11 +41,12 @@ class FieldsOfScience:
     count: int
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'FieldsOfScience':
+    def from_dict_custom(obj: Any) -> "FieldsOfScience":
         _id = str(obj.get("id"))
         _title = str(obj.get("title"))
         _count = int(obj.get("count"))
         return FieldsOfScience(_id, _title, _count)
+
 
 @dataclass_json
 @dataclass
@@ -57,7 +56,7 @@ class License:
     count: int
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'License':
+    def from_dict_custom(obj: Any) -> "License":
         _id = str(obj.get("id"))
         _title = str(obj.get("title"))
         _count = int(obj.get("count"))
@@ -72,11 +71,12 @@ class Prefix:
     count: int
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'Prefix':
+    def from_dict_custom(obj: Any) -> "Prefix":
         _id = str(obj.get("id"))
         _title = str(obj.get("title"))
         _count = int(obj.get("count"))
         return Prefix(_id, _title, _count)
+
 
 @dataclass_json
 @dataclass
@@ -86,11 +86,12 @@ class Provider:
     count: int
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'Provider':
+    def from_dict_custom(obj: Any) -> "Provider":
         _id = str(obj.get("id"))
         _title = str(obj.get("title"))
         _count = int(obj.get("count"))
         return Provider(_id, _title, _count)
+
 
 @dataclass_json
 @dataclass
@@ -100,11 +101,12 @@ class Published:
     count: int
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'Published':
+    def from_dict_custom(obj: Any) -> "Published":
         _id = str(obj.get("id"))
         _title = str(obj.get("title"))
         _count = int(obj.get("count"))
         return Published(_id, _title, _count)
+
 
 @dataclass_json
 @dataclass
@@ -114,11 +116,12 @@ class Registered:
     count: int
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'Registered':
+    def from_dict_custom(obj: Any) -> "Registered":
         _id = str(obj.get("id"))
         _title = str(obj.get("title"))
         _count = int(obj.get("count"))
         return Registered(_id, _title, _count)
+
 
 @dataclass_json
 @dataclass
@@ -128,7 +131,7 @@ class ResourceType:
     count: int
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'ResourceType':
+    def from_dict_custom(obj: Any) -> "ResourceType":
         _id = str(obj.get("id"))
         _title = str(obj.get("title"))
         _count = int(obj.get("count"))
@@ -143,11 +146,12 @@ class SchemaVersion:
     count: int
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'SchemaVersion':
+    def from_dict_custom(obj: Any) -> "SchemaVersion":
         _id = str(obj.get("id"))
         _title = str(obj.get("title"))
         _count = int(obj.get("count"))
         return SchemaVersion(_id, _title, _count)
+
 
 @dataclass_json
 @dataclass
@@ -157,11 +161,12 @@ class State:
     count: int
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'State':
+    def from_dict_custom(obj: Any) -> "State":
         _id = str(obj.get("id"))
         _title = str(obj.get("title"))
         _count = int(obj.get("count"))
         return State(_id, _title, _count)
+
 
 @dataclass_json
 @dataclass
@@ -171,7 +176,7 @@ class Subjects:
     count: int
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'Subjects':
+    def from_dict_custom(obj: Any) -> "Subjects":
         _id = str(obj.get("id"))
         _title = str(obj.get("title"))
         _count = int(obj.get("count"))
