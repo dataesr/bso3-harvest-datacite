@@ -24,13 +24,14 @@ class TestPostgresSession(TestCase):
         self.mock_session = mock_session
 
         # Given / When
-        self.postgres_session: PostgresSession = PostgresSession(self.host, self.port, self.username, self.password, self.database_name)
+        self.postgres_session: PostgresSession = PostgresSession(
+            self.host, self.port, self.username, self.password, self.database_name)
 
     def test_given_correct_args_when_init_is_called_then_create_engine_and_session_are_called_once(self):
         # Given after setUpClass
 
         # When after setUpClass
-        
+
         # Then
         self.mock_create_engine.assert_called_once()
         self.mock_session.assert_called_once()
@@ -42,7 +43,7 @@ class TestPostgresSession(TestCase):
         result_get_session = self.postgres_session.getSession()
 
         # Then
-        assert result_get_session != None
+        assert result_get_session is not None
 
     def test_given_a_postgres_session_when_getEngine_is_called_then_the_result_is_not_none(self):
         # Given after setUpClass
@@ -51,8 +52,8 @@ class TestPostgresSession(TestCase):
         result_get_engine = self.postgres_session.getEngine()
 
         # Then
-        assert result_get_engine != None
-    
+        assert result_get_engine is not None
+
     def test_given_a_postgres_session_when_sessionScope_is_called_then_the_result_is_a_generator_class(self):
         # Given after setUpClass
 

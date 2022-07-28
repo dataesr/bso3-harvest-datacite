@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session
 
 from contextlib import contextmanager
 
@@ -12,7 +12,8 @@ class PostgresSession(AbstractSession):
     engine: Engine
 
     def __init__(self, host: str, port: int, username: str, password: str, database_name: str):
-        connection_string = (f"postgresql+psycopg2://{username}:{password}@{host}:{port}/{database_name}")
+        connection_string = (
+            f"postgresql+psycopg2://{username}:{password}@{host}:{port}/{database_name}")
 
         self.engine: Engine = create_engine(connection_string)
         self.session: Session = Session(self.engine)
@@ -31,7 +32,7 @@ class PostgresSession(AbstractSession):
             session.begin()
             yield session
             session.commit()
-        except:
+        except Exception:
             session.rollback()
             raise
         finally:
