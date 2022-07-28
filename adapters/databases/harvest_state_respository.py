@@ -23,11 +23,17 @@ class HarvestStateRepository(AbstractHarvestStateRepository):
     def update(self, elements_updated: dict):
         keys_arg: list = list(elements_updated.keys())
         
-        harvest_state_table_attribues: dict = HarvestStateTable.__annotations__.keys()
+        harvest_state_table_attributes: dict = HarvestStateTable.__annotations__
 
         for key in keys_arg:
-            if key not in harvest_state_table_attribues:
-                raise Exception('Element to update not available in HarvestStateTable')
+            if key not in harvest_state_table_attributes:
+                raise Exception(f"Element to update not available in HarvestStateTable : '{key}'")
+            
+            type_element_to_update_arg: type = type(elements_updated[key])
+            type_element_to_update_expected: type = harvest_state_table_attributes[key]
+
+            if type_element_to_update_arg != type_element_to_update_expected:
+                raise Exception(f"Element type to update not correct for HarvestStateTable : got '{type_element_to_update_arg}' and expected '{type_element_to_update_expected}' for '{key}' attribute")
 
         with self.session.sessionScope() as session:
             statement = update(HarvestStateTable)
