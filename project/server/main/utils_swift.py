@@ -7,12 +7,12 @@ from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
 SWIFT_SIZE = 10000
-key = os.getenv('OS_PASSWORD2')
-project_name = os.getenv('OS_PROJECT_NAME')
-project_id = os.getenv('OS_TENANT_ID')
-tenant_name = os.getenv('OS_TENANT_NAME')
-username = os.getenv('OS_USERNAME2')
-user = f'{tenant_name}:{username}'
+key = os.getenv("OS_PASSWORD2")
+project_name = os.getenv("OS_PROJECT_NAME")
+project_id = os.getenv("OS_TENANT_ID")
+tenant_name = os.getenv("OS_TENANT_NAME")
+username = os.getenv("OS_USERNAME2")
+user = f"{tenant_name}:{username}"
 init_cmd = f"swift --os-auth-url https://auth.cloud.ovh.net/v3 --auth-version 3 \
       --key {key}\
       --user {user} \
@@ -26,45 +26,38 @@ conn = None
 
 def download_container(container, skip_download, download_prefix, volume_destination):
     if skip_download is False:
-        cmd = init_cmd + f' download {container} -D {volume_destination}/{container} --skip-identical'
+        cmd = init_cmd + f" download {container} -D {volume_destination}/{container} --skip-identical"
         if download_prefix:
             cmd += f" --prefix {download_prefix}"
         os.system(cmd)
     if download_prefix:
-        return f'{volume_destination}/{container}/{download_prefix}'
-    return f'{volume_destination}/{container}'
+        return f"{volume_destination}/{container}/{download_prefix}"
+    return f"{volume_destination}/{container}"
 
 
 def get_connection() -> swiftclient.Connection:
     global conn
     if conn is None:
         conn = swiftclient.Connection(
-            authurl='https://auth.cloud.ovh.net/v3',
+            authurl="https://auth.cloud.ovh.net/v3",
             user=user,
             key=key,
-            os_options={
-                'user_domain_name': 'Default',
-                'project_domain_name': 'Default',
-                'project_id': project_id,
-                'project_name': project_name,
-                'region_name': 'GRA'
-            },
-            auth_version='3'
+            os_options={"user_domain_name": "Default", "project_domain_name": "Default", "project_id": project_id, "project_name": project_name, "region_name": "GRA"},
+            auth_version="3",
         )
     return conn
 
 
 @retry(delay=2, tries=50)
 def upload_object(container: str, source: str, target: str) -> str:
-    logger.debug(f'Uploading {source} in {container} as {target}')
-    cmd = init_cmd + f' upload {container} {source} --object-name {target}' \
-                     f' --segment-size 1048576000 --segment-threads 100'
+    logger.debug(f"Uploading {source} in {container} as {target}")
+    cmd = init_cmd + f" upload {container} {source} --object-name {target}" f" --segment-size 1048576000 --segment-threads 100"
     os.system(cmd)
-    return f'https://storage.gra.cloud.ovh.net/v1/AUTH_{project_id}/{container}/{target}'
+    return f"https://storage.gra.cloud.ovh.net/v1/AUTH_{project_id}/{container}/{target}"
 
 
 @retry(delay=2, tries=50)
 def download_object(container: str, filename: str, out: str) -> None:
-    logger.debug(f'Downloading {filename} from {container} to {out}')
-    cmd = init_cmd + f' download {container} {filename} -o {out}'
+    logger.debug(f"Downloading {filename} from {container} to {out}")
+    cmd = init_cmd + f" download {container} {filename} -o {out}"
     os.system(cmd)
