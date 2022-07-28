@@ -104,7 +104,6 @@ class TestHarvestStateRepository(TestCase):
         elements_to_update: dict = {"date_debut": "toto"}
 
         exception_msg_expected: str = "Element type to update not correct for HarvestStateTable : got '<class 'str'>' and expected '<class 'datetime.datetime'>' for 'date_debut' attribute"
-
         # When
         with self.assertRaises(Exception) as context:
             self.harvest_state_repository.update(elements_to_update)

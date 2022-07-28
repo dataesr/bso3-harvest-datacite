@@ -5,7 +5,7 @@ from adapters.databases.postgres_session import PostgresSession
 
 from contextlib import _GeneratorContextManager
 
-TESTED_MODULE = 'adapters.databases.postgres_session'
+TESTED_MODULE = "adapters.databases.postgres_session"
 
 
 class TestPostgresSession(TestCase):
@@ -16,22 +16,20 @@ class TestPostgresSession(TestCase):
         # Given
         self.host: str = "fake_host"
         self.port: int = 0
-        self.username: str = 'fake_username'
-        self.password: str = 'fake_password'
-        self.database_name: str = 'fake_db_name'
+        self.username: str = "fake_username"
+        self.password: str = "fake_password"
+        self.database_name: str = "fake_db_name"
 
         self.mock_create_engine = mock_create_engine
         self.mock_session = mock_session
 
         # Given / When
-        self.postgres_session: PostgresSession = PostgresSession(
-            self.host, self.port, self.username, self.password, self.database_name)
+        self.postgres_session: PostgresSession = PostgresSession(self.host, self.port, self.username, self.password, self.database_name)
 
     def test_given_correct_args_when_init_is_called_then_create_engine_and_session_are_called_once(self):
         # Given after setUpClass
 
         # When after setUpClass
-
         # Then
         self.mock_create_engine.assert_called_once()
         self.mock_session.assert_called_once()

@@ -34,7 +34,6 @@ class HarvestStateRepository(AbstractHarvestStateRepository):
 
         with self.session.sessionScope() as session:
             statement = update(HarvestStateTable)
-
             statement = statement.values(elements_updated)
 
             statement = statement.execution_options(synchronize_session="fetch")
