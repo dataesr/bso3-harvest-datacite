@@ -1,18 +1,22 @@
 import json
 from pathlib import Path
-from project.server.main.dataclasses_dc.datas import *
+from domain.model.datas import *
 from unittest import TestCase
 
+
 class TestDescriptions(TestCase):
-    doi=None
+    doi = None
 
     @classmethod
-    def setUpClass(cls):
-         path_file=Path.cwd() /'tests/unit_test/test_doi_dataclasses/dcdump-test.json'
-         with path_file.open( 'r', encoding='utf-8') as f:
-             jsonstring= json.load(f)
-             cls.doi = Doi.from_dict_custom(jsonstring)
-                
-    def test_descriptions(cls):
-        cls.assertEqual(cls.doi.attributes.descriptions[1].description,"depth is the apparent mixing depth, as determined by a downcore series of radiocarbon age")
-        cls.assertEqual(cls.doi.attributes.descriptions[1].descriptionType,"TechnicalInfo")
+    def setUpClass(self):
+        path_file = Path.cwd() / "tests/unit_test/test_doi_dataclasses/dcdump-test.json"
+        with path_file.open("r", encoding="utf-8") as f:
+            jsonstring = json.load(f)
+            self.doi = Doi.from_dict_custom(jsonstring)
+
+    def test_descriptions(self):
+        self.assertEqual(
+            self.doi.attributes.descriptions[1].description,
+            "depth is the apparent mixing depth, as determined by a downcore series of radiocarbon age",
+        )
+        self.assertEqual(self.doi.attributes.descriptions[1].descriptionType, "TechnicalInfo")

@@ -1,7 +1,7 @@
 from typing import List, Any
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
-from  project.server.main.dataclasses_dc.attributes_childs import *
+from domain.model.attributes_childs import *
 
 
 @dataclass_json
@@ -49,7 +49,7 @@ class Attributes:
     updated: str
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'Attributes':
+    def from_dict_custom(obj: Any) -> "Attributes":
         _doi = str(obj.get("doi"))
         _identifiers = [str(y) for y in obj.get("identifiers")]
         _creators = [Creator.from_dict_custom(y) for y in obj.get("creators")]
@@ -66,9 +66,9 @@ class Attributes:
         _sizes = [str(y) for y in obj.get("sizes")]
         _formats = [str(y) for y in obj.get("formats")]
 
-        if (obj.get("version") != None) : 
+        if obj.get("version") != None:
             _version = str(obj.get("version"))
-        else : 
+        else:
             _version = None
 
         _rightsList = [RightsList.from_dict_custom(y) for y in obj.get("rightsList")]
@@ -77,20 +77,20 @@ class Attributes:
         _fundingReferences = [str(y) for y in obj.get("fundingReferences")]
         _url = str(obj.get("url"))
 
-        if (obj.get("contentUrl") != None) : 
+        if obj.get("contentUrl") != None:
             _contentUrl = str(obj.get("contentUrl"))
-        else : 
+        else:
             _contentUrl = None
-        
+
         _metadataVersion = int(obj.get("metadataVersion"))
         _schemaVersion = str(obj.get("schemaVersion"))
         _source = str(obj.get("source"))
         _isActive = True
         _state = str(obj.get("state"))
 
-        if (obj.get("reason") != None) : 
+        if obj.get("reason") != None:
             _reason = str(obj.get("reason"))
-        else : 
+        else:
             _reason = None
 
         _viewCount = int(obj.get("viewCount"))
@@ -104,10 +104,51 @@ class Attributes:
         _created = str(obj.get("created"))
         _registered = str(obj.get("registered"))
 
-        if (obj.get("published") != None) : 
+        if obj.get("published") != None:
             _published = int(obj.get("published"))
-        else : 
+        else:
             _published = None
 
         _updated = str(obj.get("updated"))
-        return Attributes(_doi, _identifiers, _creators, _titles, _publisher, _container, _publicationYear, _subjects, _contributors, _dates, _language, _types, _relatedIdentifiers, _sizes, _formats, _version, _rightsList, _descriptions, _geoLocations, _fundingReferences, _url, _contentUrl, _metadataVersion, _schemaVersion, _source, _isActive, _state, _reason, _viewCount, _downloadCount, _referenceCount, _citationCount, _partCount, _partOfCount, _versionCount, _versionOfCount, _created, _registered, _published, _updated)
+        return Attributes(
+            _doi,
+            _identifiers,
+            _creators,
+            _titles,
+            _publisher,
+            _container,
+            _publicationYear,
+            _subjects,
+            _contributors,
+            _dates,
+            _language,
+            _types,
+            _relatedIdentifiers,
+            _sizes,
+            _formats,
+            _version,
+            _rightsList,
+            _descriptions,
+            _geoLocations,
+            _fundingReferences,
+            _url,
+            _contentUrl,
+            _metadataVersion,
+            _schemaVersion,
+            _source,
+            _isActive,
+            _state,
+            _reason,
+            _viewCount,
+            _downloadCount,
+            _referenceCount,
+            _citationCount,
+            _partCount,
+            _partOfCount,
+            _versionCount,
+            _versionOfCount,
+            _created,
+            _registered,
+            _published,
+            _updated,
+        )
