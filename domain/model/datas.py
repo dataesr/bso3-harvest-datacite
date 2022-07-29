@@ -1,8 +1,8 @@
 from typing import Any
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
-from project.server.main.dataclasses_dc.attributes import Attributes
-from project.server.main.dataclasses_dc.relationships import Relationships
+from domain.model.attributes import Attributes
+from domain.model.relationships import Relationships
 
 
 @dataclass_json

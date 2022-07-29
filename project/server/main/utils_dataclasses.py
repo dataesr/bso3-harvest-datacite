@@ -1,16 +1,12 @@
-from pathlib import Path
-from project.server.main.dataclasses_dc import *
-from project.server.main.dataclasses_dc.datas import *
 import json
+from pathlib import Path
 
 
 def list_file_dumps():
     dirpath = Path.cwd()
     files = dirpath.glob("**/*.ndjson")
-
     files_list = list(files)
     path_output = Path("project/results").resolve()
-    print(path_output)
 
     return (files_list, path_output)
 
@@ -24,7 +20,6 @@ def split_dump_file():
     list_path = list_file_dumps()[0]
     for path_file in list_path:
         print(path_file)
-
         for jsonstring in path_file.open("r", encoding="utf-8"):
             # Skip the first line empty(all ndjson file begin by the empty line)
             if jsonstring.strip() != "":

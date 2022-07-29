@@ -1,7 +1,7 @@
 from typing import List, Any
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
-from project.server.main.dataclasses_dc.attributes_childs import Creator, Title, Subject, Date, Types, RelatedIdentifier, RightsList, Description, GeoLocation
+from domain.model.attributes_childs import Creator, Title, Subject, Date, Types, RelatedIdentifier, RightsList, Description, GeoLocation
 
 
 @dataclass_json
