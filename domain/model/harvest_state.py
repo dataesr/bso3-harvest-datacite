@@ -6,5 +6,7 @@ from datetime import datetime
 class HarvestState:
     id: int
     number_missed: int
-    date_debut: datetime
+    start_date: datetime
+    end_date: datetime
     status: str
+    current_directory: str

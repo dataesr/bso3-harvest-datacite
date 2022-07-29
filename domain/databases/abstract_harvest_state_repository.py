@@ -11,6 +11,10 @@ class AbstractHarvestStateRepository(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
+    def create(self):
+        raise NotImplementedError
+
+    @abstractmethod
     def get(self) -> HarvestState:
         raise NotImplementedError
 

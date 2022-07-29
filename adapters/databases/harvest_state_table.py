@@ -14,18 +14,24 @@ class HarvestStateTable(HarvestState):
         mapper_registry.metadata,
         Column("id", Integer, primary_key=True, autoincrement=True),
         Column("number_missed", Integer),
-        Column("date_debut", DateTime),
+        Column("start_date", DateTime),
+        Column("end_date", DateTime),
         Column("status", String(50)),
+        Column("current_directory", String(200)),
     )
     id: int
     number_missed: int
-    date_debut: datetime
+    start_date: datetime
+    end_date: datetime
     status: str
+    current_directory: str
 
-    def __init__(self, number_missed: int, date_debut: datetime, status: str, id: int = None):
+    def __init__(self, number_missed: int, start_date: datetime, end_date: datetime, status: str, current_directory: str, id: int = None):
         self.number_missed = number_missed
-        self.date_debut = date_debut
+        self.start_date = start_date
+        self.end_date = end_date
         self.status = status
+        self.current_directory = current_directory
         self.id = id
 
     @staticmethod
