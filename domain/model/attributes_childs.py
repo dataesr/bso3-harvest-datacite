@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 
 
-
 @dataclass_json
 @dataclass
 class Creator:
@@ -13,11 +12,10 @@ class Creator:
     affiliation: List[object]
     nameIdentifiers: List[object]
 
-
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'Creator':
+    def from_dict_custom(obj: Any) -> "Creator":
         _name = str(obj.get("name"))
-        _givenName = str(obj.get("givenName",""))
+        _givenName = str(obj.get("givenName", ""))
         _familyName = str(obj.get("familyName"))
         _affiliation = [str(y) for y in obj.get("affiliation")]
         _nameIdentifiers = [str(y) for y in obj.get("nameIdentifiers")]
@@ -31,7 +29,7 @@ class Date:
     dateType: str
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'Date':
+    def from_dict_custom(obj: Any) -> "Date":
         _date = str(obj.get("date"))
         _dateType = str(obj.get("dateType"))
         return Date(_date, _dateType)
@@ -44,7 +42,7 @@ class Description:
     descriptionType: str
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'Description':
+    def from_dict_custom(obj: Any) -> "Description":
         _description = str(obj.get("description"))
         _descriptionType = str(obj.get("descriptionType"))
         return Description(_description, _descriptionType)
@@ -57,7 +55,7 @@ class GeoLocationPoint:
     pointLongitude: str
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'GeoLocationPoint':
+    def from_dict_custom(obj: Any) -> "GeoLocationPoint":
         _pointLatitude = str(obj.get("pointLatitude"))
         _pointLongitude = str(obj.get("pointLongitude"))
         return GeoLocationPoint(_pointLatitude, _pointLongitude)
@@ -66,18 +64,18 @@ class GeoLocationPoint:
 @dataclass_json
 @dataclass
 class GeoLocation:
-    geoLocationPoint: Optional[Tuple[int]]=None
-    geoLocationPlace: Optional[str]=None
+    geoLocationPoint: Optional[Tuple[int]] = None
+    geoLocationPlace: Optional[str] = None
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'GeoLocation':
-        
-        if obj.get("geoLocationPoint")!=None :
+    def from_dict_custom(obj: Any) -> "GeoLocation":
+
+        if obj.get("geoLocationPoint") is not None:
             _geoLocationPoint = GeoLocationPoint.from_dict_custom(obj.get("geoLocationPoint"))
             return GeoLocation(_geoLocationPoint, "")
         else:
             _geoLocationPlace = str(obj.get("geoLocationPlace"))
-            return GeoLocation(GeoLocationPoint("",""), _geoLocationPlace)
+            return GeoLocation(GeoLocationPoint("", ""), _geoLocationPlace)
 
 
 @dataclass_json
@@ -88,13 +86,11 @@ class RelatedIdentifier:
     relatedIdentifierType: str
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'RelatedIdentifier':
+    def from_dict_custom(obj: Any) -> "RelatedIdentifier":
         _relationType = str(obj.get("relationType"))
         _relatedIdentifier = str(obj.get("relatedIdentifier"))
         _relatedIdentifierType = str(obj.get("relatedIdentifierType"))
         return RelatedIdentifier(_relationType, _relatedIdentifier, _relatedIdentifierType)
-
-
 
 
 @dataclass_json
@@ -107,7 +103,7 @@ class RightsList:
     rightsIdentifierScheme: str
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'RightsList':
+    def from_dict_custom(obj: Any) -> "RightsList":
         _rights = str(obj.get("rights"))
         _rightsUri = str(obj.get("rightsUri"))
         _schemeUri = str(obj.get("schemeUri"))
@@ -122,7 +118,7 @@ class Title:
     title: str
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'Title':
+    def from_dict_custom(obj: Any) -> "Title":
         _title = str(obj.get("title"))
         return Title(_title)
 
@@ -134,7 +130,7 @@ class Subject:
     subjectScheme: str
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'Subject':
+    def from_dict_custom(obj: Any) -> "Subject":
         _subject = str(obj.get("subject"))
         _subjectScheme = str(obj.get("subjectScheme"))
         return Subject(_subject, _subjectScheme)
@@ -151,7 +147,7 @@ class Types:
     resourceTypeGeneral: str
 
     @staticmethod
-    def from_dict_custom(obj: Any) -> 'Types':
+    def from_dict_custom(obj: Any) -> "Types":
         _ris = str(obj.get("ris"))
         _bibtex = str(obj.get("bibtex"))
         _citeproc = str(obj.get("citeproc"))

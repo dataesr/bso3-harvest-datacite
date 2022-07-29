@@ -1,8 +1,8 @@
-from typing import List, Any
+from typing import Any
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
-from domain.model.attributes import *
-from domain.model.relationships import *
+from domain.model.attributes import Attributes
+from domain.model.relationships import Relationships
 
 
 @dataclass_json

@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from domain.model.datas import *
+from domain.model.datas import Doi
 from unittest import TestCase
 
 

@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from domain.model.datas import *
+from domain.model.datas import Doi
 from unittest import TestCase
 
 
@@ -25,9 +25,7 @@ class TestAttributes(TestCase):
                 "givenName": "Wallace S",
                 "familyName": "Broecker",
                 "affiliation": [],
-                "nameIdentifiers": [
-                    "{'schemeUri': 'https://orcid.org', 'nameIdentifier': 'https://orcid.org/0000-0003-4816-0903', 'nameIdentifierScheme': 'ORCID'}"
-                ],
+                "nameIdentifiers": ["{'schemeUri': 'https://orcid.org', 'nameIdentifier': 'https://orcid.org/0000-0003-4816-0903', 'nameIdentifierScheme': 'ORCID'}"],
             },
         )
         self.assertDictEqual(
@@ -40,7 +38,7 @@ class TestAttributes(TestCase):
             self.doi.attributes.publisher,
             "PANGAEA - Data Publisher for Earth & Environmental Science",
         )
-        #######rcontainer "{}" != {}
+        # rcontainer "{}" != {}
         self.assertEqual(self.doi.attributes.container, "{}")
         self.assertEqual(self.doi.attributes.publicationYear, 1991)
         self.assertDictEqual(
@@ -99,9 +97,7 @@ class TestAttributes(TestCase):
             ],
         )
         self.assertEqual(self.doi.attributes.contentUrl, None)
-        self.assertEqual(
-            self.doi.attributes.schemaVersion, "http://datacite.org/schema/kernel-4"
-        )
+        self.assertEqual(self.doi.attributes.schemaVersion, "http://datacite.org/schema/kernel-4")
         self.assertEqual(self.doi.attributes.source, "mds")
         self.assertEqual(self.doi.attributes.state, "findable")
         self.assertEqual(self.doi.attributes.reason, None)

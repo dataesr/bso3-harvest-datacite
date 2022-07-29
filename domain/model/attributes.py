@@ -1,7 +1,7 @@
 from typing import List, Any
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
-from domain.model.attributes_childs import *
+from domain.model.attributes_childs import Creator, Title, Subject, Date, Types, RelatedIdentifier, RightsList, Description, GeoLocation
 
 
 @dataclass_json
@@ -66,7 +66,7 @@ class Attributes:
         _sizes = [str(y) for y in obj.get("sizes")]
         _formats = [str(y) for y in obj.get("formats")]
 
-        if obj.get("version") != None:
+        if obj.get("version") is not None:
             _version = str(obj.get("version"))
         else:
             _version = None
@@ -77,7 +77,7 @@ class Attributes:
         _fundingReferences = [str(y) for y in obj.get("fundingReferences")]
         _url = str(obj.get("url"))
 
-        if obj.get("contentUrl") != None:
+        if obj.get("contentUrl") is not None:
             _contentUrl = str(obj.get("contentUrl"))
         else:
             _contentUrl = None
@@ -88,7 +88,7 @@ class Attributes:
         _isActive = True
         _state = str(obj.get("state"))
 
-        if obj.get("reason") != None:
+        if obj.get("reason") is not None:
             _reason = str(obj.get("reason"))
         else:
             _reason = None
@@ -104,7 +104,7 @@ class Attributes:
         _created = str(obj.get("created"))
         _registered = str(obj.get("registered"))
 
-        if obj.get("published") != None:
+        if obj.get("published") is not None:
             _published = int(obj.get("published"))
         else:
             _published = None
