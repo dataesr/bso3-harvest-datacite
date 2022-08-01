@@ -15,13 +15,13 @@ class HarvestStateRepository(AbstractHarvestStateRepository):
     def create(self, harvest_state: HarvestStateTable) -> bool:
         added: bool = False
         with self.session.sessionScope() as session:
-            if self.get({"current_directory": harvest_state.current_directory}):
+            if not self.get({"current_directory": harvest_state.current_directory}):
                 session.add(harvest_state)
                 added = True
 
         return added
 
-    def get(self, where_args):
+    def get(self, where_args={}):
         with self.session.sessionScope() as session:
             statement = select(HarvestStateTable).where(where_args)
             result = session.execute(statement).all()
