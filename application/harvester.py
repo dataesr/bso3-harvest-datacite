@@ -1,6 +1,6 @@
 from domain.api.AbstractHarvester import AbstractHarvester
 
-from adapters.databases.harvest_state_respository import HarvestStateRepository
+from adapters.databases.harvest_state_repository import HarvestStateRepository
 from adapters.databases.harvest_state_table import HarvestStateTable
 from adapters.databases.postgres_session import PostgresSession
 
@@ -126,7 +126,7 @@ class Harvester(AbstractHarvester):
         lower_limit: str = f"{file_prefix}{start_date.strftime('%Y%m%d%H%M%S')}"
         upper_limit: str = f"{file_prefix}{end_date.strftime('%Y%m%d%H%M%S')}"
 
-        getListFromTargetDirectory: list = ["ls", "."]
+        getListFromTargetDirectory: list = ["ls", "-f", target_directory]
         grepByFilePrefix: list = ["grep", file_prefix]
         filterByLimit: list = ["awk", '{ if ($0 < "' + upper_limit + '" && $0 > "' + lower_limit + '") {print "1"; } } ']
         countNumberOfLine: list = ["wc", "-l"]

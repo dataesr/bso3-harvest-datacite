@@ -26,7 +26,7 @@ class PostgresSession(AbstractSession):
     @contextmanager
     def sessionScope(self):
         """Provide a transactional scope around a series of operations."""
-        session = self.session
+        session = self.getSession()
         try:
             session.begin()
             yield session

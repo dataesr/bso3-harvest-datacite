@@ -3,7 +3,10 @@ FROM golang:1.19-rc-bullseye
 RUN apt-get update
 RUN apt-get install -y python3.9 \
     python3-pip \
+    zsh \
     make
+
+RUN sh -c "$(wget https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh -O -)"
 
 WORKDIR /src
 

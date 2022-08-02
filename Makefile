@@ -47,4 +47,9 @@ lint-syntax:
 	flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 
 unit-tests:
+	@echo Unit Testing
 	python3 -m pytest --disable-warnings tests
+
+integration-tests:
+	@echo Integration Testing
+	python3 -m pytest --disable-warnings tests/integration_test

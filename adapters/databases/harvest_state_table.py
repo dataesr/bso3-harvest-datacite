@@ -37,3 +37,6 @@ class HarvestStateTable(HarvestState):
     @staticmethod
     def createTable(engine: Engine):
         HarvestStateTable.__table__.create(engine, checkfirst=True)
+
+    def dropTable(engine: Engine):
+        HarvestStateTable.__table__.drop(engine, checkfirst=True)

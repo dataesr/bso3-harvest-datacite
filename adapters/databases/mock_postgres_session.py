@@ -21,6 +21,8 @@ class MockPostgresSession(PostgresSession):
         self.engine: Engine = Mock(spec=Engine)
         self.session: Session = Mock(spec=Session)
 
+        self.session.execute.return_value.scalars.return_value.all.return_value = []
+
     def getSession(self) -> Session:
         self.nb_calls_getSession += 1
         return self.session
