@@ -1,5 +1,3 @@
-from operator import and_
-from unicodedata import name
 from domain.databases.abstract_harvest_state_repository import AbstractHarvestStateRepository
 
 from adapters.databases.harvest_state_table import HarvestStateTable
@@ -18,8 +16,13 @@ class HarvestStateRepository(AbstractHarvestStateRepository):
     def create(self, harvest_state: HarvestStateTable) -> bool:
         added: bool = False
         with self.session.sessionScope() as session:
+            error_message: str = "error"
+
             statement = select(HarvestStateTable).where(
                 HarvestStateTable.current_directory == harvest_state.current_directory,
+                HarvestStateTable.start_date == harvest_state.start_date,
+                HarvestStateTable.end_date == harvest_state.end_date,
+                HarvestStateTable.status == error_message,
             )
             result = session.execute(statement).all()
 

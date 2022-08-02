@@ -34,13 +34,17 @@ class TestPostgresOperations(TestCase):
 
     def test_given_repository_and_empty_database_when_using_create_and_get_without_filter_then_should_have_1_result(self):
         # Given (in setups)
-        number_missed: int = 0
+        number_missed: int = None
+        number_slices: int = None
         start_date: datetime = datetime.now()
         end_date: datetime = datetime.now()
         status: str = "done"
         current_directory: str = "/tmp"
+        processed: bool = False
 
-        harvest_state: HarvestStateTable = HarvestStateTable(number_missed, start_date, end_date, status, current_directory)
+        harvest_state: HarvestStateTable = HarvestStateTable(
+            number_missed=number_missed, number_slices=number_slices, start_date=start_date, end_date=end_date, status=status, current_directory=current_directory, processed=processed
+        )
 
         harvest_state_expected: HarvestStateTable = harvest_state
         number_of_rows_returned_expected: int = 1
@@ -57,15 +61,21 @@ class TestPostgresOperations(TestCase):
 
     def test_given_repository_and_empty_database_when_using_create_2_objects_and_update_missed_with_filter_id_get_without_filter_then_should_have_2_results_updated(self):
         # Given (in setups)
-        number_missed: int = 0
+        number_missed: int = None
+        number_slices: int = None
         start_date: datetime = datetime.now()
         end_date: datetime = datetime.now()
         status: str = "done"
         current_directory1: str = "/tmp"
         current_directory2: str = "/tmp2"
+        processed: bool = False
 
-        harvest_state_1: HarvestStateTable = HarvestStateTable(number_missed, start_date, end_date, status, current_directory1)
-        harvest_state_2: HarvestStateTable = HarvestStateTable(number_missed, start_date, end_date, status, current_directory2)
+        harvest_state_1: HarvestStateTable = HarvestStateTable(
+            number_missed=number_missed, number_slices=number_slices, start_date=start_date, end_date=end_date, status=status, current_directory=current_directory1, processed=processed
+        )
+        harvest_state_2: HarvestStateTable = HarvestStateTable(
+            number_missed=number_missed, number_slices=number_slices, start_date=start_date, end_date=end_date, status=status, current_directory=current_directory2, processed=processed
+        )
 
         number_of_rows_returned_expected: int = 2
         is_inserted_expected_1: bool = True

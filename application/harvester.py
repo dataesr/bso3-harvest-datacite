@@ -19,26 +19,14 @@ class Harvester(AbstractHarvester):
 
     def download(
         self, target_directory: str, start_date: datetime, end_date: datetime, interval: str, max_requests: int = 16777216, file_prefix: str = "dcdump-", workers: int = 4, sleep_duration: str = "3m0s"
-    ):
+    ) -> bool:
 
-        result: list = self.harvest_state_repository.get({"current_directory": target_directory})
-        harvest_state: HarvestStateTable = None
+        harvest_state = HarvestStateTable(start_date, end_date, "in progess", target_directory)
 
         begin_harvesting: bool = True
 
-        if result:
-            harvest_state = result[0]
-            if harvest_state.status == "in progress":
-                begin_harvesting = False
-            # else:
-            # check date
-        else:
-            harvest_state = HarvestStateTable(0, start_date, end_date, "in progess", target_directory)
-
-            if not self.harvest_state_repository.create(harvest_state):
-                begin_harvesting = False
-            # insert
-            # check insert ok
+        if not self.harvest_state_repository.create(harvest_state):
+            begin_harvesting = False
 
         if begin_harvesting:
             interval = self.selectInterval(input)
@@ -53,11 +41,15 @@ class Harvester(AbstractHarvester):
             if harvest_state.number_missed == 0:
                 harvest_state.status = "done"
             else:
-                harvest_state.status = f"error occured : {harvest_state.number_missed} slice(s) missed out of {number_of_slices}"
+                harvest_state.status = "error"
 
-            # need to update harvest state
+            harvest_state.number_slices = number_downloaded
 
-        return super().download()
+            elements_update: dict = {"number_missed": harvest_state.number_missed, "status": harvest_state.status, "number_slices": harvest_state.number_slices}
+            filter: dict = {"id": harvest_state.id}
+            self.harvest_state_repository.update(elements_update, filter)
+
+        return begin_harvesting
 
     def selectInterval(self, input: str) -> str:
         interval: str = None
