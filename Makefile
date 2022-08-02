@@ -48,7 +48,7 @@ lint-syntax:
 
 unit-tests:
 	@echo Unit Testing
-	python3 -m pytest --disable-warnings tests
+	python3 -m pytest --disable-warnings tests/unit_test
 
 integration-tests:
 	@echo Integration Testing
