@@ -9,6 +9,7 @@ jobs:
   quality-and-test:
 
     runs-on: ubuntu-latest
+    environment: dataesr-docker-env
 
     steps:
       - uses: actions/checkout@v2
@@ -34,6 +35,17 @@ jobs:
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           make lint-style
 
-      - name: Test with pytest
+      - name: Unit-Tests with pytest
         run: |
           make unit-tests
+      - name: Integration-Tests with pytest
+        env:
+          DB_POSTGRES_HOST: ${{ secrets.DB_HOST }}
+          DB_POSTGRES_PORT: ${{ secrets.DB_PORT }}
+          DB_POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          DB_POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          DB_POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+        run: |
+          make docker-compose-up
+          make integration-tests
+          make docker-compose-down
