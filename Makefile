@@ -58,6 +58,6 @@ integration-tests:
 
 coverage-report:
 	@echo Calculating coverage
-	coverage run -m pytest --disable-warnings tests/unit_test
+	coverage run -m pytest --disable-warnings tests/
 	@echo Show report
 	coverage report -m
