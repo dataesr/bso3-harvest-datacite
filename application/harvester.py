@@ -10,12 +10,10 @@ from subprocess import run, PIPE, STDOUT
 
 
 class Harvester(AbstractHarvester):
-    postgres_session: PostgresSession
     harvest_state_repository: HarvestStateRepository
 
-    def __init__(self, harvest_state_repository: HarvestStateRepository, postgres_session: PostgresSession):
+    def __init__(self, harvest_state_repository: HarvestStateRepository):
         self.harvest_state_repository = harvest_state_repository
-        self.postgres_session = postgres_session
 
     def download(
         self, target_directory: str, start_date: datetime, end_date: datetime, interval: str, max_requests: int = 16777216, file_prefix: str = "dcdump-", workers: int = 4, sleep_duration: str = "3m0s"
