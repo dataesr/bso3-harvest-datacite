@@ -10,5 +10,5 @@ class MongoSession(AbstractSession):
         mongo_client = MongoClient(host=host, username=username, password=password, authMechanism=authMechanism)
         self.session = mongo_client[database_name]
 
-    def getSession(self) -> MongoClient:
+    def getSession(self) -> Database:
         return self.session
