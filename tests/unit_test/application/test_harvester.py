@@ -1,6 +1,8 @@
 from unittest import TestCase
 from unittest.mock import patch
 
+from types import SimpleNamespace
+
 from datetime import datetime
 
 from application.harvester import Harvester
@@ -38,7 +40,7 @@ class TestHarvester(TestCase):
         assert results == results_expected
 
     @patch(f"{TESTED_MODULE}.run")
-    def test_given_inputs_when_using_executeDcdump_and_returncode_of_run_returns_0_then_run_is_called_once(self, mock_run):
+    def test_given_inputs_and_returncode_of_run_returns_0_when_using_executeDcdump_then_run_is_called_once(self, mock_run):
         # Given after setUpClass
         mock_run.return_value.returncode = 0
 
@@ -49,7 +51,7 @@ class TestHarvester(TestCase):
         mock_run.assert_called_once()
 
     @patch(f"{TESTED_MODULE}.run")
-    def test_given_inputs_when_using_executeDcdump_and_returncode_of_run_returns_2_then_run_is_called_once_and_raise_error_exception(self, mock_run):
+    def test_given_inputs_and_returncode_of_run_returns_2_when_using_executeDcdump_then_run_is_called_once_and_raise_error_exception(self, mock_run):
         # Given after setUpClass
         exception_msg_expected: str = "error"
 
@@ -62,4 +64,89 @@ class TestHarvester(TestCase):
 
         # Then
         mock_run.assert_called_once()
+        self.assertTrue(exception_msg_expected in str(context.exception))
+
+    @patch(f"{TESTED_MODULE}.run")
+    def test_given_inputs_and_returncode_of_run_returns_0_and_stdout_with_msg_2_intervals_when_using_getNumberSlices_then_return_2_and_run_called_once(self, mock_run):
+        # Given after setUpClass
+        mock_run.return_value.returncode = 0
+        mock_run.return_value.stdout = '... level=info msg="2 intervals"'
+
+        number_of_slices_expected: int = 2
+
+        # When
+        number_of_slices: int = self.harvester.getNumberSlices(self.start_date, self.end_date, self.interval)
+
+        # Then
+        mock_run.assert_called_once()
+        assert number_of_slices == number_of_slices_expected
+
+    @patch(f"{TESTED_MODULE}.run")
+    def test_given_inputs_and_returncode_of_run_returns_2_when_using_getNumberSlices_then_run_called_once_and_raise_exception(self, mock_run):
+        # Given after setUpClass
+        exception_msg_expected: str = "error"
+
+        mock_run.return_value.returncode = 2
+        mock_run.return_value.stdout = exception_msg_expected
+
+        # When
+        with self.assertRaises(Exception) as context:
+            self.harvester.getNumberSlices(self.start_date, self.end_date, self.interval)
+
+        # Then
+        mock_run.assert_called_once()
+        self.assertTrue(exception_msg_expected in str(context.exception))
+
+    @patch(f"{TESTED_MODULE}.run")
+    def test_given_inputs_and_returncode_of_run_returns_2_and_stdout_returns_50_when_using_getNumberDownloaded_then_run_is_called_4_times_and_should_get_50(self, mock_run):
+        # Given after setUpClass
+        mock_run.return_value.returncode = 0
+        mock_run.return_value.stdout = "50 "
+
+        number_downloaded_expected: int = 50
+        number_mock_run_calls_expected: int = 4
+
+        # When
+        number_downloaded: int = self.harvester.getNumberDownloaded(self.target_directory, self.file_prefix, self.start_date, self.end_date)
+
+        # Then
+        assert mock_run.call_count == number_mock_run_calls_expected
+        assert number_downloaded == number_downloaded_expected
+
+    @patch(f"{TESTED_MODULE}.run")
+    def test_given_inputs_and_returncode_of_run_returns_2_and_stdout_returns_error_when_using_getNumberDownloaded_then_run_is_called_once_and_should_raise_exception_error(self, mock_run):
+        # Given after setUpClass
+        exception_msg_expected: str = "error"
+
+        mock_run.return_value.returncode = 2
+        mock_run.return_value.stdout = exception_msg_expected
+
+        # When
+        with self.assertRaises(Exception) as context:
+            self.harvester.getNumberDownloaded(self.target_directory, self.file_prefix, self.start_date, self.end_date)
+
+        # Then
+        mock_run.assert_called_once()
+        self.assertTrue(exception_msg_expected in str(context.exception))
+
+    @patch(f"{TESTED_MODULE}.run")
+    def test_given_inputs_and_returncode_of_run_returns_2_for_the_2nd_call_and_stdout_returns_error_when_using_getNumberDownloaded_then_run_is_called_2_times_and_should_raise_exception_error(
+        self, mock_run
+    ):
+        # Given after setUpClass
+        exception_msg_expected: str = "error"
+
+        mock_run.side_effect = [
+            SimpleNamespace(returncode=0, stdout="not important"),
+            SimpleNamespace(returncode=2, stdout=exception_msg_expected),
+        ]
+
+        number_mock_run_calls_expected: int = 2
+
+        # When
+        with self.assertRaises(Exception) as context:
+            self.harvester.getNumberDownloaded(self.target_directory, self.file_prefix, self.start_date, self.end_date)
+
+        # Then
+        assert mock_run.call_count == number_mock_run_calls_expected
         self.assertTrue(exception_msg_expected in str(context.exception))
