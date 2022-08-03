@@ -20,6 +20,7 @@ class HarvestStateTable(HarvestState):
         Column("status", String(50)),
         Column("current_directory", String(200)),
         Column("processed", Boolean),
+        Column("slice_type", String(10)),
     )
     id: int
     number_missed: int
@@ -29,8 +30,20 @@ class HarvestStateTable(HarvestState):
     status: str
     current_directory: str
     processed: bool
+    slice_type: str
 
-    def __init__(self, start_date: datetime, end_date: datetime, status: str, current_directory: str, id: int = None, number_missed: int = None, number_slices: int = None, processed: bool = False):
+    def __init__(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        status: str,
+        current_directory: str,
+        id: int = None,
+        number_missed: int = None,
+        number_slices: int = None,
+        processed: bool = False,
+        slice_type: str = None,
+    ):
         self.number_missed = number_missed
         self.number_slices = number_slices
         self.start_date = start_date
@@ -38,6 +51,7 @@ class HarvestStateTable(HarvestState):
         self.status = status
         self.current_directory = current_directory
         self.processed = processed
+        self.slice_type = slice_type
         self.id = id
 
     @staticmethod

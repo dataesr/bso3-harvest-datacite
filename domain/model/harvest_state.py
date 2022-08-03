@@ -12,3 +12,4 @@ class HarvestState:
     status: str
     current_directory: str
     processed: bool
+    slice_type: str

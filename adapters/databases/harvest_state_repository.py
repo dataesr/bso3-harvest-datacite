@@ -18,15 +18,23 @@ class HarvestStateRepository(AbstractHarvestStateRepository):
         with self.session.sessionScope() as session:
             error_message: str = "error"
 
+            # check if same job already exists
             statement = select(HarvestStateTable).where(
                 HarvestStateTable.current_directory == harvest_state.current_directory,
                 HarvestStateTable.start_date == harvest_state.start_date,
                 HarvestStateTable.end_date == harvest_state.end_date,
                 HarvestStateTable.status == error_message,
             )
-            result = session.execute(statement).all()
+            result = session.execute(statement).scalars().all()
 
             if not result:
+                # check if a job with same current_directory exists, if yes, we change the slice_type
+                statement = select(HarvestStateTable).where(HarvestStateTable.current_directory == harvest_state.current_directory)
+                result = session.execute(statement).scalars().all()
+
+                if result:
+                    harvest_state.slice_type = result[0].slice_type
+
                 session.add(harvest_state)
                 added = True
                 session.flush()

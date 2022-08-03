@@ -21,7 +21,7 @@ class Harvester(AbstractHarvester):
         self, target_directory: str, start_date: datetime, end_date: datetime, interval: str, max_requests: int = 16777216, file_prefix: str = "dcdump-", workers: int = 4, sleep_duration: str = "3m0s"
     ) -> bool:
 
-        harvest_state = HarvestStateTable(start_date, end_date, "in progess", target_directory)
+        harvest_state = HarvestStateTable(start_date, end_date, "in progess", target_directory, slice_type=interval)
 
         begin_harvesting: bool = True
 
@@ -29,7 +29,7 @@ class Harvester(AbstractHarvester):
             begin_harvesting = False
 
         if begin_harvesting:
-            interval = self.selectInterval(input)
+            interval = self.selectInterval(harvest_state.slice_type)
             number_of_slices: int = self.getNumberSlices(start_date, end_date, interval)
 
             self.executeDcdump(target_directory, start_date, end_date, interval, max_requests, file_prefix, workers, sleep_duration)
