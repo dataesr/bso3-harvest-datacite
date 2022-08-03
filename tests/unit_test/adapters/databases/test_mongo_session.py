@@ -4,7 +4,7 @@ from unittest.mock import patch
 from adapters.databases.mongo_session import MongoSession
 from pymongo import MongoClient
 
-TESTED_MODULE = 'adapters.databases.mongo_session'
+TESTED_MODULE = "adapters.databases.mongo_session"
 
 
 class TestMongoSession(TestCase):
@@ -18,16 +18,19 @@ class TestMongoSession(TestCase):
         # authMechanism: str = getenv('DB_MONGO_AUTH_MECH')
 
         host: str = "fake_host:0"
-        username: str = 'fake_username'
-        password: str = 'fake_password'
-        authMechanism: str = 'fake_auth_mechanisme'
+        username: str = "fake_username"
+        password: str = "fake_password"
+        authMechanism: str = "fake_auth_mechanisme"
+        database_name: str = "fake_database"
 
         mock_MongoClient_init.return_value = None
 
         get_session_result_type_expected: type = MongoClient
 
         # When
-        session: MongoSession = MongoSession(host, username, password, authMechanism=authMechanism)
+        session: MongoSession = MongoSession(
+            host, username, password, database_name, authMechanism=authMechanism
+        )
         get_session_type_result = type(session.getSession())
 
         # Then
