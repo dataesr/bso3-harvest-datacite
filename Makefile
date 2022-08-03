@@ -56,7 +56,7 @@ integration-tests:
 	@echo Integration Testing
 	python3 -m pytest --disable-warnings tests/integration_test
 
-coverage-show:
+coverage-report:
 	@echo Calculating coverage
 	coverage run -m pytest --disable-warnings tests/unit_test
 	@echo Show report
