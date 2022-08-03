@@ -54,7 +54,7 @@ class Harvester(AbstractHarvester):
         # [w]eekly, [d]daily, [h]ourly, [e]very minute (default "d")
         if input == "minute":
             interval = "e"
-        elif input == "daily":
+        elif input == "day":
             interval = "d"
         elif input == "hour":
             interval = "h"
