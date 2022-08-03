@@ -1,4 +1,5 @@
 .env
+.coverage
 project/Data/*.ndjson
 project/results/*.json
 __pycache__

@@ -1,4 +1,5 @@
 .env
+.coverage
 *.ndjson
 *.json
 __pycache__
