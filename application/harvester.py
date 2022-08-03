@@ -1,4 +1,4 @@
-from domain.api.AbstractHarvester import AbstractHarvester
+from domain.api.abstract_harvester import AbstractHarvester
 
 from adapters.databases.harvest_state_repository import HarvestStateRepository
 from adapters.databases.harvest_state_table import HarvestStateTable
