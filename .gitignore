@@ -2,7 +2,6 @@ __pycache__
 .coverage
 .env
 .idea
-.idea
 .vscode
 .vscode/
 dois/

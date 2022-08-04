@@ -1,9 +1,7 @@
-from email.policy import strict
+# Inspired from https://github.com/greendad/pymongo-example-repo/blob/master/src/base_document.py
 from locale import Error
 from bson import ObjectId
 import marshmallow
-from numpy import False_
-from adapters.databases.mongo_session import MongoSession
 from pymongo.database import Database
 from pymongo.collection import Collection
 from domain.databases.abstract_collection_repository import AbstractMongoCollectionRepository
@@ -12,13 +10,11 @@ from domain.databases.abstract_collection_repository import AbstractMongoCollect
 class DefaultDocument(AbstractMongoCollectionRepository):
 
     meta = {}
-    session: MongoSession
-    database: Database = None
+    database: Database
     collection: Collection = None
 
-    def __init__(self, session: MongoSession) -> None:
-        self.session = session.getSession()
-        self.database = self.get_database()
+    def __init__(self, database: Database) -> None:
+        self.database = database
         self.collection = self.get_collection()
 
     def get_collection(self) -> Collection:
@@ -27,24 +23,16 @@ class DefaultDocument(AbstractMongoCollectionRepository):
             raise Error("No collection name provided")
         return self.database[collection_name]
 
-    def get_database(self) -> Database:
-        database_name = self.meta.get("database", None)
-        print(f"database {database_name}")
-
-        if database_name is None:
-            raise Error("No Database name provided")
-        return self.session[database_name]
-
     def validate_schema(self, params):
         try:
             schema = self.meta.get("schema")
-            return schema(strict=False).load(params).data
+            return schema().load(params)
         except marshmallow.exceptions.ValidationError as error:
             raise Exception(error)
 
     def create(self, **kwargs):
-
-        result = self.collection.insert_one(kwargs)
+        doc = self.validate_schema(kwargs)
+        result = self.collection.insert_one(doc)
         return self.get(_id=result.inserted_id)
 
     def get(self, **kwargs):
@@ -57,15 +45,12 @@ class DefaultDocument(AbstractMongoCollectionRepository):
     def delete(self, id):
         return self.collection.delete_one({"_id": id})
 
-    def update(self, id, **kwargs):
+    def update(self, id, **update_dictionary):
         doc = self.get(id=id)
+        doc.update(update_dictionary)
+        updated_document = self.validate_schema(doc)
 
-        for key, value in kwargs.items():
-            path_add(doc, key, value, create_path=True)
-
-        updated_doc = self.validate_schema(doc)
-
-        result = self.collection.update_one({"_id": ObjectId(id)}, {"$set": updated_doc})
+        result = self.collection.update_one({"_id": ObjectId(id)}, {"$set": updated_document})
         return self.get(id=id) if result.acknowledged else None
 
     def list(self):

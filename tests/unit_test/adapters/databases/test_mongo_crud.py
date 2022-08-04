@@ -1,23 +1,20 @@
 from unittest import TestCase
 from unittest.mock import patch
-from pymongo import MongoClient
-from os import getenv
 from adapters.databases.mongo_db_repository import DefaultDocument
 from adapters.databases.mongo_session import MongoSession
 from marshmallow import Schema
 from marshmallow.fields import Str
-from pymongo.database import Database
-from pymongo.collection import Collection
+from bson import ObjectId
 
 
 class SampleSchema(Schema):
     field_name = Str(required=True)
     value = Str(required=True)
+    new_field = Str()
 
 
 class SampleModel(DefaultDocument):
     meta = {
-        "database": getenv("DB_MONGO_NAME"),
         "collection": "sample_model",
         "schema": SampleSchema,
     }
@@ -28,17 +25,16 @@ TESTED_MODULE = "adapters.databases.mongo_db_repository"
 
 class TestMongoCrud(TestCase):
     @classmethod
-    @patch(f"{TESTED_MODULE}.MongoClient.__init__", return_value=None)
-    def setUpClass(self, mock_MongoClient_init):
+    @patch("pymongo.collection.Collection")
+    @patch("pymongo.database.Database")
+    def setUpClass(self, mock_database, mock_collection):
 
         self.host: str = "fake_host"
         self.username: str = "fake_username"
         self.password: str = "fake_password"
-        self.authMechanism: str = "fake_authMechanism"
+        self.authMechanism: str = "SCRAM-SHA-256"
         self.database_name: str = "fake_database"
-        self.collection_name: str = "fake_collection_name"
 
-        # Given / When
         self.mongo_session: MongoSession = MongoSession(
             self.host,
             self.username,
@@ -46,29 +42,49 @@ class TestMongoCrud(TestCase):
             self.database_name,
             authMechanism=self.authMechanism,
         )
-        self.sampleModel: SampleModel = SampleModel(self.mongo_session)
 
-        self.mock_MongoClient_init = mock_MongoClient_init
+        self.mock_collection = mock_collection
+        self.mock_database = mock_database
 
-    def test_given_a_mongo_session_and_a_sample_model_when_get_database_is_called_then_get_a_database_instance(
+        self.sampleModel: SampleModel = SampleModel(self.mongo_session.getSession())
+
+    def test_given_a_mongo_collection_database_and_a_sample_model_when_get_collection_is_called_then_get_a_collection_instance(
         self,
     ):
         # Given after setUpClass
-
-        # When after setUpClass
-        get_database_result_type_expected: type = Database
-
-        result_get_database = type(self.sampleModel.get_database())
-
-        assert result_get_database == get_database_result_type_expected
-
-    def test_given_a_mongo_session_and_a_sample_model_when_get_database_is_called_then_get_a_collection_instance(
-        self,
-    ):
-        # Given after setUpClass
-
-        # When after setUpClass
-        get_collection_result_type_expected: type = Collection
-
         result_get_collection = type(self.sampleModel.get_collection())
-        assert result_get_collection == get_collection_result_type_expected
+
+        # Then
+        assert result_get_collection is not None
+
+    @patch("pymongo.collection.Collection.insert_one")
+    def test_given_a_mongo_collection_database_and_a_sample_model_when_create_document_is_called_then_return_a_mongo_object(
+        self, mongo_insert_one
+    ):
+        # Given after setUpClass
+
+        mongo_insert_one.return_value = None
+
+        # When
+        result_get_document = self.sampleModel.create(
+            **{
+                "field_name": "field_name",
+                "value": "value",
+            }
+        )
+        # Then
+        assert result_get_document is not None
+
+    @patch("pymongo.collection.Collection.find_one")
+    def test_given_a_mongo_collection_database_and_a_sample_model_when_get_document_is_called_then_return_a_mongo_object(
+        self, mongo_find_one
+    ):
+        # Given after setUpClass
+
+        mongo_find_one.return_value = None
+
+        # When
+        result_get_document = self.sampleModel.get(id="54f112defba522406c9cc208")
+
+        # Then
+        assert result_get_document is not None
