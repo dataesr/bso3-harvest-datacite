@@ -41,11 +41,13 @@ class Harvester(AbstractHarvester):
             else:
                 harvest_state.status = "error"
 
-            harvest_state.number_slices = number_downloaded
+            harvest_state.number_slices = number_of_slices
 
             elements_update: dict = {"number_missed": harvest_state.number_missed, "status": harvest_state.status, "number_slices": harvest_state.number_slices}
             filter: dict = {"id": harvest_state.id}
             self.harvest_state_repository.update(elements_update, filter)
+
+            # OVH part Missing
 
         return begin_harvesting
 
