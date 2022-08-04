@@ -2,7 +2,6 @@ from domain.api.abstract_harvester import AbstractHarvester
 
 from adapters.databases.harvest_state_repository import HarvestStateRepository
 from adapters.databases.harvest_state_table import HarvestStateTable
-from adapters.databases.postgres_session import PostgresSession
 
 from datetime import datetime
 

@@ -1,5 +1,5 @@
 from datetime import datetime
-from unittest import TestCase, result
+from unittest import TestCase
 
 from adapters.databases.postgres_session import PostgresSession
 from adapters.databases.harvest_state_repository import HarvestStateRepository
