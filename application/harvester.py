@@ -6,6 +6,8 @@ from adapters.databases.postgres_session import PostgresSession
 
 from datetime import datetime
 
+from pathlib import Path
+
 from subprocess import run, PIPE, STDOUT
 
 
@@ -89,6 +91,9 @@ class Harvester(AbstractHarvester):
         return result
 
     def executeDcdump(self, target_directory: str, start_date: datetime, end_date: datetime, interval: str, max_requests: int, file_prefix: str, workers: int, sleep_duration: int):
+        # create directory if not exists
+        Path(target_directory).mkdir(exist_ok=True)
+
         cmd = [
             "./dcdump/dcdump",
             "-d",

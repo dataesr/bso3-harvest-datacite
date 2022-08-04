@@ -12,7 +12,7 @@ from application.harvester import Harvester
 TESTED_MODULE = "application.harvester"
 
 
-class TestHarvester(TestCase):
+class TestHarvesterExecution(TestCase):
     @classmethod
     def setUpClass(self):
         self.target_directory: str = "fake_directory"
@@ -45,7 +45,8 @@ class TestHarvester(TestCase):
         assert results == results_expected
 
     @patch(f"{TESTED_MODULE}.run")
-    def test_given_inputs_and_returncode_of_run_returns_0_when_using_executeDcdump_then_run_is_called_once(self, mock_run):
+    @patch(f"{TESTED_MODULE}.Path")
+    def test_given_inputs_and_returncode_of_run_returns_0_when_using_executeDcdump_then_run_and_Path_are_called_once(self, mock_path, mock_run):
         # Given after setUpClass
         mock_run.return_value.returncode = 0
 
@@ -53,10 +54,12 @@ class TestHarvester(TestCase):
         self.harvester.executeDcdump(self.target_directory, self.start_date, self.end_date, self.interval, self.max_requests, self.file_prefix, self.workers, self.sleep_duration)
 
         # Then
+        mock_path.assert_called_once()
         mock_run.assert_called_once()
 
     @patch(f"{TESTED_MODULE}.run")
-    def test_given_inputs_and_returncode_of_run_returns_2_when_using_executeDcdump_then_run_is_called_once_and_raise_error_exception(self, mock_run):
+    @patch(f"{TESTED_MODULE}.Path")
+    def test_given_inputs_and_returncode_of_run_returns_2_when_using_executeDcdump_then_run_and_Path_are_called_once_and_raise_error_exception(self, mock_path, mock_run):
         # Given after setUpClass
         exception_msg_expected: str = "error"
 
@@ -68,6 +71,7 @@ class TestHarvester(TestCase):
             self.harvester.executeDcdump(self.target_directory, self.start_date, self.end_date, self.interval, self.max_requests, self.file_prefix, self.workers, self.sleep_duration)
 
         # Then
+        mock_path.assert_called_once()
         mock_run.assert_called_once()
         self.assertTrue(exception_msg_expected in str(context.exception))
 
