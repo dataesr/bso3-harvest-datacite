@@ -24,8 +24,8 @@ class MockHarvestStateRepository(HarvestStateRepository):
         added: bool = False
 
         if not self.create_same_job_already_exists:
-            if not self.create_same_current_directory_already_exists:
-                harvest_state.slice_type += "e"
+            if self.create_same_current_directory_already_exists:
+                harvest_state.slice_type = "day"
 
             harvest_state.id = 1
 

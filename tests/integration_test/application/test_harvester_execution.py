@@ -1,4 +1,5 @@
-from unittest import TestCase
+from time import sleep
+from unittest import TestCase, skip
 
 from datetime import datetime
 
@@ -42,7 +43,7 @@ class TestHarvester(TestCase):
 
         run(cmd)
 
-    def test_launching_download(self):
+    def test_launching_download_with_thread(self):
         # Given
         start_date: datetime = datetime.strptime("2019-05-01", "%Y-%m-%d")
         end_date: datetime = datetime.strptime("2019-05-01 00:59:59", "%Y-%m-%d %H:%M:%S")
@@ -51,7 +52,26 @@ class TestHarvester(TestCase):
         harvest_state_expected: HarvestStateTable = HarvestStateTable(start_date, end_date, "done", self.target_directory, 1, 0, 60, False, interval)
 
         # When
-        downloaded: bool = self.harvester.download(self.target_directory, start_date, end_date, interval)
+        downloaded: bool = self.harvester.download(self.target_directory, start_date, end_date, interval, use_thread=True)
+
+        sleep(30)
+
+        results = self.harvest_state_repository.get()
+
+        # Then
+        assert downloaded
+        assert results[0].__eq__(harvest_state_expected)
+
+    def test_launching_download_without_thread(self):
+        # Given
+        start_date: datetime = datetime.strptime("2019-05-01", "%Y-%m-%d")
+        end_date: datetime = datetime.strptime("2019-05-01 00:59:59", "%Y-%m-%d %H:%M:%S")
+        interval: str = "minute"
+
+        harvest_state_expected: HarvestStateTable = HarvestStateTable(start_date, end_date, "done", self.target_directory, 1, 0, 60, False, interval)
+
+        # When
+        downloaded: bool = self.harvester.download(self.target_directory, start_date, end_date, interval, use_thread=False)
         results = self.harvest_state_repository.get()
 
         # Then

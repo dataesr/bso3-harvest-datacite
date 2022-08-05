@@ -1,4 +1,4 @@
-from unittest import TestCase
+from unittest import TestCase, skip
 from unittest.mock import patch
 
 from types import SimpleNamespace
@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from datetime import datetime
 
 from adapters.databases.mock_harvest_state_repository import MockHarvestStateRepository
+from adapters.databases.harvest_state_table import HarvestStateTable
 
 from application.harvester import Harvester
 
@@ -28,6 +29,10 @@ class TestHarvesterExecution(TestCase):
         self.mock_harvest_state_repository: MockHarvestStateRepository = MockHarvestStateRepository(None)
 
         self.harvester: Harvester = Harvester(self.mock_harvest_state_repository)
+
+        # for harvesting method
+        self.harvest_state: HarvestStateTable = HarvestStateTable(self.start_date, self.end_date, "in progress", self.target_directory, id=1, number_slices=50, slice_type="minute")
+        self.dcdump_interval: str = "e"
 
     def test_given_different_inputs_when_using_a_while_with_selectInterval_then_should_get_results_expected(self):
         # Given after setUpClass
@@ -162,89 +167,125 @@ class TestHarvesterExecution(TestCase):
 
     @patch(f"{TESTED_MODULE}.Harvester.selectInterval")
     @patch(f"{TESTED_MODULE}.Harvester.getNumberSlices")
-    @patch(f"{TESTED_MODULE}.Harvester.executeDcdump")
-    @patch(f"{TESTED_MODULE}.Harvester.getNumberDownloaded")
-    def test_given_inputs_and_all_working_correctly_when_using_download_then_all_function_are_called_once_and_update_get_some_expected_args_and_download_should_return_true(
-        self, mock_getNumberDownloaded, mock_executeDcdump, mock_getNumberSlices, mock_selectInterval
+    @patch(f"{TESTED_MODULE}.Thread")
+    @patch(f"{TESTED_MODULE}.Harvester.harvesting")
+    def test_given_inputs_and_all_working_correctly_when_using_download_then_all_function_are_called_once_except_harvesting_none_and_download_should_return_true_and_harvest_state_expected(
+        self, mock_harvesting, mock_thread, mock_getNumberSlices, mock_selectInterval
     ):
         # Given after setUpClass and setUp
         mock_selectInterval.return_value = "e"
         mock_getNumberSlices.return_value = 50
-        mock_getNumberDownloaded.return_value = 50
 
         nb_calls_create_expected: int = 1
+        nb_calls_harvesting_expected: int = 0
+
+        harvest_state_expected: HarvestStateTable = HarvestStateTable(self.start_date, self.end_date, "in progress", self.target_directory, id=1, slice_type=self.interval, number_slices=50)
+
+        # When
+        downloading, harvest_state = self.harvester.download(self.target_directory, self.start_date, self.end_date, self.interval)
+
+        # Then
+        assert self.mock_harvest_state_repository.nb_calls_create == nb_calls_create_expected
+        mock_selectInterval.assert_called_once()
+        mock_getNumberSlices.assert_called_once()
+        mock_thread.assert_called_once()
+        assert mock_harvesting.call_count == nb_calls_harvesting_expected
+        assert downloading
+        assert harvest_state.__eq__(harvest_state_expected)
+
+    @patch(f"{TESTED_MODULE}.Harvester.selectInterval")
+    @patch(f"{TESTED_MODULE}.Harvester.getNumberSlices")
+    @patch(f"{TESTED_MODULE}.Thread")
+    @patch(f"{TESTED_MODULE}.Harvester.harvesting")
+    def test_given_inputs_with_job_already_exists_in_db_when_using_download_then_all_function_are_not_called_except_create_once_and_download_should_return_false_and_harvest_state_expected(
+        self, mock_harvesting, mock_thread, mock_getNumberSlices, mock_selectInterval
+    ):
+        # Given after setUpClass and setUp
+        nb_calls_create_expected: int = 1
+        nb_calls_mock_selectInterval: int = 0
+        nb_calls_mock_getNumberSlices: int = 0
+        nb_calls_mock_thread: int = 0
+        nb_calls_harvesting_expected: int = 0
+
+        self.mock_harvest_state_repository.create_same_job_already_exists = True
+
+        harvest_state_expected: HarvestStateTable = HarvestStateTable(self.start_date, self.end_date, "already exists", self.target_directory, slice_type=self.interval)
+
+        # When
+        downloading, harvest_state = self.harvester.download(self.target_directory, self.start_date, self.end_date, self.interval)
+
+        # Then
+        assert self.mock_harvest_state_repository.nb_calls_create == nb_calls_create_expected
+        assert mock_selectInterval.call_count == nb_calls_mock_selectInterval
+        assert mock_getNumberSlices.call_count == nb_calls_mock_getNumberSlices
+        assert mock_thread.call_count == nb_calls_mock_thread
+        assert mock_harvesting.call_count == nb_calls_harvesting_expected
+        assert not downloading
+        assert harvest_state.__eq__(harvest_state_expected)
+
+    @patch(f"{TESTED_MODULE}.Harvester.selectInterval")
+    @patch(f"{TESTED_MODULE}.Harvester.getNumberSlices")
+    @patch(f"{TESTED_MODULE}.Thread")
+    @patch(f"{TESTED_MODULE}.Harvester.harvesting")
+    def test_given_inputs_with_use_thread_at_false_when_using_download_then_all_function_are_called_once_except_thread_and_download_should_return_false_and_harvest_state_expected(
+        self, mock_harvesting, mock_thread, mock_getNumberSlices, mock_selectInterval
+    ):
+        # Given after setUpClass and setUp
+        mock_getNumberSlices.return_value = 50
+
+        nb_calls_create_expected: int = 1
+        nb_calls_mock_expected: int = 0
+
+        harvest_state_expected: HarvestStateTable = HarvestStateTable(self.start_date, self.end_date, "in progress", self.target_directory, id=1, slice_type=self.interval, number_slices=50)
+
+        # When
+        downloading, harvest_state = self.harvester.download(self.target_directory, self.start_date, self.end_date, self.interval, use_thread=False)
+
+        # Then
+        assert self.mock_harvest_state_repository.nb_calls_create == nb_calls_create_expected
+        mock_selectInterval.assert_called_once()
+        mock_getNumberSlices.assert_called_once()
+        assert mock_thread.call_count == nb_calls_mock_expected
+        mock_harvesting.assert_called_once
+        assert downloading
+        assert harvest_state.__eq__(harvest_state_expected)
+
+    @patch(f"{TESTED_MODULE}.Harvester.executeDcdump")
+    @patch(f"{TESTED_MODULE}.Harvester.getNumberDownloaded")
+    def test_given_inputs_and_all_working_correctly_when_using_harvesting_then_all_function_are_called_once_and_update_get_some_expected_args_and_download_should_return_true(
+        self, mock_getNumberDownloaded, mock_executeDcdump
+    ):
+        # Given after setUpClass and setUp
+        mock_getNumberDownloaded.return_value = 50
+
         nb_calls_update_expected: int = 1
         update_args_call_expected: list = [({"number_missed": 0, "status": "done", "number_slices": 50}, {"id": 1})]
 
         # When
-        downloading: bool = self.harvester.download(self.target_directory, self.start_date, self.end_date, self.interval)
+        self.harvester.harvesting(self.harvest_state, self.dcdump_interval, self.max_requests, self.file_prefix, self.workers, self.sleep_duration)
 
         # Then
-        mock_selectInterval.assert_called_once()
-        mock_getNumberSlices.assert_called_once()
         mock_executeDcdump.assert_called_once()
         mock_getNumberDownloaded.assert_called_once()
-        assert self.mock_harvest_state_repository.nb_calls_create == nb_calls_create_expected
         assert self.mock_harvest_state_repository.nb_calls_update == nb_calls_update_expected
         assert self.mock_harvest_state_repository.update_args_calls == update_args_call_expected
-        assert downloading
 
-    @patch(f"{TESTED_MODULE}.Harvester.selectInterval")
-    @patch(f"{TESTED_MODULE}.Harvester.getNumberSlices")
     @patch(f"{TESTED_MODULE}.Harvester.executeDcdump")
     @patch(f"{TESTED_MODULE}.Harvester.getNumberDownloaded")
-    def test_given_inputs_and_numberSlices_return_50_and_numberDownloaded_return_25_when_using_download_then_all_function_are_called_once_and_update_get_some_expected_args_with_status_error_and_download_should_return_true(
-        self, mock_getNumberDownloaded, mock_executeDcdump, mock_getNumberSlices, mock_selectInterval
+    def test_given_inputs_and_numberSlices_50_and_numberDownloaded_return_25_when_using_harvesting_then_all_function_are_called_once_and_update_get_some_expected_args_with_status_error(
+        self, mock_getNumberDownloaded, mock_executeDcdump
     ):
         # Given after setUpClass and setUp
-        mock_selectInterval.return_value = "e"
-        mock_getNumberSlices.return_value = 50
         mock_getNumberDownloaded.return_value = 25
 
-        nb_calls_create_expected: int = 1
         nb_calls_update_expected: int = 1
         update_args_call_expected: list = [({"number_missed": 25, "status": "error", "number_slices": 50}, {"id": 1})]
 
         # When
-        downloading: bool = self.harvester.download(self.target_directory, self.start_date, self.end_date, self.interval)
+        self.harvester.harvesting(self.harvest_state, self.dcdump_interval, self.max_requests, self.file_prefix, self.workers, self.sleep_duration)
 
         # Then
-        mock_selectInterval.assert_called_once()
-        mock_getNumberSlices.assert_called_once()
         mock_executeDcdump.assert_called_once()
         mock_getNumberDownloaded.assert_called_once()
-        assert self.mock_harvest_state_repository.nb_calls_create == nb_calls_create_expected
         assert self.mock_harvest_state_repository.nb_calls_update == nb_calls_update_expected
         assert self.mock_harvest_state_repository.update_args_calls == update_args_call_expected
-        assert downloading
-
-    @patch(f"{TESTED_MODULE}.Harvester.selectInterval")
-    @patch(f"{TESTED_MODULE}.Harvester.getNumberSlices")
-    @patch(f"{TESTED_MODULE}.Harvester.executeDcdump")
-    @patch(f"{TESTED_MODULE}.Harvester.getNumberDownloaded")
-    def test_given_inputs_when_using_download_then_all_function_are_not_called_except_create_once_and_download_should_return_false(
-        self, mock_getNumberDownloaded, mock_executeDcdump, mock_getNumberSlices, mock_selectInterval
-    ):
-        # Given after setUpClass and setUp
-        self.mock_harvest_state_repository.create_same_job_already_exists = True
-
-        nb_calls_mock_selectInterval_expected: int = 0
-        nb_calls_mock_getNumberSlices_expected: int = 0
-        nb_calls_mock_executeDcdump_expected: int = 0
-        nb_calls_mock_getNumberDownloaded_expected: int = 0
-        nb_calls_create_expected: int = 1
-        nb_calls_update_expected: int = 0
-        update_args_call_expected: list = []
-
-        # When
-        downloading: bool = self.harvester.download(self.target_directory, self.start_date, self.end_date, self.interval)
-
-        # Then
-        assert mock_selectInterval.call_count == nb_calls_mock_selectInterval_expected
-        assert mock_getNumberSlices.call_count == nb_calls_mock_getNumberSlices_expected
-        assert mock_executeDcdump.call_count == nb_calls_mock_executeDcdump_expected
-        assert mock_getNumberDownloaded.call_count == nb_calls_mock_getNumberDownloaded_expected
-        assert self.mock_harvest_state_repository.nb_calls_create == nb_calls_create_expected
-        assert self.mock_harvest_state_repository.nb_calls_update == nb_calls_update_expected
-        assert self.mock_harvest_state_repository.update_args_calls == update_args_call_expected
-        assert not downloading

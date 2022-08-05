@@ -3,6 +3,8 @@ from domain.api.abstract_harvester import AbstractHarvester
 from adapters.databases.harvest_state_repository import HarvestStateRepository
 from adapters.databases.harvest_state_table import HarvestStateTable
 
+from threading import Thread
+
 from datetime import datetime
 
 from pathlib import Path
@@ -17,40 +19,56 @@ class Harvester(AbstractHarvester):
         self.harvest_state_repository = harvest_state_repository
 
     def download(
-        self, target_directory: str, start_date: datetime, end_date: datetime, interval: str, max_requests: int = 16777216, file_prefix: str = "dcdump-", workers: int = 4, sleep_duration: str = "3m0s"
+        self,
+        target_directory: str,
+        start_date: datetime,
+        end_date: datetime,
+        interval: str,
+        max_requests: int = 16777216,
+        file_prefix: str = "dcdump-",
+        workers: int = 4,
+        sleep_duration: str = "3m0s",
+        use_thread=True,
     ) -> bool:
 
-        harvest_state = HarvestStateTable(start_date, end_date, "in progess", target_directory, slice_type=interval)
+        harvest_state = HarvestStateTable(start_date, end_date, "in progress", target_directory, slice_type=interval)
 
         begin_harvesting: bool = True
-
         if not self.harvest_state_repository.create(harvest_state):
             begin_harvesting = False
+            harvest_state.status = "already exists"
 
         if begin_harvesting:
-            interval = self.selectInterval(harvest_state.slice_type)
-            number_of_slices: int = self.getNumberSlices(start_date, end_date, interval)
-
-            self.executeDcdump(target_directory, start_date, end_date, interval, max_requests, file_prefix, workers, sleep_duration)
-
-            number_downloaded: int = self.getNumberDownloaded(target_directory, file_prefix, start_date, end_date)
-
-            harvest_state.number_missed = number_of_slices - number_downloaded
-
-            if harvest_state.number_missed == 0:
-                harvest_state.status = "done"
-            else:
-                harvest_state.status = "error"
+            dcdump_interval: str = self.selectInterval(harvest_state.slice_type)
+            number_of_slices: int = self.getNumberSlices(harvest_state.start_date, harvest_state.end_date, dcdump_interval)
 
             harvest_state.number_slices = number_of_slices
+            if use_thread:
+                thread: Thread = Thread(target=self.harvesting, args=(harvest_state, dcdump_interval, max_requests, file_prefix, workers, sleep_duration))
+                thread.start()
+            else:
+                self.harvesting(harvest_state, dcdump_interval, max_requests, file_prefix, workers, sleep_duration)
 
-            elements_update: dict = {"number_missed": harvest_state.number_missed, "status": harvest_state.status, "number_slices": harvest_state.number_slices}
-            filter: dict = {"id": harvest_state.id}
-            self.harvest_state_repository.update(elements_update, filter)
+        return begin_harvesting, harvest_state
 
-            # OVH part Missing
+    def harvesting(self, harvest_state: HarvestStateTable, dcdump_interval, max_requests, file_prefix, workers, sleep_duration):
 
-        return begin_harvesting
+        self.executeDcdump(harvest_state.current_directory, harvest_state.start_date, harvest_state.end_date, dcdump_interval, max_requests, file_prefix, workers, sleep_duration)
+
+        number_downloaded: int = self.getNumberDownloaded(harvest_state.current_directory, file_prefix, harvest_state.start_date, harvest_state.end_date)
+
+        harvest_state.number_missed = harvest_state.number_slices - number_downloaded
+
+        if harvest_state.number_missed == 0:
+            harvest_state.status = "done"
+        else:
+            harvest_state.status = "error"
+
+        elements_update: dict = {"number_missed": harvest_state.number_missed, "status": harvest_state.status, "number_slices": harvest_state.number_slices}
+        filter: dict = {"id": harvest_state.id}
+        self.harvest_state_repository.update(elements_update, filter)
+
+        # OVH part Missing
 
     def selectInterval(self, input: str) -> str:
         interval: str = None
