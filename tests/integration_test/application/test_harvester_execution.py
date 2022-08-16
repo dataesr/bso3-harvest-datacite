@@ -54,7 +54,7 @@ class TestHarvester(TestCase):
         # When
         downloaded: bool = self.harvester.download(self.target_directory, start_date, end_date, interval, use_thread=True)
 
-        sleep(30)
+        sleep(60)
 
         results = self.harvest_state_repository.get()
 

@@ -13,6 +13,16 @@ from subprocess import run, PIPE, STDOUT
 
 
 class Harvester(AbstractHarvester):
+    """
+    The Harvester object is able to harvest data from dcdump and communicate with harvest_state table.
+
+    Args:
+        harvest_state_repository (adapters.databases.harvest_state_repository.HarvestStateRepository): The harvest_state_repository is used to communicate and make some operation with harvest_state table.
+
+    Attributes:
+        harvest_state_repository (adapters.databases.harvest_state_repository.HarvestStateRepository): This is where we store harvest_state_repository.
+    """
+
     harvest_state_repository: HarvestStateRepository
 
     def __init__(self, harvest_state_repository: HarvestStateRepository):
@@ -30,6 +40,24 @@ class Harvester(AbstractHarvester):
         sleep_duration: str = "3m0s",
         use_thread=True,
     ) -> bool:
+
+        """
+        The download function check if we can download. If we can, the function prepares and launch harvesting.
+
+        Args:
+            target_directory (str): Directory where we are going to store the data downloaded.
+            start_date (datetime): Date that filter the download, it means that we only download data with an updated date attribute upper that this date.
+            end_date (datetime): Date that filter the download, it means that we only download data with an updated date attribute lesser that this date.
+            interval (str): Interval that decide which type of interval we download (minute, hour, day, week)
+            max_requests (int): Max requests that we can do when downloading
+            file_prefix (str): Prefix of the file downloaded in the target_directory.
+            workers (int): Numbers of thread used when harvesting.
+            sleep_duration (str): How much time do we wait when we have an error for a download.
+            use_thread (bool): If True, we launch harvesting in a thread and we return begin_harvesting. If False, we wait the end of harvesting to return begin_harvesting.
+
+        Returns:
+            begin_harvesting, harvest_state  (bool, HarvestStateTable): For the first one, iff True the harvesting has begun and if False, no harvesting launched. For the last, it's the state of the harvesting (launched or not).
+        """
 
         harvest_state = HarvestStateTable(start_date, end_date, "in progress", target_directory, slice_type=interval)
 
@@ -52,7 +80,20 @@ class Harvester(AbstractHarvester):
         return begin_harvesting, harvest_state
 
     def harvesting(self, harvest_state: HarvestStateTable, dcdump_interval, max_requests, file_prefix, workers, sleep_duration):
+        """
+        The harvesting function executes dcdump, check different information and update harvest state
 
+        Args:
+            harvest_state (adapters.databases.harvest_state_table.HarvestStateTable): Harvest State containing different information mandatoring for harvesting and useful to update Harvest State.
+            dcdump_interval (str): Interval that decide which type of interval we download (minute, hour, day, week)
+            max_requests (int): Max requests that we can do when downloading
+            file_prefix (str): Prefix of the file downloaded in the target_directory.
+            workers (int): Numbers of thread used when harvesting.
+            sleep_duration (str): How much time do we wait when we have an error for a download.
+
+        Returns:
+            Nothing (void).
+        """
         self.executeDcdump(harvest_state.current_directory, harvest_state.start_date, harvest_state.end_date, dcdump_interval, max_requests, file_prefix, workers, sleep_duration)
 
         number_downloaded: int = self.getNumberDownloaded(harvest_state.current_directory, file_prefix, harvest_state.start_date, harvest_state.end_date)
@@ -71,6 +112,15 @@ class Harvester(AbstractHarvester):
         # OVH part Missing
 
     def selectInterval(self, input: str) -> str:
+        """
+        The selectInterval function gets an input interval from the user and convert it in dcdump format. If the input is not correct, by default the interval is by minute.
+
+        Args:
+            input (str): Input from the user.
+
+        Returns:
+            The interval in dcdump format.
+        """
         interval: str = None
         # [w]eekly, [d]daily, [h]ourly, [e]very minute (default "d")
         if input == "minute":
@@ -87,6 +137,17 @@ class Harvester(AbstractHarvester):
         return interval
 
     def getNumberSlices(self, start_date: datetime, end_date: datetime, interval: str) -> int:
+        """
+        The getNumberSlices function executes dcdump debug to get the number of slices.
+
+        Args:
+            start_date (datetime): Date that filter the download of dcdump, it means that we only download data with an updated date attribute upper that this date.
+            end_date (datetime): Date that filter the download of dcdump, it means that we only download data with an updated date attribute upper that this date.
+            interval (str): Interval used in dcdump.
+
+        Returns:
+            The number of files that we will download if we use these arguments.
+        """
         cmd = [
             "./dcdump/dcdump",
             "-i",
@@ -108,6 +169,26 @@ class Harvester(AbstractHarvester):
         return result
 
     def executeDcdump(self, target_directory: str, start_date: datetime, end_date: datetime, interval: str, max_requests: int, file_prefix: str, workers: int, sleep_duration: int):
+        """
+        The executeDcdump function executes dcdump with the arguments passed.
+
+        Args:
+            target_directory (str): Directory where we are going to store the data downloaded.
+            start_date (datetime): Date that filter the download of dcdump, it means that we only download data with an updated date attribute upper that this date.
+            end_date (datetime): Date that filter the download of dcdump, it means that we only download data with an updated date attribute upper that this date.
+            interval (str): Interval used in dcdump.
+            max_requests (int): Max requests that we can do when downloading.
+            file_prefix (str): Prefix of the file downloaded in the target_directory.
+            workers (int): Numbers of thread used when harvesting.
+            sleep_duration (str): How much time do we wait when we have an error for a download.
+
+        Raises:
+            Exception from the command line.
+
+        Returns:
+            Nothing (void)
+        """
+
         # create directory if not exists
         Path(target_directory).mkdir(exist_ok=True)
 
@@ -137,6 +218,22 @@ class Harvester(AbstractHarvester):
             raise Exception(p.stdout)
 
     def getNumberDownloaded(self, target_directory: str, file_prefix: str, start_date: datetime, end_date: datetime) -> int:
+        """
+        The getNumberDownloaded function gets the number of files between start_date and end_date in target_directory and with as prefix file_prefix.
+
+        Args:
+            target_directory (str): Directory where we stored the data downloaded.
+            start_date (datetime): Date used to filter the download of dcdump, it means that we only downloaded data with an updated date attribute upper that this date. Here, we are going to filter with this date as the lesser limit.
+            end_date (datetime): Date used to filter the download of dcdump, it means that we only downloaded data with an updated date attribute upper that this date. Here, we are going to filter with this date as the upper limit.
+            file_prefix (str): Prefix of the file downloaded in the target_directory.
+
+        Raises:
+            Exception from the command line.
+
+        Returns:
+            The number of files downloaded.
+        """
+
         lower_limit: str = f"{file_prefix}{start_date.strftime('%Y%m%d%H%M%S')}"
         upper_limit: str = f"{file_prefix}{end_date.strftime('%Y%m%d%H%M%S')}"
 

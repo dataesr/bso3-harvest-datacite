@@ -1,3 +1,4 @@
 flake8==4.0.1
 pytest==7.1.2
 coverage==6.4.2
+pdoc3==0.10.0

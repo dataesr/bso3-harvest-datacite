@@ -5,6 +5,7 @@ services:
       dockerfile: ./Dockerfiles/dev/Dockerfile
     ports:
       - ${HARVEST_PROCESS_PORT}:5000
+      - 46809:46809
     volumes:
       - ./:/src
       - /src/dcdump
@@ -29,8 +30,8 @@ services:
     ports:
       - ${DB_MONGO_PORT}:${DB_MONGO_PORT}
     volumes:
-            #- ./:/data/db
-            - ./mongod.conf:/etc/mongod.conf
+      #- ./:/data/db
+      - ./mongod.conf:/etc/mongod.conf
     environment:
       - MONGO_INITDB_ROOT_USERNAME=${DB_MONGO_USER}
       - MONGO_INITDB_ROOT_PASSWORD=${DB_MONGO_PASSWORD}
