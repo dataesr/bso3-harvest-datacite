@@ -3,6 +3,8 @@
 project/Data/*.ndjson
 project/results/*.json
 __pycache__
+.idea
+.vscode
 
 
 
