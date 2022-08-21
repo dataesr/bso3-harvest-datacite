@@ -61,3 +61,10 @@ coverage-report:
 	coverage run -m pytest --disable-warnings tests/
 	@echo Show report
 	coverage report -m
+
+show-pydoc:
+	@echo launching pydoc server
+	python3 -m pydoc -b -p 46809 -n 0.0.0.0
+
+show-pdoc3:
+	pdoc3 --http 0.0.0.0:46809 adapters application domain project

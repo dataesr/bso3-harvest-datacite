@@ -1,5 +1,4 @@
 from unittest import TestCase
-from unittest.mock import patch
 
 from adapters.databases.harvest_state_repository import HarvestStateRepository
 from adapters.databases.mock_postgres_session import MockPostgresSession

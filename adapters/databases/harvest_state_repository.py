@@ -18,12 +18,12 @@ class HarvestStateRepository(AbstractHarvestStateRepository):
         with self.session.sessionScope() as session:
             error_message: str = "error"
 
-            # check if same job already exists
+            # check if same job without error already exists
             statement = select(HarvestStateTable).where(
                 HarvestStateTable.current_directory == harvest_state.current_directory,
                 HarvestStateTable.start_date == harvest_state.start_date,
                 HarvestStateTable.end_date == harvest_state.end_date,
-                HarvestStateTable.status == error_message,
+                HarvestStateTable.status != error_message,
             )
             result = session.execute(statement).scalars().all()
 
