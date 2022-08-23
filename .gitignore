@@ -5,6 +5,6 @@ project/results/*.json
 __pycache__
 .idea
 .vscode
-
-
+dcdump/*.ndjson
+dois/*.json
 
