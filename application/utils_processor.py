@@ -20,7 +20,7 @@ def _list_dump_files_and_get_target_directory(
     if not target_dois_directory.exists():
         target_dois_directory.mkdir()
 
-    files = path.glob("**/*.ndjson")
+    files = path.glob("*.ndjson")
 
     files_list = list(files)
 
@@ -117,5 +117,5 @@ def _concat_affiliation_object(affiliation: Dict):
 
 if __name__ == "__main__":
     split_dump_file_concat_and_save_doi_files(
-        r"C:\Users\maurice.ketevi\Documents\Projects\BSO\bso3-harvest-datacite\dcdump", "dois"
+        r"C:\Users\maurice.ketevi\Documents\Projects\BSO\bso3-harvest-datacite\tests\unit_test\application", "test_dois"
     )
