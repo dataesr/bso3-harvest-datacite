@@ -8,7 +8,8 @@ TESTED_MODULE = "adapters.api.affiliation_matcher"
 
 class TestAffiliationMatcher(TestCase):
     def setUp(self):
-        self.mock_cache = MockCache()
+        self.cache_size = 1
+        self.mock_cache = MockCache(nb_items_max=self.cache_size)
         self.affiliation_matcher = AffiliationMatcher("fake_url", self.mock_cache)
         self.match_type = "match_type"
         self.affiliation_string = "affiliation_string"
