@@ -1,10 +1,13 @@
+from glob import glob
 import os
 import requests
 import pandas as pd
 
 from urllib import parse
-from project.server.main.utils_swift import download_container, upload_object
+from project.server.main.utils_swift import download_container, upload_object, download_object
 from project.server.main.logger import get_logger
+from adapters.api.affiliation_matcher import AffiliationMatcher
+
 
 logger = get_logger(__name__)
 
@@ -26,7 +29,10 @@ def import_es(args):
     es_host = f"https://{ES_LOGIN_BSO_BACK}:{parse.quote(ES_PASSWORD_BSO_BACK)}@{es_url_without_http}"
     logger.debug("loading datacite index")
     # reset_index(index=index_name)
-    elasticimport = f"elasticdump --input={enriched_output_file} --output={es_host}{index_name} --type=data --limit 50 " + "--transform='doc._source=Object.assign({},doc)'"
+    elasticimport = (
+        f"elasticdump --input={enriched_output_file} --output={es_host}{index_name} --type=data --limit 50 "
+        + "--transform='doc._source=Object.assign({},doc)'"
+    )
     logger.debug(f"{elasticimport}")
     logger.debug("starting import in elastic")
     os.system(elasticimport)
@@ -47,6 +53,62 @@ def create_task_download(args):
     os.system(cmd)
     cmd = f"cd {volume}/dump && split -l 1000000 {dump_file}.json"
     os.system(cmd)
+
+
+def download_file(container, filename, destination_dir, prefix=""):
+    """
+    Download file on object storage if it has not been already downloaded.
+    Returns the path of the file once downloaded
+    """
+    local_file_destination = os.path.normpath(os.path.join(f"{destination_dir}", f"{filename}"))
+
+    if not os.path.isdir(destination_dir):
+        os.makedirs(destination_dir)
+
+    if not os.path.exists(local_file_destination):
+        download_object(container, filename, local_file_destination)
+    return local_file_destination
+
+
+def get_partition_size(source_metadata_file, total_partition_number):
+    with open(source_metadata_file, "rt") as f:
+        number_of_lines = len(f.readlines())
+    partition_size = number_of_lines // total_partition_number
+    return partition_size
+
+
+def create_task_match_affiliations_partition(affiliations_source_file, partition_index, total_partition_number):
+    # Download csv file from ovh storage
+    dest_dir = "."
+    container = "tmp"
+    local_affiliation_file = download_file(container=container, filename=affiliations_source_file, destination_dir=dest_dir)
+    # read partition
+    partition_size = get_partition_size(local_affiliation_file, total_partition_number)
+    not_in_partition = lambda x: not x in range(partition_index * partition_size, (partition_index + 1) * partition_size)
+    affiliations_df = pd.read_csv(local_affiliation_file, header=None, names=["doi_publisher", "doi_creator_id", "affiliation"], skiprows=not_in_partition)
+    # process partition
+    AFFILIATION_MATCHER_SERVICE = "http://affiliation-matcher:5001"
+    affiliation_matcher = AffiliationMatcher(base_url=AFFILIATION_MATCHER_SERVICE)
+    affiliations_df["country"] = affiliations_df["affiliation"].apply(lambda x: affiliation_matcher.get_affiliation("country", x))
+    # affiliations_df["is_fr"] = affiliations_df["country"].apply(affiliation_matcher.is_affiliation_fr)
+    processed_filename = f"{local_affiliation_file.split('.')[0]}_{partition_index}.csv"
+    affiliations_df.to_csv(processed_filename, index=False)
+    # upload file containing only the affiliated entries made by the worker to ovh
+    upload_object(container=container, source=processed_filename, target=f"processed_partitions/{processed_filename}")
+    os.remove(processed_filename)
+
+
+def create_task_consolidate_results():
+    # retrieve all files
+    container = "tmp"
+    dest_dir = '.'
+    partitions_dir = download_container(container, skip_download=False, download_prefix="processed_partitions", volume_destination=dest_dir)
+    # aggregate results in one file
+    consolidated_affiliations_file = "consolidated_affiliations.csv"
+    pd.concat([pd.read_csv(f) for f in glob(f"{partitions_dir}/*")]).to_csv(f"{partitions_dir}/{consolidated_affiliations_file}", index=False)
+    # upload the resulting file
+    upload_object(container, source=f"{partitions_dir}/{consolidated_affiliations_file}", target=consolidated_affiliations_file)
+    os.remove(consolidated_affiliations_file)
 
 
 def create_task_harvest(target):
