@@ -1,10 +1,13 @@
+import os
+from adapters.storages.swift_session import SwiftSession
 from domain.api.abstract_processor import AbstractProcessor
-from .utils_processor import (
+from domain.ovh_path import OvhPath
+from application.utils_processor import (
     _list_dump_files_and_get_target_directory,
     split_dump_file_concat_and_save_doi_files,
 )
-from os import PathLike
-from typing import Union, List
+from typing import List
+from config.global_config import config_harvester
 
 
 class Processor(AbstractProcessor):
@@ -21,13 +24,23 @@ class Processor(AbstractProcessor):
     target_folder_name: str = ""
     target_directory: str = ""
     list_of_files: List = []
+    detailed_affiliation_file_path: str = ""
+    global_affiliation_file_path: str = ""
 
-    def __init__(self, source_folder: Union[str, PathLike], target_folder_name: str):
-        self.source_folder = source_folder
-        self.target_folder_name = target_folder_name
+    def __init__(self, config):
+        self.config = config
+        self.source_folder = config['raw_dump_folder_name']
+        self.target_folder_name = config['processed_dump_folder_name']
         self.list_of_files, self.target_directory = _list_dump_files_and_get_target_directory(
-            source_folder, target_folder_name=target_folder_name
+            config['raw_dump_folder_name'], target_folder_name=config['processed_dump_folder_name']
         )
+        self.detailed_affiliation_file_path = config['detailed_affiliation_file_name']
+        self.global_affiliation_file_path = config['global_affiliation_file_name']
+        self.swift = None
+
+        is_swift_config = ("swift" in self.config) and len(self.config["swift"]) > 0
+        if is_swift_config:
+            self.swift = SwiftSession(self.config['swift'])
 
     def process(self, use_thread=True):
         """
@@ -42,20 +55,29 @@ class Processor(AbstractProcessor):
 
         """
         return split_dump_file_concat_and_save_doi_files(
-            self.source_folder, target_folder_name=self.target_folder_name
+            self.source_folder, target_folder_name=self.target_folder_name,
+            detailed_affiliation_file_name=self.detailed_affiliation_file_path,
+            global_affiliation_file_name=self.global_affiliation_file_path
         )
 
     # TODO push Doi to db once
     def push_dois_to_db(self):
         pass
 
+    # TODO push Doi to db once
+    def push_dois_to_ovh(self):
+        self.swift.upload_files_to_swift(config_harvester['datacite_container'],
+                                         [(self.global_affiliation_file_path,
+                                           OvhPath(config_harvester['processed_datacite_container'],
+                                                   os.path.basename(self.global_affiliation_file_path)))])
+        self.swift.upload_files_to_swift(config_harvester['datacite_container'],
+                                         [(self.detailed_affiliation_file_path,
+                                           OvhPath(config_harvester['processed_datacite_container'],
+                                                   os.path.basename(self.detailed_affiliation_file_path)))])
+
 
 if __name__ == "__main__":
-    processor = Processor(
-        r"C:\Users\maurice.ketevi\Documents\Projects\BSO\bso3-harvest-datacite\tests\unit_test\application", "test_dois"
-    )
-    from pathlib import Path
-    #processor.process
-    files = Path(processor.source_folder).glob("*.ndjson")
-    list_files = list(files)
-    print(len(processor.list_of_files))
+    processor = Processor(config_harvester)
+    processor.process()
+    processor.push_dois_to_ovh()
+    # processor.process
