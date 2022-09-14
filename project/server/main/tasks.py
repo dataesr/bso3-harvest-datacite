@@ -90,6 +90,9 @@ def create_task_match_affiliations_partition(affiliations_source_file, partition
     partition_size = get_partition_size(local_affiliation_file, total_partition_number)
     not_in_partition = lambda x: not x in range(partition_index * partition_size, (partition_index + 1) * partition_size)
     affiliations_df = pd.read_csv(local_affiliation_file, header=None, names=["doi_publisher", "doi_creator_id", "affiliation"], skiprows=not_in_partition)
+    if affiliations_df.empty:
+        logger.debug("affiliations_df is empty")
+        return
     logger.debug("affiliations_df before get_affiliation")
     logger.debug(affiliations_df)
     # process partition
