@@ -8,5 +8,5 @@ __pycache__
 dcdump/*.ndjson
 sample-dump/*.ndjson
 dois/
-tests/unit_test/test_dois/
+tests/unit_test/test_dois/*.csv
 

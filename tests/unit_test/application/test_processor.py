@@ -3,20 +3,19 @@ from unittest import TestCase
 import os
 import glob
 import pandas as pd
-
+from tests.unit_test.application.test_global_config import test_config_harvester
 from application.processor import Processor
 
 TESTED_MODULE = "application.processor"
 
 
 class TestProcessor(TestCase):
-    dump_folder = ""
     processor = None
 
     @classmethod
     def setUpClass(cls):
-        cls.dump_folder = Path.cwd() / "tests/unit_test/application"
-        cls.processor = Processor(str(cls.dump_folder.absolute()), "test_dois")
+        print(test_config_harvester)
+        cls.processor = Processor(test_config_harvester)
 
     def test_init_processor_return_list_of_files_and_target_directory(self):
         expected_number_of_files = 1
@@ -68,7 +67,7 @@ class TestProcessor(TestCase):
 
         global_affiliation = pd.read_csv(target_target_directory / self.processor.global_affiliation_file_path,
                                          sep=",",
-                                         names=['doi_publisher', 'doi_creator_id', 'affiliation'],
+                                         names=['doi_publisher', 'doi_client_id', 'affiliation'],
                                          header=None)
 
         # expect
@@ -92,7 +91,7 @@ class TestProcessor(TestCase):
 
         global_affiliation = pd.read_csv(target_target_directory / self.processor.detailed_affiliation_file_path,
                                          sep=",",
-                                         names=['doi_publisher', 'doi_creator_id', 'affiliation'],
+                                         names=['doi_publisher', 'doi_client_id', 'affiliation'],
                                          header=None)
 
         # expect
