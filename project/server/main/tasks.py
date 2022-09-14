@@ -61,7 +61,7 @@ def download_file(container, filename, destination_dir, prefix=""):
     Returns the path of the file once downloaded
     """
     local_file_destination = os.path.normpath(os.path.join(f"{destination_dir}", f"{filename}"))
-
+    logger.debug(f"Downloading {filename} at {local_file_destination}")
     if not os.path.isdir(destination_dir):
         os.makedirs(destination_dir)
 
@@ -71,6 +71,10 @@ def download_file(container, filename, destination_dir, prefix=""):
 
 
 def get_partition_size(source_metadata_file, total_partition_number):
+    """
+    Divide the number of lines of the file by the number of partitions
+    Return the integer part of the division.
+    """
     with open(source_metadata_file, "rt") as f:
         number_of_lines = len(f.readlines())
     partition_size = number_of_lines // total_partition_number
@@ -86,15 +90,22 @@ def create_task_match_affiliations_partition(affiliations_source_file, partition
     partition_size = get_partition_size(local_affiliation_file, total_partition_number)
     not_in_partition = lambda x: not x in range(partition_index * partition_size, (partition_index + 1) * partition_size)
     affiliations_df = pd.read_csv(local_affiliation_file, header=None, names=["doi_publisher", "doi_creator_id", "affiliation"], skiprows=not_in_partition)
+    logger.debug("affiliations_df before get_affiliation")
+    logger.debug(affiliations_df)
     # process partition
-    AFFILIATION_MATCHER_SERVICE = "http://affiliation-matcher:5001"
+    # AFFILIATION_MATCHER_SERVICE = "http://affiliation-matcher:5001"
+    AFFILIATION_MATCHER_SERVICE = "http://host.docker.internal:5000"
     affiliation_matcher = AffiliationMatcher(base_url=AFFILIATION_MATCHER_SERVICE)
     affiliations_df["country"] = affiliations_df["affiliation"].apply(lambda x: affiliation_matcher.get_affiliation("country", x))
-    # affiliations_df["is_fr"] = affiliations_df["country"].apply(affiliation_matcher.is_affiliation_fr)
+    affiliations_df["is_fr"] = affiliations_df.apply(lambda row: affiliation_matcher.is_affiliation_fr(row['doi_publisher'], row["doi_creator_id"], row["country"]), axis=1)
     processed_filename = f"{local_affiliation_file.split('.')[0]}_{partition_index}.csv"
+    logger.debug(affiliation_matcher.get_affiliation.cache_info())
+    logger.debug("affiliations_df after get_affiliation")
+    logger.debug(affiliations_df)
+    logger.debug(f"Saving affiliations_df at {processed_filename}")
     affiliations_df.to_csv(processed_filename, index=False)
     # upload file containing only the affiliated entries made by the worker to ovh
-    upload_object(container=container, source=processed_filename, target=f"processed_partitions/{processed_filename}")
+    upload_object(container=container, source=processed_filename, target=f"processed_partitions/{processed_filename}", segments=False)
     os.remove(processed_filename)
 
 
@@ -108,7 +119,6 @@ def create_task_consolidate_results():
     pd.concat([pd.read_csv(f) for f in glob(f"{partitions_dir}/*")]).to_csv(f"{partitions_dir}/{consolidated_affiliations_file}", index=False)
     # upload the resulting file
     upload_object(container, source=f"{partitions_dir}/{consolidated_affiliations_file}", target=consolidated_affiliations_file)
-    os.remove(consolidated_affiliations_file)
 
 
 def create_task_harvest(target):

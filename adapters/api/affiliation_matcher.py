@@ -40,14 +40,16 @@ class AffiliationMatcher(AbstractAffiliationMatcher):
                     json={"type": match_type, "query": affiliation_string},
                 ).json()["results"]
         except:
-            logger.exception("Error during get affiliation", exc_info=True)
+            logger.exception(
+                f"Error during get affiliation {{'type': match_type, 'query': affiliation_string}}",
+                exc_info=True)
+            return []
 
 
     def _normalizer(self, _str):
         return ud.normalize("NFKD", _str).encode("ascii", "ignore").decode().lower()
 
-    def is_affiliation_fr(self, creators_affiliations: str,
-                        contributors_affiliations: str, publisher: str, clientId: str):
+    def is_affiliation_fr(self, publisher: str, clientId: str, affiliations: List):
         # Implement business rules from https://github.com/Barometre-de-la-Science-Ouverte/bso3-harvest-datacite/blob/dcdump/business_rules.csv
         # Match for publishers
         normalized_publisher = self._normalizer(publisher)
@@ -58,8 +60,7 @@ class AffiliationMatcher(AbstractAffiliationMatcher):
         if self._normalizer(clientId).startswith("inist."):
             return True
         # Affiliation matcher
-        return len(set(self.french_alpha2) & set(self.get_affiliation("country", creators_affiliations)\
-            + self.get_affiliation("country", contributors_affiliations))) != 0
+        return len(set(self.french_alpha2) & set(affiliations)) != 0
 
 
 class AffiliationMatcherDemo(AffiliationMatcher):

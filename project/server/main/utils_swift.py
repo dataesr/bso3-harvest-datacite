@@ -49,9 +49,11 @@ def get_connection() -> swiftclient.Connection:
 
 
 @retry(delay=2, tries=50)
-def upload_object(container: str, source: str, target: str) -> str:
+def upload_object(container: str, source: str, target: str, segments=True) -> str:
     logger.debug(f"Uploading {source} in {container} as {target}")
-    cmd = init_cmd + f" upload {container} {source} --object-name {target}" f" --segment-size 1048576000 --segment-threads 100"
+    cmd = init_cmd + f" upload {container} {source} --object-name {target}"
+    if segments:
+        cmd += " --segment-size 1048576000 --segment-threads 100"
     os.system(cmd)
     return f"https://storage.gra.cloud.ovh.net/v1/AUTH_{project_id}/{container}/{target}"
 
