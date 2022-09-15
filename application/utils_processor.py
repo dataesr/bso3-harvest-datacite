@@ -137,8 +137,12 @@ def _retrieve_object_name_or_given_name(creator_or_contributor: Dict):
         return creator_or_contributor['name']
     elif 'givenName' in creator_or_contributor.keys() and 'familyName' in creator_or_contributor.keys():
         return creator_or_contributor['givenName'] + " " + creator_or_contributor['familyName']
+    elif 'givenName' in creator_or_contributor.keys():
+        return creator_or_contributor['givenName']
+    elif 'familyName' in creator_or_contributor.keys():
+        return creator_or_contributor['familyName']
     else:
-        return creator_or_contributor['givenName'] or creator_or_contributor['familyName']
+        return ''
 
 
 def _append_affiliation_file(affiliation: pd.DataFrame, target_file: str, append_header=False):
