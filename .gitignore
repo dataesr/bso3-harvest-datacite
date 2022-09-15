@@ -5,6 +5,8 @@ project/results/*.json
 __pycache__
 .idea
 .vscode
-
-
+dcdump/*.ndjson
+sample-dump/*.ndjson
+dois/
+tests/unit_test/test_dois/*.csv
 

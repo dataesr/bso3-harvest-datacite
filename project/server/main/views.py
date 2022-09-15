@@ -1,13 +1,20 @@
 import redis
+
+from application.processor import Processor
+from application.utils_processor import split_dump_file_concat_and_save_doi_files
 from rq import Queue, Connection
 from flask import render_template, Blueprint, jsonify, current_app, request
 
+
+from config.global_config import config_harvester
 from project.server.main.tasks import (
     create_task_harvest,
     create_task_match_affiliations_partition,
     create_task_consolidate_results,
+    create_task_process_and_match_dois,
 )
 from project.server.main.utils_dataclasses import split_dump_file
+
 
 from project.server.main.logger import get_logger
 
@@ -79,7 +86,16 @@ def get_status(task_id):
     return jsonify(response_object)
 
 
-@main_blueprint.route("/split_ndjson")
-def run_split_ndjson():
-    split_dump_file()
+@main_blueprint.route("/split_ndjson/<path:source_directory>")
+def run_split_ndjson(source_directory):
+    split_dump_file_concat_and_save_doi_files(source_directory)
     return "split complet"
+
+
+@main_blueprint.route("/process_and_match", methods=["GET"])
+def process_and_match():
+    with Connection(redis.from_url(current_app.config["REDIS_URL"])):
+        q = Queue("harvest-datacite", default_timeout=150 * 3600)
+        task = q.enqueue(create_task_process_and_match_dois)
+    response_object = {"status": "success", "data": {"task_id": task.get_id()}}
+    return jsonify(response_object), 202

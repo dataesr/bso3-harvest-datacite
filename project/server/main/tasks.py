@@ -2,8 +2,9 @@ from glob import glob
 import os
 import requests
 import pandas as pd
-
 from urllib import parse
+from application.processor import Processor
+from config.global_config import config_harvester
 from project.server.main.utils_swift import download_container, upload_object, download_object
 from project.server.main.logger import get_logger
 from adapters.api.affiliation_matcher import AffiliationMatcher
@@ -238,5 +239,10 @@ def read_all(fileType):
                     logger.debug(f"{ix} files read")
     return pd.concat(all_dfs)
 
+
+def create_task_process_and_match_dois():
+    processor = Processor(config_harvester)
+    processor.process()
+    processor.push_dois_to_ovh()
 
 #    url_hal_update = "https://api.archives-ouvertes.fr/search/?fq=doiId_s:*%20AND%20structCountry_s:fr%20AND%20modifiedDate_tdate:[{0}T00:00:00Z%20TO%20{1}T00:00:00Z]%20AND%20producedDate_tdate:[2013-01-01T00:00:00Z%20TO%20{1}T00:00:00Z]&fl=halId_s,doiId_s,openAccess_bool&rows={2}&start={3}"
