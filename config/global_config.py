@@ -22,7 +22,7 @@ RAW_DATACITE_DUMP = 'raw'
 PROCESSED_DATACITE_DUMP = 'processed'
 
 # folder in project
-RAW_DUMP_FOLDER_NAME = "sample-dump"
+RAW_DUMP_FOLDER_NAME = os.getenv("RAW_DUMP_FOLDER_NAME", os.path.join(PROJECT_DIRNAME, "sample-dump"))
 PROCESSED_DUMP_FOLDER_NAME = "dois"
 GLOBAL_AFFILIATION_FILE_NAME = "global_affiliations.csv"
 DETAILED_AFFILIATION_FILE_NAME = "detailed_affiliations.csv"
@@ -49,12 +49,13 @@ def get_harvester_config() -> dict:
 
     config_harvester['is_level_debug'] = DEBUG_LEVEL
     # local dump folder
-    config_harvester['raw_dump_folder_name'] = os.path.join(PROJECT_DIRNAME, RAW_DUMP_FOLDER_NAME)
+    config_harvester['raw_dump_folder_name'] = RAW_DUMP_FOLDER_NAME
     config_harvester['processed_dump_folder_name'] = os.path.join(PROJECT_DIRNAME, PROCESSED_DUMP_FOLDER_NAME)
     config_harvester['global_affiliation_file_name'] = os.path.join(config_harvester['processed_dump_folder_name'],
                                                                     GLOBAL_AFFILIATION_FILE_NAME)
     config_harvester['detailed_affiliation_file_name'] = os.path.join(config_harvester['processed_dump_folder_name'],
                                                                       DETAILED_AFFILIATION_FILE_NAME)
+    config_harvester['affiliation_matcher_service'] = os.getenv("AFFILIATION_MATCHER_SERVICE")
 
     print(f"config_harvester {config_harvester}")
 

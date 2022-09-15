@@ -13,7 +13,6 @@ from project.server.main.tasks import (
     create_task_consolidate_results,
     create_task_process_and_match_dois,
 )
-from project.server.main.utils_dataclasses import split_dump_file
 
 
 from project.server.main.logger import get_logger

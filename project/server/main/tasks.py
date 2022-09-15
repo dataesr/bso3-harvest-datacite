@@ -97,9 +97,7 @@ def create_task_match_affiliations_partition(affiliations_source_file, partition
     logger.debug("affiliations_df before get_affiliation")
     logger.debug(affiliations_df)
     # process partition
-    # AFFILIATION_MATCHER_SERVICE = "http://affiliation-matcher:5001"
-    AFFILIATION_MATCHER_SERVICE = "http://host.docker.internal:5000"
-    affiliation_matcher = AffiliationMatcher(base_url=AFFILIATION_MATCHER_SERVICE)
+    affiliation_matcher = AffiliationMatcher(base_url=config_harvester['affiliation_matcher_service'])
     affiliations_df["country"] = affiliations_df["affiliation"].apply(lambda x: affiliation_matcher.get_affiliation("country", x))
     affiliations_df["is_fr"] = affiliations_df.apply(lambda row: affiliation_matcher.is_affiliation_fr(row['doi_publisher'], row["doi_creator_id"], row["country"]), axis=1)
     processed_filename = f"{local_affiliation_file.split('.')[0]}_{partition_index}.csv"
