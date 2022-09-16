@@ -157,8 +157,8 @@ def concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str):
 
         doi_id: Union[str, List[str]] = str(doi["id"]).lower()
         doi_file_name: Union[str, List[str]] = str(doi["mapped_id"]).lower()
-        doi_publisher: Union[str, List[str]] = str(doi["attributes"]["publisher"]).lower()
-        doi_client_id: Union[str, List[str]] = str(doi["relationships"]["client"]["data"]["id"])
+        doi_publisher: Union[str, List[str]] = '' if doi["attributes"]["publisher"] is None else str(doi["relationships"]["client"]["data"]["id"]).lower()
+        doi_client_id: Union[str, List[str]] = '' if doi["relationships"]["client"]["data"]["id"] is None else str(doi["relationships"]["client"]["data"]["id"])
         list_affiliation_of_object: Union[str, List[str]] = None
 
         if len(object_to_use_for_concatenation) > 0 and len(object_to_use_for_concatenation['affiliation']) > 0:
