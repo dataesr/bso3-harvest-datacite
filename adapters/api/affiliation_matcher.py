@@ -23,6 +23,7 @@ class AffiliationMatcher(AbstractAffiliationMatcher):
     def __init__(self, base_url: str):
         self.base_url = base_url
         self.headers = {"Content-type": "application/json"}
+        self.french_publishers = list(map(self._normalizer, self.french_publishers))
 
     def get_affiliations_list(self, match_types: List[str], affiliations_list: List[str]):
         return requests.post(
@@ -33,6 +34,10 @@ class AffiliationMatcher(AbstractAffiliationMatcher):
 
     @lru_cache(maxsize=CACHE_SIZE)
     def get_affiliation(self, match_type: str, affiliation_string: str):
+        """
+        Calls affiliation matcher to determine the countries/ror/grid/rnsr mentionned in the string.
+        Uses a cache to avoid repeating frequent queries.
+        """
         try:
             return requests.post(
                     url=f"{self.base_url}/match",
@@ -45,21 +50,23 @@ class AffiliationMatcher(AbstractAffiliationMatcher):
                 exc_info=True)
             return []
 
+    def is_publisher_fr(self, publisher: str) -> bool:
+        """Matches for french publishers according to the business rules
+        from https://github.com/Barometre-de-la-Science-Ouverte/bso3-harvest-datacite/blob/dcdump/business_rules.csv"""
+        normalized_publisher = self._normalizer(publisher)
+        return normalized_publisher in self.french_publishers
 
-    def _normalizer(self, _str):
+    def is_clientId_fr(self, clientId: str) -> bool:
+        """Matches for french clientId according to the business rules
+        from https://github.com/Barometre-de-la-Science-Ouverte/bso3-harvest-datacite/blob/dcdump/business_rules.csv"""
+        return self._normalizer(clientId).startswith("inist.")
+
+    def _normalizer(self, _str: str) -> str:
+        """Returns a lower case, non-accentuated, ascii version of the string"""
         return ud.normalize("NFKD", _str).encode("ascii", "ignore").decode().lower()
 
-    def is_affiliation_fr(self, publisher: str, clientId: str, affiliations: List):
-        # Implement business rules from https://github.com/Barometre-de-la-Science-Ouverte/bso3-harvest-datacite/blob/dcdump/business_rules.csv
-        # Match for publishers
-        normalized_publisher = self._normalizer(publisher)
-        for french_publisher in self.french_publishers:
-            if self._normalizer(french_publisher) in normalized_publisher:
-                return True
-        # Match for clientId
-        if self._normalizer(clientId).startswith("inist."):
-            return True
-        # Affiliation matcher
+    def is_affiliation_fr(self, affiliations: List) -> bool:
+        """Matches affiliation detected by affiliation matcher against alpha2 code for french territories"""
         return len(set(self.french_alpha2) & set(affiliations)) != 0
 
 

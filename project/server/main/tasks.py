@@ -56,7 +56,7 @@ def create_task_download(args):
     os.system(cmd)
 
 
-def download_file(container, filename, destination_dir, prefix=""):
+def download_file(container, filename, destination_dir):
     """
     Download file on object storage if it has not been already downloaded.
     Returns the path of the file once downloaded
@@ -85,42 +85,63 @@ def get_partition_size(source_metadata_file, total_partition_number):
 def create_task_match_affiliations_partition(affiliations_source_file, partition_index, total_partition_number):
     # Download csv file from ovh storage
     dest_dir = "."
-    container = "tmp"
-    local_affiliation_file = download_file(container=container, filename=affiliations_source_file, destination_dir=dest_dir)
+    local_affiliation_file = download_file(
+                                container=config_harvester["datacite_container"],
+                                filename=affiliations_source_file,
+                                destination_dir=dest_dir,
+                            )
     # read partition
     partition_size = get_partition_size(local_affiliation_file, total_partition_number)
-    not_in_partition = lambda x: not x in range(partition_index * partition_size, (partition_index + 1) * partition_size)
-    affiliations_df = pd.read_csv(local_affiliation_file, header=None, names=["doi_publisher", "doi_creator_id", "affiliation"], skiprows=not_in_partition)
+    not_in_partition = lambda x: not x in range(
+        partition_index * partition_size, (partition_index + 1) * partition_size
+    )
+    affiliations_df = pd.read_csv(local_affiliation_file, header=None,
+                                  names=["doi_publisher", "doi_client_id", "affiliation_str"],
+                                  skiprows=not_in_partition
+                                )
     if affiliations_df.empty:
         logger.debug("affiliations_df is empty")
         return
-    logger.debug("affiliations_df before get_affiliation")
-    logger.debug(affiliations_df)
     # process partition
-    affiliation_matcher = AffiliationMatcher(base_url=config_harvester['affiliation_matcher_service'])
-    affiliations_df["country"] = affiliations_df["affiliation"].apply(lambda x: affiliation_matcher.get_affiliation("country", x))
-    affiliations_df["is_fr"] = affiliations_df.apply(lambda row: affiliation_matcher.is_affiliation_fr(row['doi_publisher'], row["doi_creator_id"], row["country"]), axis=1)
+    affiliation_matcher = AffiliationMatcher(base_url=config_harvester["affiliation_matcher_service"])
+    affiliations_df["matched_affiliations"] = affiliations_df["affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("country", x))
+    affiliations_df["is_publisher_fr"] = affiliations_df["doi_publisher"].apply(affiliation_matcher.is_publisher_fr)
+    affiliations_df["is_clientId_fr"] = affiliations_df["doi_client_id"].apply(affiliation_matcher.is_clientId_fr)
+    affiliations_df["is_affiliation_fr"] = affiliations_df["matched_affiliations"].apply(affiliation_matcher.is_affiliation_fr)
     processed_filename = f"{local_affiliation_file.split('.')[0]}_{partition_index}.csv"
     logger.debug(affiliation_matcher.get_affiliation.cache_info())
-    logger.debug("affiliations_df after get_affiliation")
-    logger.debug(affiliations_df)
     logger.debug(f"Saving affiliations_df at {processed_filename}")
     affiliations_df.to_csv(processed_filename, index=False)
     # upload file containing only the affiliated entries made by the worker to ovh
-    upload_object(container=container, source=processed_filename, target=f"processed_partitions/{processed_filename}", segments=False)
+    upload_object(
+        container=config_harvester["datacite_container"],
+        source=processed_filename,
+        target=f"{config_harvester['affiliations_prefix']}/{processed_filename}",
+        segments=False,
+    )
     os.remove(processed_filename)
 
 
 def create_task_consolidate_results():
     # retrieve all files
-    container = "tmp"
-    dest_dir = '.'
-    partitions_dir = download_container(container, skip_download=False, download_prefix="processed_partitions", volume_destination=dest_dir)
+    dest_dir = "."
+    partitions_dir = download_container(
+        config_harvester["datacite_container"],
+        skip_download=False,
+        download_prefix=config_harvester["affiliations_prefix"],
+        volume_destination=dest_dir,
+    )
     # aggregate results in one file
     consolidated_affiliations_file = "consolidated_affiliations.csv"
-    pd.concat([pd.read_csv(f) for f in glob(f"{partitions_dir}/*")]).to_csv(f"{partitions_dir}/{consolidated_affiliations_file}", index=False)
+    pd.concat([pd.read_csv(f) for f in glob(f"{partitions_dir}/*")]).to_csv(
+        f"{partitions_dir}/{consolidated_affiliations_file}", index=False
+    )
     # upload the resulting file
-    upload_object(container, source=f"{partitions_dir}/{consolidated_affiliations_file}", target=consolidated_affiliations_file)
+    upload_object(
+        config_harvester["datacite_container"],
+        source=f"{config_harvester['affiliations_prefix']}/{consolidated_affiliations_file}",
+        target=consolidated_affiliations_file,
+    )
 
 
 def create_task_harvest(target):
@@ -196,6 +217,7 @@ def create_task_tmp(filename):
     #                    ix += 1
     #                chunk_res.append(elt)
 
+#    url_hal_update = "https://api.archives-ouvertes.fr/search/?fq=doiId_s:*%20AND%20structCountry_s:fr%20AND%20modifiedDate_tdate:[{0}T00:00:00Z%20TO%20{1}T00:00:00Z]%20AND%20producedDate_tdate:[2013-01-01T00:00:00Z%20TO%20{1}T00:00:00Z]&fl=halId_s,doiId_s,openAccess_bool&rows={2}&start={3}"
 
 def create_task_analyze(args):
     for fileType in args.get("fileType", []):
@@ -243,4 +265,3 @@ def create_task_process_and_match_dois():
     processor.process()
     processor.push_dois_to_ovh()
 
-#    url_hal_update = "https://api.archives-ouvertes.fr/search/?fq=doiId_s:*%20AND%20structCountry_s:fr%20AND%20modifiedDate_tdate:[{0}T00:00:00Z%20TO%20{1}T00:00:00Z]%20AND%20producedDate_tdate:[2013-01-01T00:00:00Z%20TO%20{1}T00:00:00Z]&fl=halId_s,doiId_s,openAccess_bool&rows={2}&start={3}"
