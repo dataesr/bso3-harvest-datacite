@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 from json import JSONDecodeError
 from pathlib import Path
@@ -38,6 +39,8 @@ def _format_doi(doi_id):
 
 
 # TODO rework to have list of files in parameter
+# TODO Push status to database
+# TODO Retrieve list of filename and status from DB
 def split_dump_file_concat_and_save_doi_files(
         dump_folder: Union[str, PathLike], target_folder_name: str = "dois"
         , detailed_affiliation_file_name: str = "detailed_affiliations.csv"
@@ -51,45 +54,50 @@ def split_dump_file_concat_and_save_doi_files(
     detailed_affiliations_file_path_already_exist, detailed_affiliations_file_path = _create_affiliation_file(
         target_directory, detailed_affiliation_file_name)
 
-    number_of_processed_dois = 0
+    processed_files_and_status = []
 
-    print(f'list files {list_path}')
+    global_number_of_processed_dois = 0
+    global_number_of_non_null_dois = 0
+    global_number_of_null_dois = 0
 
     for index, path_file in enumerate(list_path):
 
+        list_creators_or_contributors_and_affiliations = []
         number_of_non_null_dois = 0
         number_of_null_dois = 0
-
-        list_creators_or_contributors_and_affiliations = []
+        number_of_processed_dois_per_file = 0
 
         for jsonstring in path_file.open("r", encoding="utf-8"):
-
             if jsonstring.strip() != "":
-
                 try:
                     json_obj: dict = json.loads(jsonstring)
                 except (TypeError, JSONDecodeError) as e:
-                    print(f'error {e}')
-                    print(jsonstring[1665930:])
-
+                    logger.error(f"error  reading line in file {str(path_file)}. Detailed error {e}")
                 if json_obj["data"]:
-
                     for idx, doi in enumerate(json_obj["data"]):
                         doi["mapped_id"] = _format_doi(doi["id"])
                         current_size = len(list_creators_or_contributors_and_affiliations)
-                        list_creators_or_contributors_and_affiliations += concat_affiliation(doi, "creators")
-                        list_creators_or_contributors_and_affiliations += concat_affiliation(doi, "contributors")
+                        try:
+                            list_creators_or_contributors_and_affiliations += concat_affiliation(doi, "creators")
+                            list_creators_or_contributors_and_affiliations += concat_affiliation(doi, "contributors")
+                        except BaseException as e:
+                            logger.exception(f'Error while creating concat for {doi["id"]}')
 
                         if len(list_creators_or_contributors_and_affiliations) > current_size:
                             number_of_non_null_dois += 1
                         else:
                             number_of_null_dois += 1
 
-                    number_of_processed_dois = number_of_processed_dois + idx + 1
+                    number_of_processed_dois_per_file = number_of_processed_dois_per_file + len(json_obj["data"])
 
-        print(
-            f'{path_file} number of dois {number_of_processed_dois} number of non null dois {number_of_non_null_dois} and null dois {number_of_null_dois}')
+        # logger.info(f'{path_file} number of dois {number_of_processed_dois_per_file} number of non null dois {
+        # number_of_non_null_dois} and null dois {number_of_null_dois}')
 
+        global_number_of_processed_dois = global_number_of_processed_dois + number_of_processed_dois_per_file
+        global_number_of_non_null_dois = global_number_of_non_null_dois + number_of_non_null_dois
+        global_number_of_null_dois = global_number_of_null_dois + number_of_null_dois
+
+        # Append detailed affiliation files
         affiliation = pd.DataFrame.from_dict(list_creators_or_contributors_and_affiliations)
 
         if affiliation.shape[0] > 0:
@@ -98,11 +106,17 @@ def split_dump_file_concat_and_save_doi_files(
 
         _append_affiliation_file(affiliation, detailed_affiliations_file_path)
 
-    # Reduce file size
-    # print(f'number of processed dois {number_of_processed_dois}')
+        # Append list of path dictionary
+        processed_files_and_status.append({'path_file': path_file, 'processed': True, 'processed_date': datetime.now()})
+
+    logger.info(
+        f' Total number of processed dois {global_number_of_processed_dois}, total non null dois '
+        f'{global_number_of_non_null_dois} total null dois {global_number_of_null_dois}')
+
+    # Filter out global affiliation files
     _load_global_affiliation_file_and_drop_duplicates(global_affiliations_file_path)
 
-    return number_of_processed_dois
+    return processed_files_and_status
 
 
 def _load_global_affiliation_file_and_drop_duplicates(global_affiliations_file_path: Union[Path, str]):
@@ -145,7 +159,24 @@ def _retrieve_object_name_or_given_name(creator_or_contributor: Dict):
         return ''
 
 
-def _append_affiliation_file(affiliation: pd.DataFrame, target_file: str, append_header=False):
+def _retrieve_client_id(creator_or_contributor: Dict):
+    if creator_or_contributor["relationships"] is not None \
+            and creator_or_contributor["relationships"] is not None \
+            and creator_or_contributor["relationships"]["client"]["data"] is not None \
+            and creator_or_contributor["relationships"]["client"]["data"]["id"] is not None:
+        return creator_or_contributor["relationships"]["client"]["data"]["id"]
+    else:
+        return ''
+
+
+def _retrieve_publisher(creator_or_contributor: Dict):
+    if creator_or_contributor["attributes"]["publisher"] is not None:
+        return creator_or_contributor["attributes"]["publisher"]
+    else:
+        return ''
+
+
+def _append_affiliation_file(affiliation: pd.DataFrame, target_file: Union[str, Path], append_header=False):
     if affiliation.shape[0] > 0:
         affiliation.to_csv(target_file, mode='a', index=False, header=append_header, encoding="utf-8")
 
@@ -153,28 +184,31 @@ def _append_affiliation_file(affiliation: pd.DataFrame, target_file: str, append
 def concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str):
     list_creators_or_contributors_and_affiliations = []
 
-    for index, object_to_use_for_concatenation in enumerate(doi["attributes"][objects_to_use_for_concatenation]):
+    if objects_to_use_for_concatenation in doi["attributes"]:
 
-        doi_id: Union[str, List[str]] = str(doi["id"]).lower()
-        doi_file_name: Union[str, List[str]] = str(doi["mapped_id"]).lower()
-        doi_publisher: Union[str, List[str]] = '' if doi["attributes"]["publisher"] is None else str(doi["relationships"]["client"]["data"]["id"]).lower()
-        doi_client_id: Union[str, List[str]] = '' if doi["relationships"]["client"]["data"]["id"] is None else str(doi["relationships"]["client"]["data"]["id"])
-        list_affiliation_of_object: Union[str, List[str]] = None
+        for index, object_to_use_for_concatenation in enumerate(doi["attributes"][objects_to_use_for_concatenation]):
 
-        if len(object_to_use_for_concatenation) > 0 and len(object_to_use_for_concatenation['affiliation']) > 0:
-            list_of_affiliation = [
-                _concat_affiliation_of_creator_or_contributor(affiliation, exclude_list=['affiliationIdentifierScheme'])
-                if len(affiliation) > 0 else '' for affiliation in object_to_use_for_concatenation["affiliation"]]
+            doi_id: Union[str, List[str]] = str(doi["id"]).lower()
+            doi_file_name: Union[str, List[str]] = str(doi["mapped_id"]).lower()
+            doi_publisher: Union[str, List[str]] = _retrieve_publisher(doi)
+            doi_client_id: Union[str, List[str]] = _retrieve_client_id(doi)
+            list_affiliation_of_object: Union[str, List[str]] = None
 
-            list_affiliation_of_object = [
-                {'doi_id': doi_id, 'doi_file_name': doi_file_name, 'type': objects_to_use_for_concatenation,
-                 'name': _retrieve_object_name_or_given_name(object_to_use_for_concatenation),
-                 'doi_publisher': doi_publisher,
-                 'doi_client_id': doi_client_id, 'affiliation': affiliation}
-                for affiliation in list_of_affiliation
-            ]
+            if len(object_to_use_for_concatenation) > 0 and len(object_to_use_for_concatenation['affiliation']) > 0:
+                list_of_affiliation = [
+                    _concat_affiliation_of_creator_or_contributor(affiliation,
+                                                                  exclude_list=['affiliationIdentifierScheme'])
+                    if len(affiliation) > 0 else '' for affiliation in object_to_use_for_concatenation["affiliation"]]
 
-            list_creators_or_contributors_and_affiliations += list_affiliation_of_object
+                list_affiliation_of_object = [
+                    {'doi_id': doi_id, 'doi_file_name': doi_file_name, 'type': objects_to_use_for_concatenation,
+                     'name': _retrieve_object_name_or_given_name(object_to_use_for_concatenation),
+                     'doi_publisher': doi_publisher,
+                     'doi_client_id': doi_client_id, 'affiliation': affiliation}
+                    for affiliation in list_of_affiliation
+                ]
+
+                list_creators_or_contributors_and_affiliations += list_affiliation_of_object
 
     return list_creators_or_contributors_and_affiliations
 
@@ -191,5 +225,5 @@ def _concat_affiliation_of_creator_or_contributor(affiliation: Dict, exclude_lis
 
 if __name__ == "__main__":
     split_dump_file_concat_and_save_doi_files(
-        r"C:\Users\maurice.ketevi\Documents\Projects\BSO\bso3-harvest-datacite\dcdump", "dois"
+        r"C:\Users\maurice.ketevi\Documents\datadump", "dois"
     )

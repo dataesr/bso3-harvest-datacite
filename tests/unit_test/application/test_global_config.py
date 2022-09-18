@@ -58,8 +58,6 @@ def get_harvester_config() -> dict:
         test_config_harvester['processed_dump_folder_name'],
         DETAILED_AFFILIATION_FILE_NAME)
 
-    print(f"config_harvester {test_config_harvester}")
-
     return test_config_harvester
 
 

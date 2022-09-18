@@ -57,8 +57,6 @@ def get_harvester_config() -> dict:
                                                                       DETAILED_AFFILIATION_FILE_NAME)
     config_harvester['affiliation_matcher_service'] = os.getenv("AFFILIATION_MATCHER_SERVICE")
 
-    print(f"config_harvester {config_harvester}")
-
     return config_harvester
 
 
