@@ -61,7 +61,7 @@ def download_file(container, filename, destination_dir):
     Download file on object storage if it has not been already downloaded.
     Returns the path of the file once downloaded
     """
-    local_file_destination = os.path.normpath(os.path.join(f"{destination_dir}", f"{filename}"))
+    local_file_destination = os.path.normpath(os.path.join(f"{destination_dir}", f"{os.path.basename(filename)}"))
     logger.debug(f"Downloading {filename} at {local_file_destination}")
     if not os.path.isdir(destination_dir):
         os.makedirs(destination_dir)
@@ -105,8 +105,8 @@ def create_task_match_affiliations_partition(affiliations_source_file, partition
     # process partition
     affiliation_matcher = AffiliationMatcher(base_url=config_harvester["affiliation_matcher_service"])
     affiliations_df["matched_affiliations"] = affiliations_df["affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("country", x))
-    affiliations_df["is_publisher_fr"] = affiliations_df["doi_publisher"].apply(affiliation_matcher.is_publisher_fr)
-    affiliations_df["is_clientId_fr"] = affiliations_df["doi_client_id"].apply(affiliation_matcher.is_clientId_fr)
+    affiliations_df["is_publisher_fr"] = affiliations_df["doi_publisher"].apply(str).apply(affiliation_matcher.is_publisher_fr)
+    affiliations_df["is_clientId_fr"] = affiliations_df["doi_client_id"].apply(str).apply(affiliation_matcher.is_clientId_fr)
     affiliations_df["is_affiliation_fr"] = affiliations_df["matched_affiliations"].apply(affiliation_matcher.is_affiliation_fr)
     processed_filename = f"{local_affiliation_file.split('.')[0]}_{partition_index}.csv"
     logger.debug(affiliation_matcher.get_affiliation.cache_info())
@@ -139,8 +139,8 @@ def create_task_consolidate_results():
     # upload the resulting file
     upload_object(
         config_harvester["datacite_container"],
-        source=f"{config_harvester['affiliations_prefix']}/{consolidated_affiliations_file}",
-        target=consolidated_affiliations_file,
+        source=consolidated_affiliations_file,
+        target=os.path.basename(consolidated_affiliations_file),
     )
 
 

@@ -137,7 +137,7 @@ def _load_global_affiliation_file_and_drop_duplicates(global_affiliations_file_p
 
 def _create_affiliation_file(target_directory: Union[Path, str],
                              file_name: str = "global_affiliation.csv"
-    ) -> tuple[bool, Path]:
+    ) -> Tuple[bool, Path]:
     """
     :type target_directory: Path or str
     """
