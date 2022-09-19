@@ -36,8 +36,9 @@ class TestProcessor(TestCase):
             os.remove(filePath)
 
         # expect
+        global_number_of_processed_dois, processed_files_and_status = self.processor.process()
 
-        self.assertEqual(self.processor.process(), expected_number_of_dois_processed)
+        self.assertEqual(global_number_of_processed_dois, expected_number_of_dois_processed)
 
     def test_init_processor_with_custom_target_repository_expect_create_new_directory(self):
         current_directory = self.processor.target_directory

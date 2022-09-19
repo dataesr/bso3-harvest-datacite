@@ -119,7 +119,7 @@ def split_dump_file_concat_and_save_doi_files(
     # Filter out global affiliation files
     _load_global_affiliation_file_and_drop_duplicates(global_affiliations_file_path)
 
-    return processed_files_and_status
+    return global_number_of_processed_dois, processed_files_and_status
 
 
 def _load_global_affiliation_file_and_drop_duplicates(global_affiliations_file_path: Union[Path, str]):
