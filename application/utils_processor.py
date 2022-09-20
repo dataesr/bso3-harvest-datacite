@@ -230,7 +230,19 @@ def concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str):
                 for affiliation in list_of_affiliation
             ]
             list_creators_or_contributors_and_affiliations += list_affiliation_of_object
-
+        else:
+            list_affiliation_of_object = [
+                {
+                    "doi_id": doi_id,
+                    "doi_file_name": doi_file_name,
+                    "type": objects_to_use_for_concatenation,
+                    "name": _retrieve_object_name_or_given_name(object_to_use_for_concatenation),
+                    "doi_publisher": doi_publisher,
+                    "doi_client_id": doi_client_id,
+                    "affiliation": "",
+                }
+            ]
+            list_creators_or_contributors_and_affiliations += list_affiliation_of_object
     return list_creators_or_contributors_and_affiliations
 
 

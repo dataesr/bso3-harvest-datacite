@@ -14,7 +14,6 @@ class TestProcessor(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        print(test_config_harvester)
         cls.processor = Processor(test_config_harvester)
 
     def test_init_processor_return_list_of_files_and_target_directory(self):
@@ -57,7 +56,7 @@ class TestProcessor(TestCase):
 
         # Given processor in SetUpClass
         target_target_directory = Path(parent_directory, "test_dois")
-        expected_number_global_affiliation = 1
+        expected_number_global_affiliation = 2
 
         fileList = glob.glob(str(target_target_directory / '*.csv'))
 
@@ -81,7 +80,7 @@ class TestProcessor(TestCase):
 
         # Given processor in SetUpClass
         target_target_directory = Path(parent_directory, "test_dois")
-        expected_number_global_affiliation = 2
+        expected_number_global_affiliation = 4
 
         fileList = glob.glob(str(target_target_directory / '*.csv'))
 

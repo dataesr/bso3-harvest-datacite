@@ -9,4 +9,4 @@ dcdump/*.ndjson
 sample-dump/*.ndjson
 dois/
 tests/unit_test/test_dois/*.csv
-
+processed
