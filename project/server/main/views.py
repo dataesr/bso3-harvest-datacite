@@ -1,3 +1,4 @@
+from glob import glob
 import redis
 
 from application.processor import Processor
@@ -12,6 +13,7 @@ from project.server.main.tasks import (
     create_task_match_affiliations_partition,
     create_task_consolidate_results,
     create_task_process_and_match_dois,
+    create_task_enrich_dois,
 )
 
 
@@ -42,6 +44,30 @@ def run_task_tmp():
     return jsonify(response_object), 202
 
 
+def get_partitions(files, partition_size: int) -> List:
+    """Return a list of partitions of files"""
+    partitions = [files[i : i + partition_size] for i in range(0, len(files), partition_size)]
+    return partitions
+
+@main_blueprint.route("/enrich_dois", methods=["POST"])
+def run_task_enrich_doi():
+    args = request.get_json(force=True)
+    response_objects = []
+    partition_size = args.get("partition_size", 90)
+    datacite_dump_files = glob('/data/dump/*.ndjson')
+    partitions = get_partitions(datacite_dump_files, partition_size)
+    with Connection(redis.from_url(current_app.config["REDIS_URL"])):
+        q = Queue(name="harvest-datacite", default_timeout=150 * 3600)
+        for partition in partitions:
+            task_kwargs = {
+                "partition_files": partition,
+                "job_timeout": 2 * 3600,
+            }
+            task = q.enqueue(create_task_enrich_dois, **task_kwargs)
+            response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
+    return jsonify(response_objects), 202
+
+
 @main_blueprint.route("/affiliations", methods=["POST"])
 def run_task_affiliations():
     args = request.get_json(force=True)
@@ -62,6 +88,10 @@ def run_task_affiliations():
             response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
 
         # concatenate the files
+        # Might need to put this in another route because
+        # if there are multiple workers, one of them will take
+        # this task before the other affiliation tasks are done
+        # and the concat file won't contain all the partition
         task = q.enqueue(create_task_consolidate_results)
     return jsonify(response_objects), 202
 

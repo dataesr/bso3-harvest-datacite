@@ -1,5 +1,7 @@
 from glob import glob
 import os
+from pathlib import Path
+from application.utils_processor import write_doi_files
 import requests
 import pandas as pd
 from urllib import parse
@@ -8,7 +10,7 @@ from config.global_config import config_harvester
 from project.server.main.utils_swift import download_container, upload_object, download_object
 from project.server.main.logger import get_logger
 from adapters.api.affiliation_matcher import AffiliationMatcher
-
+from domain.ovh_path import OvhPath
 
 logger = get_logger(__name__)
 
@@ -142,6 +144,64 @@ def create_task_consolidate_results():
         source=consolidated_affiliations_file,
         target=os.path.basename(consolidated_affiliations_file),
     )
+
+
+def get_merged_affiliations(dest_dir: str) -> pd.DataFrame:
+    """Downloads (if need be) consolidated and detailled csv files
+    and returns the merged DataFrame"""
+    consolidated_affiliations_file = download_file(
+                                container=config_harvester["datacite_container"],
+                                filename="consolidated_affiliations.csv",
+                                destination_dir=dest_dir,
+                            )
+    consolidated_affiliations = pd.read_csv(consolidated_affiliations_file)
+    detailled_affiliations_file = download_file(
+                                container=config_harvester["datacite_container"],
+                                filename="processed/detailled_affiliations.csv",
+                                destination_dir=dest_dir,
+                            )
+    detailled_affiliations = pd.read_csv(detailled_affiliations_file)
+    # merge en merged_affiliation
+    return pd.merge(consolidated_affiliations, detailled_affiliations, 'left', on=["doi_publisher", "doi_client_id", "affiliation_str"])
+
+
+def clean_up(output_dir):
+    for file in glob(output_dir):
+        os.remove(file)
+
+
+def upload_doi_files(files, prefix):
+    """Upload doi files to processed container"""
+    for file in files:
+        upload_object(
+            config_harvester["datacite_processed_container"],
+            source=file,
+            target=OvhPath(prefix, os.path.basename(file)),
+        )
+
+
+def create_task_enrich_dois(partition_files):
+    dest_dir = "./csv/"
+    merged_affiliations = get_merged_affiliations(dest_dir)
+
+    is_fr = (merged_affiliations.is_publisher_fr | merged_affiliations.is_clientId_fr | merged_affiliations.is_affiliation_fr)
+    fr_affiliated_dois_df = merged_affiliations[is_fr]
+
+    output_dir = './dois/'
+    for file in partition_files:
+        write_doi_files(fr_affiliated_dois_df, Path(file), output_dir)
+
+    # Upload and clean up
+    all_files = glob(output_dir)
+    fr_files = [
+            file
+            for file in all_files
+            if file.split('.')[0] in fr_affiliated_dois_df.doi_file_name
+        ]
+    upload_doi_files(fr_files , prefix="fr")
+    upload_doi_files(all_files, prefix="country_matched")
+    for file in all_files:
+        os.remove(file)
 
 
 def create_task_harvest(target):

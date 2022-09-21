@@ -8,6 +8,7 @@ import pandas as pd
 from project.server.main.logger import get_logger
 from config.logger_config import LOGGER_LEVEL
 from tqdm import tqdm
+import os
 
 logger = get_logger(__name__, level=LOGGER_LEVEL)
 
@@ -39,34 +40,68 @@ def _format_doi(doi_id):
     return doi
 
 
+def json_line_generator(ndjson_file):
+    for jsonstring in ndjson_file.open("r", encoding="utf-8"):
+        if jsonstring.strip() != "":
+            try:
+                yield json.loads(jsonstring)
+            except (TypeError, JSONDecodeError) as e:
+                print(f"Error reading line in file. Detailed error {e}")
+
+
+def enrich_doi(doi, merged_affiliations_df):
+    CREATORS = "creators"
+    CONTRIBUTORS = "contributors"
+    for obj in doi["attributes"][CREATORS] + doi["attributes"][CONTRIBUTORS]:
+        for affiliation in obj.get("affiliation"):
+            if affiliation:
+                aff_str = _concat_affiliation_of_creator_or_contributor(affiliation, exclude_list=["affiliationIdentifierScheme"])
+                matched_affiliations = next(iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['matched_affiliations'].values), [])
+                obj['countries_affiliated'] = matched_affiliations
+
+
+def write_doi_files(merged_affiliations_df: pd.DataFrame,
+                    dump_file: PathLike,
+                    output_dir: str
+    ):
+    """Writes a json file for each doi, as is, if not contained in the DataFrame,
+    otherwise with the matched affiliation to each creator or contributor object in the doi
+    """
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+    for json_obj in json_line_generator(dump_file):
+        for doi in json_obj.get('data'):
+            doi_contains_selected_affiliations = not (merged_affiliations_df[merged_affiliations_df["doi"] == doi['id']]).empty
+            if doi_contains_selected_affiliations:
+                enrich_doi(doi, merged_affiliations_df)
+            with open(f"{output_dir}/{_format_doi(doi['id'])}.json", 'w') as f:
+                json.dump(doi, f, indent=None)
+
+
+
+
 def get_list_creators_or_contributors_and_affiliations(path_file):
     list_creators_or_contributors_and_affiliations = []
     number_of_non_null_dois = 0
     number_of_null_dois = 0
     number_of_processed_dois_per_file = 0
 
-    for jsonstring in path_file.open("r", encoding="utf-8"):
-        if jsonstring.strip() != "":
+    for json_obj in json_line_generator(path_file):
+        for doi in json_obj.get('data'):
+            doi["mapped_id"] = _format_doi(doi["id"])
+            current_size = len(list_creators_or_contributors_and_affiliations)
             try:
-                json_obj: dict = json.loads(jsonstring)
-            except (TypeError, JSONDecodeError) as e:
-                logger.error(f"error  reading line in file {str(path_file)}. Detailed error {e}")
-            if json_obj["data"]:
-                for idx, doi in enumerate(json_obj["data"]):
-                    doi["mapped_id"] = _format_doi(doi["id"])
-                    current_size = len(list_creators_or_contributors_and_affiliations)
-                    try:
-                        list_creators_or_contributors_and_affiliations += concat_affiliation(doi, "creators")
-                        list_creators_or_contributors_and_affiliations += concat_affiliation(doi, "contributors")
-                    except BaseException as e:
-                        logger.exception(f'Error while creating concat for {doi["id"]}')
+                list_creators_or_contributors_and_affiliations += concat_affiliation(doi, "creators")
+                list_creators_or_contributors_and_affiliations += concat_affiliation(doi, "contributors")
+            except BaseException as e:
+                logger.exception(f'Error while creating concat for {doi["id"]}')
 
-                    if len(list_creators_or_contributors_and_affiliations) > current_size:
-                        number_of_non_null_dois += 1
-                    else:
-                        number_of_null_dois += 1
+            if len(list_creators_or_contributors_and_affiliations) > current_size:
+                number_of_non_null_dois += 1
+            else:
+                number_of_null_dois += 1
 
-                number_of_processed_dois_per_file = number_of_processed_dois_per_file + len(json_obj["data"])
+        number_of_processed_dois_per_file = number_of_processed_dois_per_file + len(json_obj["data"])
 
     logger.info(f'{path_file} number of dois {number_of_processed_dois_per_file} number of non null dois {number_of_non_null_dois} and null dois {number_of_null_dois}')
 
@@ -152,6 +187,7 @@ def _create_affiliation_file(target_directory: Union[Path, str],
 
 
 def _retrieve_object_name_or_given_name(creator_or_contributor: Dict):
+    """Return the full name of the contributor or the creator"""
     if "name" in creator_or_contributor.keys():
         return str(creator_or_contributor["name"])
     elif (
