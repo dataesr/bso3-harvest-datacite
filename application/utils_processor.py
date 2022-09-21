@@ -68,7 +68,7 @@ def get_list_creators_or_contributors_and_affiliations(path_file):
 
                 number_of_processed_dois_per_file = number_of_processed_dois_per_file + len(json_obj["data"])
 
-    #logger.info(f'{path_file} number of dois {number_of_processed_dois_per_file} number of non null dois {number_of_non_null_dois} and null dois {number_of_null_dois}')
+    logger.info(f'{path_file} number of dois {number_of_processed_dois_per_file} number of non null dois {number_of_non_null_dois} and null dois {number_of_null_dois}')
 
     return number_of_processed_dois_per_file,number_of_non_null_dois,number_of_null_dois, list_creators_or_contributors_and_affiliations
 
@@ -153,35 +153,18 @@ def _create_affiliation_file(target_directory: Union[Path, str],
 
 def _retrieve_object_name_or_given_name(creator_or_contributor: Dict):
     if "name" in creator_or_contributor.keys():
-        return creator_or_contributor["name"]
+        return str(creator_or_contributor["name"])
     elif (
         "givenName" in creator_or_contributor.keys()
         and "familyName" in creator_or_contributor.keys()
     ):
-        return creator_or_contributor["givenName"] + " " + creator_or_contributor["familyName"]
+        return str(creator_or_contributor["givenName"]) + " " + str(creator_or_contributor["familyName"])
     elif "givenName" in creator_or_contributor.keys():
-        return creator_or_contributor["givenName"]
+        return str(creator_or_contributor["givenName"])
     elif "familyName" in creator_or_contributor.keys():
-        return creator_or_contributor["familyName"]
+        return str(creator_or_contributor["familyName"])
     else:
         return ""
-
-
-def _retrieve_client_id(creator_or_contributor: Dict):
-    if creator_or_contributor["relationships"] is not None \
-            and creator_or_contributor["relationships"] is not None \
-            and creator_or_contributor["relationships"]["client"]["data"] is not None \
-            and creator_or_contributor["relationships"]["client"]["data"]["id"] is not None:
-        return creator_or_contributor["relationships"]["client"]["data"]["id"]
-    else:
-        return ''
-
-
-def _retrieve_publisher(creator_or_contributor: Dict):
-    if creator_or_contributor["attributes"]["publisher"] is not None:
-        return creator_or_contributor["attributes"]["publisher"]
-    else:
-        return ''
 
 
 def _append_affiliation_file(affiliation: pd.DataFrame, target_file: Union[str, Path], append_header=False):
