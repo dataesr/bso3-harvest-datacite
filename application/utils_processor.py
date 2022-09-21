@@ -17,19 +17,15 @@ def _list_dump_files_and_get_target_directory(
         dump_folder: Union[str, PathLike], target_folder_name: str
     ):
     path = Path.cwd()
-
     if isinstance(dump_folder, str):
         path = Path(dump_folder)
-
     assert path.exists() and path.is_dir()
 
     target_dois_directory = path.parent / Path(target_folder_name)
-
     if not target_dois_directory.exists():
         target_dois_directory.mkdir()
 
     files = path.glob("*.ndjson")
-
     files_list = list(files)
 
     return files_list, target_dois_directory
