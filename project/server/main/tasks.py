@@ -118,7 +118,7 @@ def create_task_match_affiliations_partition(affiliations_source_file, partition
     upload_object(
         container=config_harvester["datacite_container"],
         source=processed_filename,
-        target=f"{config_harvester['affiliations_prefix']}/{processed_filename}",
+        target=OvhPath(config_harvester['affiliations_prefix'], processed_filename),
         segments=False,
     )
     os.remove(processed_filename)
@@ -174,7 +174,7 @@ def upload_doi_files(files, prefix):
     """Upload doi files to processed container"""
     for file in files:
         upload_object(
-            config_harvester["datacite_processed_container"],
+            config_harvester["datacite_container"],
             source=file,
             target=OvhPath(prefix, os.path.basename(file)),
         )
@@ -198,8 +198,8 @@ def create_task_enrich_dois(partition_files):
             for file in all_files
             if file.split('.')[0] in fr_affiliated_dois_df.doi_file_name
         ]
-    upload_doi_files(fr_files , prefix="fr")
-    upload_doi_files(all_files, prefix="country_matched")
+    upload_doi_files(fr_files , prefix=config_harvester["fr_doi_files_prefix"])
+    upload_doi_files(all_files, prefix=config_harvester["doi_files_prefix"])
     for file in all_files:
         os.remove(file)
 

@@ -47,6 +47,8 @@ def get_harvester_config() -> dict:
     config_harvester['raw_datacite_container'] = RAW_DATACITE_DUMP
     config_harvester['processed_datacite_container'] = PROCESSED_DATACITE_DUMP
     config_harvester['affiliations_prefix'] = "affiliations"
+    config_harvester['doi_files_prefix'] = "country_matched"
+    config_harvester['fr_doi_files_prefix'] = "fr"
 
     config_harvester['is_level_debug'] = DEBUG_LEVEL
     # local dump folder
