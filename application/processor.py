@@ -1,4 +1,6 @@
 import os
+
+from adapters.databases.process_state_repository import ProcessStateRepository
 from adapters.storages.swift_session import SwiftSession
 from domain.api.abstract_processor import AbstractProcessor
 from domain.ovh_path import OvhPath
@@ -37,10 +39,15 @@ class Processor(AbstractProcessor):
         self.detailed_affiliation_file_path = config['detailed_affiliation_file_name']
         self.global_affiliation_file_path = config['global_affiliation_file_name']
         self.swift = None
+        self.process_state = None
 
         is_swift_config = ("swift" in self.config) and len(self.config["swift"]) > 0
         if is_swift_config:
             self.swift = SwiftSession(self.config['swift'])
+
+        is_process_state_config = ()
+        if is_process_state_config:
+            ProcessStateRepository()
 
     def process(self, use_thread=True):
         """
