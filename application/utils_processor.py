@@ -37,13 +37,23 @@ def _format_doi(doi_id):
 
 
 def json_line_generator(ndjson_file):
-    for jsonstring in ndjson_file.open("r", encoding="utf-8"):
-        if jsonstring.strip() != "":
-            try:
-                yield json.loads(jsonstring)
-            except (TypeError, JSONDecodeError) as e:
-                print(f"Error reading line in file. Detailed error {e}")
+    with ndjson_file.open("r", encoding="utf-8") as f:
+        for jsonstring in f:
+            if jsonstring.strip() != "":
+                try:
+                    yield json.loads(jsonstring)
+                except (TypeError, JSONDecodeError) as e:
+                    print(f"Error reading line in file. Detailed error {e}")
 
+
+def get_matched_affiliations(merged_affiliations_df, aff_str):
+    matched_affiliations = next(iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['matched_affiliations'].values) , [])
+    if isinstance(matched_affiliations, list):
+        return matched_affiliations
+    elif isinstance(matched_affiliations, str) and matched_affiliations[0] == '[':
+        return eval(matched_affiliations)
+    else:
+        return []
 
 def enrich_doi(doi, merged_affiliations_df):
     CREATORS = "creators"
@@ -52,8 +62,20 @@ def enrich_doi(doi, merged_affiliations_df):
         for affiliation in obj.get("affiliation"):
             if affiliation:
                 aff_str = _concat_affiliation_of_creator_or_contributor(affiliation, exclude_list=["affiliationIdentifierScheme"])
-                matched_affiliations = next(iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['matched_affiliations'].values), [])
-                obj['countries_affiliated'] = matched_affiliations
+                matched_affiliations = {"countries": get_matched_affiliations(merged_affiliations_df, aff_str)}
+                obj['matched_affiliations'] = matched_affiliations
+
+
+def count_newlines(fname):
+    def _make_gen(reader):
+        while True:
+            b = reader(2 ** 16)
+            if not b: break
+            yield b
+
+    with open(fname, "rb") as f:
+        count = sum(buf.count(b"\n") for buf in _make_gen(f.raw.read))
+    return count
 
 
 def write_doi_files(merged_affiliations_df: pd.DataFrame,
@@ -65,7 +87,7 @@ def write_doi_files(merged_affiliations_df: pd.DataFrame,
     """
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
-    for json_obj in json_line_generator(dump_file):
+    for json_obj in tqdm(json_line_generator(dump_file), total=count_newlines(str(dump_file))):
         for doi in json_obj.get('data'):
             doi_contains_selected_affiliations = not (merged_affiliations_df[merged_affiliations_df["doi"] == doi['id']]).empty
             if doi_contains_selected_affiliations:

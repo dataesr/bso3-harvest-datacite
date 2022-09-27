@@ -1,4 +1,5 @@
 from glob import glob
+from typing import List
 import redis
 
 from application.processor import Processor
@@ -54,17 +55,19 @@ def run_task_enrich_doi():
     args = request.get_json(force=True)
     response_objects = []
     partition_size = args.get("partition_size", 90)
-    datacite_dump_files = glob('/data/dump/*.ndjson')
-    partitions = get_partitions(datacite_dump_files, partition_size)
+    # datacite_dump_files = glob('/data/dump/*.ndjson')
+    datacite_dump_file = '/data/dump/dcdump-20220603000000-20220603235959.ndjson'
+    # partitions = get_partitions(datacite_dump_files, partition_size)
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue(name="harvest-datacite", default_timeout=150 * 3600)
-        for partition in partitions:
-            task_kwargs = {
-                "partition_files": partition,
-                "job_timeout": 2 * 3600,
-            }
-            task = q.enqueue(create_task_enrich_dois, **task_kwargs)
-            response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
+        # for partition in partitions:
+        task_kwargs = {
+            "partition_files": [datacite_dump_file],
+            "job_timeout": 2 * 3600,
+        }
+        task = q.enqueue(create_task_enrich_dois, **task_kwargs)
+        response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
+            # break
     return jsonify(response_objects), 202
 
 
@@ -86,7 +89,6 @@ def run_task_affiliations():
             }
             task = q.enqueue(create_task_match_affiliations_partition, **task_kwargs)
             response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
-
         # concatenate the files
         # Might need to put this in another route because
         # if there are multiple workers, one of them will take

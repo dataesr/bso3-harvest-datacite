@@ -11,6 +11,7 @@ from project.server.main.utils_swift import download_container, upload_object, d
 from project.server.main.logger import get_logger
 from adapters.api.affiliation_matcher import AffiliationMatcher
 from domain.ovh_path import OvhPath
+from tqdm import tqdm
 
 logger = get_logger(__name__)
 
@@ -110,6 +111,11 @@ def create_task_match_affiliations_partition(affiliations_source_file, partition
     affiliations_df["is_publisher_fr"] = affiliations_df["doi_publisher"].apply(str).apply(affiliation_matcher.is_publisher_fr)
     affiliations_df["is_clientId_fr"] = affiliations_df["doi_client_id"].apply(str).apply(affiliation_matcher.is_clientId_fr)
     affiliations_df["is_affiliation_fr"] = affiliations_df["matched_affiliations"].apply(affiliation_matcher.is_affiliation_fr)
+    is_fr = (affiliations_df.is_publisher_fr | affiliations_df.is_clientId_fr | affiliations_df.is_affiliation_fr)
+    fr_affiliated_dois_df = affiliations_df[is_fr]
+    fr_affiliated_dois_df["grid"] = affiliations_df["affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("grid", x))
+    fr_affiliated_dois_df["rnsr"] = affiliations_df["affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("rnsr", x))
+    fr_affiliated_dois_df["ror"] = affiliations_df["affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("ror", x))
     processed_filename = f"{local_affiliation_file.split('.')[0]}_{partition_index}.csv"
     logger.debug(affiliation_matcher.get_affiliation.cache_info())
     logger.debug(f"Saving affiliations_df at {processed_filename}")
@@ -157,10 +163,16 @@ def get_merged_affiliations(dest_dir: str) -> pd.DataFrame:
     consolidated_affiliations = pd.read_csv(consolidated_affiliations_file)
     detailled_affiliations_file = download_file(
                                 container=config_harvester["datacite_container"],
-                                filename="processed/detailled_affiliations.csv",
+                                filename="processed/detailed_affiliations.csv",
                                 destination_dir=dest_dir,
                             )
-    detailled_affiliations = pd.read_csv(detailled_affiliations_file)
+    detailled_affiliations = pd.read_csv(detailled_affiliations_file,
+                                        names=[
+                                            "doi", "doi_file_name",
+                                            "creator_contributor",
+                                            "name", "doi_publisher",
+                                            "doi_client_id", "affiliation_str"
+                                        ], header=None)
     # merge en merged_affiliation
     return pd.merge(consolidated_affiliations, detailled_affiliations, 'left', on=["doi_publisher", "doi_client_id", "affiliation_str"])
 
@@ -188,15 +200,15 @@ def create_task_enrich_dois(partition_files):
     fr_affiliated_dois_df = merged_affiliations[is_fr]
 
     output_dir = './dois/'
-    for file in partition_files:
+    for file in tqdm(partition_files):
         write_doi_files(fr_affiliated_dois_df, Path(file), output_dir)
 
     # Upload and clean up
-    all_files = glob(output_dir)
+    all_files = glob(output_dir + '*.json')
     fr_files = [
             file
             for file in all_files
-            if file.split('.')[0] in fr_affiliated_dois_df.doi_file_name
+            if os.path.splitext(os.path.basename(file))[0] in fr_affiliated_dois_df.doi_file_name.values
         ]
     upload_doi_files(fr_files , prefix=config_harvester["fr_doi_files_prefix"])
     upload_doi_files(all_files, prefix=config_harvester["doi_files_prefix"])

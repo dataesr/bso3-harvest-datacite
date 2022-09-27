@@ -3,3 +3,4 @@
 *.ndjson
 *.json
 __pycache__
+*.zip
