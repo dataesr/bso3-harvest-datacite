@@ -107,16 +107,20 @@ def create_task_match_affiliations_partition(affiliations_source_file, partition
         return
     # process partition
     affiliation_matcher = AffiliationMatcher(base_url=config_harvester["affiliation_matcher_service"])
-    affiliations_df["matched_affiliations"] = affiliations_df["affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("country", x))
+    affiliation_matcher_version = affiliation_matcher.get_version()
+    affiliations_df["countries"] = affiliations_df["affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("country", x))
     affiliations_df["is_publisher_fr"] = affiliations_df["doi_publisher"].apply(str).apply(affiliation_matcher.is_publisher_fr)
     affiliations_df["is_clientId_fr"] = affiliations_df["doi_client_id"].apply(str).apply(affiliation_matcher.is_clientId_fr)
-    affiliations_df["is_affiliation_fr"] = affiliations_df["matched_affiliations"].apply(affiliation_matcher.is_affiliation_fr)
-    is_fr = (affiliations_df.is_publisher_fr | affiliations_df.is_clientId_fr | affiliations_df.is_affiliation_fr)
-    fr_affiliated_dois_df = affiliations_df[is_fr]
-    fr_affiliated_dois_df["grid"] = affiliations_df["affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("grid", x))
-    fr_affiliated_dois_df["rnsr"] = affiliations_df["affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("rnsr", x))
-    fr_affiliated_dois_df["ror"] = affiliations_df["affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("ror", x))
-    processed_filename = f"{local_affiliation_file.split('.')[0]}_{partition_index}.csv"
+    affiliations_df["is_countries_fr"] = affiliations_df["countries"].apply(affiliation_matcher.is_countries_fr)
+    is_fr = (affiliations_df.is_publisher_fr | affiliations_df.is_clientId_fr | affiliations_df.is_countries_fr)
+    affiliations_df["grid"] = [[]] * len(affiliations_df)
+    affiliations_df["rnsr"] = [[]] * len(affiliations_df)
+    affiliations_df["ror"] = [[]] * len(affiliations_df)
+    affiliations_df.loc[is_fr, "grid"] = affiliations_df.loc[is_fr, "affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("grid", x))
+    affiliations_df.loc[is_fr, "rnsr"] = affiliations_df.loc[is_fr, "affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("rnsr", x))
+    affiliations_df.loc[is_fr, "ror"] = affiliations_df.loc[is_fr, "affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("ror", x))
+
+    processed_filename = f"{affiliation_matcher_version}_{partition_index}.csv"
     logger.debug(affiliation_matcher.get_affiliation.cache_info())
     logger.debug(f"Saving affiliations_df at {processed_filename}")
     affiliations_df.to_csv(processed_filename, index=False)
@@ -196,12 +200,11 @@ def create_task_enrich_dois(partition_files):
     dest_dir = "./csv/"
     merged_affiliations = get_merged_affiliations(dest_dir)
 
-    is_fr = (merged_affiliations.is_publisher_fr | merged_affiliations.is_clientId_fr | merged_affiliations.is_affiliation_fr)
+    is_fr = (merged_affiliations.is_publisher_fr | merged_affiliations.is_clientId_fr | merged_affiliations.is_countries_fr)
     fr_affiliated_dois_df = merged_affiliations[is_fr]
-
     output_dir = './dois/'
     for file in tqdm(partition_files):
-        write_doi_files(fr_affiliated_dois_df, Path(file), output_dir)
+        write_doi_files(merged_affiliations, is_fr, Path(file), output_dir)
 
     # Upload and clean up
     all_files = glob(output_dir + '*.json')

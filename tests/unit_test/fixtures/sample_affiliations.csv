@@ -1,2 +1,8 @@
-doi_publisher,doi_client_id,affiliation_str,matched_affiliations,is_publisher_fr,is_clientId_fr,is_affiliation_fr,doi,doi_file_name,creator_contributor,name
-zenodo,cern.zenodo,embl-ebi,['fr'],False,False,True,10.5281/zenodo.6612534,10.5281_zenodo.6612534,creators,"McLaughlin, James"
+doi_publisher,doi_client_id,affiliation_str,countries,is_publisher_fr,is_clientId_fr,is_countries_fr,doi,doi_file_name,creator_contributor,name,ror,grid,rnsr
+zenodo,cern.zenodo,@actions,[],False,False,False,10.5281/zenodo.6612534,10.5281_zenodo.6612534,creators,Actions-User,[],[],[]
+zenodo,cern.zenodo,semanticly ltd,[],False,False,False,10.5281/zenodo.6612534,10.5281_zenodo.6612534,creators,"Matentzoglu, Nico",[],[],[]
+zenodo,cern.zenodo,harvard medical school,[],False,False,False,10.5281/zenodo.6612534,10.5281_zenodo.6612534,creators,"Hoyt, Charles Tapley",[],[],[]
+zenodo,cern.zenodo,nationwide children's hospital,[],False,False,False,10.5281/zenodo.6612534,10.5281_zenodo.6612534,creators,"Alex H. Wagner, PhD",[],[],[]
+zenodo,cern.zenodo,embl-ebi,['fr'],False,False,True,10.5281/zenodo.6612534,10.5281_zenodo.6612534,creators,"McLaughlin, James",[],[],[]
+zenodo,cern.zenodo,lawrence berkeley national laboratory,['us'],False,False,False,10.5281/zenodo.6612534,10.5281_zenodo.6612534,creators,Harshad,[],[],[]
+zenodo,cern.zenodo,lawrence berkeley national laboratory,['us'],False,False,False,10.5281/zenodo.6612534,10.5281_zenodo.6612534,creators,"Mungall, Chris",[],[],[]

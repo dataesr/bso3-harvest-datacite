@@ -20,11 +20,16 @@ class TestProcessor(TestCase):
         expected_fr_doi_file = fixture_path / "expected_fr_doi.json"
         with expected_fr_doi_file.open("r", encoding="utf-8") as f:
             expected_content = json.load(f)
+        is_fr = (sample_affiliations.is_publisher_fr | sample_affiliations.is_clientId_fr | sample_affiliations.is_countries_fr)
         # When
-        write_doi_files(sample_affiliations, fixture_path / "sample.ndjson", output_dir=str(output_dir))
+        write_doi_files(
+            sample_affiliations, is_fr, fixture_path / "sample.ndjson", output_dir=str(output_dir)
+        )
         # Then
         output_files = [file.name for file in output_dir.glob("*.json")]
-        fr_doi_file = next(file for file in output_dir.glob("*.json") if file.name == fr_doi_file_name)
+        fr_doi_file = next(
+            file for file in output_dir.glob("*.json") if file.name == fr_doi_file_name
+        )
         self.assertEqual(expected_output_files, output_files)
         with fr_doi_file.open("r", encoding="utf-8") as f:
             content = json.load(f)
