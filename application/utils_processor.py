@@ -46,24 +46,43 @@ def json_line_generator(ndjson_file):
                     print(f"Error reading line in file. Detailed error {e}")
 
 
-def get_matched_affiliations(merged_affiliations_df, aff_str):
-    matched_affiliations = next(iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['matched_affiliations'].values) , [])
-    if isinstance(matched_affiliations, list):
-        return matched_affiliations
-    elif isinstance(matched_affiliations, str) and matched_affiliations[0] == '[':
-        return eval(matched_affiliations)
+def listify(obj):
+    """Returns the obj if the obj is a list.
+    If the obj is a string of a list, runs eval to output a list.
+    Otherwise returns an empty list"""
+    if isinstance(obj, list):
+        return obj
+    elif isinstance(obj, str) and obj[0] == '[':
+        return eval(obj)
     else:
         return []
 
+
+def get_matched_affiliations(merged_affiliations_df, aff_str):
+    """Get the matched affiliations in the dataframe corresponding to the affiliation string"""
+    countries = next(iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['countries'].values) , [])
+    ror = next(iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['ror'].values) , [])
+    grid = next(iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['grid'].values) , [])
+    rnsr = next(iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['rnsr'].values) , [])
+    return {
+        "countries": listify(countries),
+        "ror": listify(ror),
+        "grid": listify(grid),
+        "rnsr": listify(rnsr),
+    }
+
 def enrich_doi(doi, merged_affiliations_df):
+    """Add a matched_affiliations field at the level of the affiliation containing
+    the countries, ror, grid, rnsr detected by the affiliation matcher"""
     CREATORS = "creators"
     CONTRIBUTORS = "contributors"
+    this_doi = merged_affiliations_df["doi"] == doi["id"]
     for obj in doi["attributes"][CREATORS] + doi["attributes"][CONTRIBUTORS]:
         for affiliation in obj.get("affiliation"):
             if affiliation:
                 aff_str = _concat_affiliation_of_creator_or_contributor(affiliation, exclude_list=["affiliationIdentifierScheme"])
-                matched_affiliations = {"countries": get_matched_affiliations(merged_affiliations_df, aff_str)}
-                obj['matched_affiliations'] = matched_affiliations
+                obj['matched_affiliations'] = get_matched_affiliations(merged_affiliations_df[this_doi], aff_str)
+                # create mongo obj to push to DB
 
 
 def count_newlines(fname):
@@ -79,17 +98,20 @@ def count_newlines(fname):
 
 
 def write_doi_files(merged_affiliations_df: pd.DataFrame,
+                    mask: pd.Series,
                     dump_file: PathLike,
                     output_dir: str
     ):
-    """Writes a json file for each doi, as is, if not contained in the DataFrame,
+    """Writes a json file for each doi, as is, if not contained in the mask,
     otherwise with the matched affiliation to each creator or contributor object in the doi
     """
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
     for json_obj in tqdm(json_line_generator(dump_file), total=count_newlines(str(dump_file))):
         for doi in json_obj.get('data'):
-            doi_contains_selected_affiliations = not (merged_affiliations_df[merged_affiliations_df["doi"] == doi['id']]).empty
+            doi_contains_selected_affiliations = not (
+                merged_affiliations_df[mask][merged_affiliations_df[mask]["doi"] == doi["id"]]
+            ).empty
             if doi_contains_selected_affiliations:
                 enrich_doi(doi, merged_affiliations_df)
             with open(f"{output_dir}/{_format_doi(doi['id'])}.json", 'w') as f:
