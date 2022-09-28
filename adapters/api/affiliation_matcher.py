@@ -32,6 +32,15 @@ class AffiliationMatcher(AbstractAffiliationMatcher):
             json={"match_types": match_types, "affiliations": affiliations_list},
         )
 
+    def get_version(self):
+        return requests.post(
+                    url=f"{self.base_url}/match",
+                    headers=self.headers,
+                    json={
+                        "type": "country",
+                        "query": "Department of Medical Genetics, Hotel Dieu de France, Beirut, Lebanon"
+                    }).json()["version"]
+
     @lru_cache(maxsize=CACHE_SIZE)
     def get_affiliation(self, match_type: str, affiliation_string: str):
         """
@@ -46,7 +55,7 @@ class AffiliationMatcher(AbstractAffiliationMatcher):
                 ).json()["results"]
         except:
             logger.exception(
-                f"Error during get affiliation {{'type': match_type, 'query': affiliation_string}}",
+                f"Error during get affiliation {{'type': {match_type}, 'query': {affiliation_string}}}",
                 exc_info=True)
             return []
 
@@ -65,7 +74,7 @@ class AffiliationMatcher(AbstractAffiliationMatcher):
         """Returns a lower case, non-accentuated, ascii version of the string"""
         return ud.normalize("NFKD", _str).encode("ascii", "ignore").decode().lower()
 
-    def is_affiliation_fr(self, affiliations: List) -> bool:
+    def is_countries_fr(self, affiliations: List) -> bool:
         """Matches affiliation detected by affiliation matcher against alpha2 code for french territories"""
         return len(set(self.french_alpha2) & set(affiliations)) != 0
 
