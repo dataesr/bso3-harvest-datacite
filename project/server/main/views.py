@@ -89,13 +89,16 @@ def run_task_affiliations():
             }
             task = q.enqueue(create_task_match_affiliations_partition, **task_kwargs)
             response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
-        # concatenate the files
-        # Might need to put this in another route because
-        # if there are multiple workers, one of them will take
-        # this task before the other affiliation tasks are done
-        # and the concat file won't contain all the partition
-        task = q.enqueue(create_task_consolidate_results)
     return jsonify(response_objects), 202
+
+
+@main_blueprint.route("/consolidate_affiliations_files", methods=["POST"])
+def run_task_consolidate_affiliations_files():
+    with Connection(redis.from_url(current_app.config["REDIS_URL"])):
+        q = Queue(name="harvest-datacite", default_timeout=150 * 3600)
+        task = q.enqueue(create_task_consolidate_results)
+        response_object = {"status": "success", "data": {"task_id": task.get_id()}}
+    return jsonify(response_object), 202
 
 
 @main_blueprint.route("/tasks/<task_id>", methods=["GET"])
