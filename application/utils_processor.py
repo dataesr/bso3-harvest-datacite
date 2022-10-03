@@ -4,6 +4,8 @@ from json import JSONDecodeError
 from pathlib import Path
 from os import PathLike
 from typing import Union, Dict, List, Tuple
+
+from adapters.databases.doi_collection import get_mongo_repo
 import pandas as pd
 from project.server.main.logger import get_logger
 from config.logger_config import LOGGER_LEVEL
@@ -72,17 +74,21 @@ def get_matched_affiliations(merged_affiliations_df, aff_str):
     }
 
 def enrich_doi(doi, merged_affiliations_df):
-    """Add a matched_affiliations field at the level of the affiliation containing
-    the countries, ror, grid, rnsr detected by the affiliation matcher"""
+    """Adds a matched_affiliations field at the level of the affiliation containing
+    the countries, ror, grid, rnsr detected by the affiliation matcher
+    Returns a list of matched_affiliations objects added for the doi"""
     CREATORS = "creators"
     CONTRIBUTORS = "contributors"
     this_doi = merged_affiliations_df["doi"] == doi["id"]
+    matched_affiliations_list = []
     for obj in doi["attributes"][CREATORS] + doi["attributes"][CONTRIBUTORS]:
         for affiliation in obj.get("affiliation"):
             if affiliation:
                 aff_str = _concat_affiliation_of_creator_or_contributor(affiliation, exclude_list=["affiliationIdentifierScheme"])
-                obj['matched_affiliations'] = get_matched_affiliations(merged_affiliations_df[this_doi], aff_str)
-                # create mongo obj to push to DB
+                matched_affiliations = get_matched_affiliations(merged_affiliations_df[this_doi], aff_str)
+                obj['matched_affiliations'] = matched_affiliations
+                matched_affiliations_list.append(matched_affiliations)
+    return matched_affiliations_list
 
 
 def count_newlines(fname):
@@ -97,6 +103,15 @@ def count_newlines(fname):
     return count
 
 
+def push_to_mongo(doi, matched_affiliations_list, mongo_repo):
+    mongo_repo.create(**{
+        "doi": str(doi["id"]),
+        "matched_affiliations_list": matched_affiliations_list,
+        "clientId": str(safe_get("", doi, "relationships", "client", "data", "id")),
+        "publisher": str(safe_get("", doi, "attributes", "publisher")),
+        "update_date": str(safe_get("", doi, "attributes", "updated")),
+    })
+
 def write_doi_files(merged_affiliations_df: pd.DataFrame,
                     mask: pd.Series,
                     dump_file: PathLike,
@@ -107,13 +122,15 @@ def write_doi_files(merged_affiliations_df: pd.DataFrame,
     """
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
+    mongo_repo = get_mongo_repo()
     for json_obj in tqdm(json_line_generator(dump_file), total=count_newlines(str(dump_file))):
         for doi in json_obj.get('data'):
             doi_contains_selected_affiliations = not (
                 merged_affiliations_df[mask][merged_affiliations_df[mask]["doi"] == doi["id"]]
             ).empty
             if doi_contains_selected_affiliations:
-                enrich_doi(doi, merged_affiliations_df)
+                matched_affiliations_list = enrich_doi(doi, merged_affiliations_df)
+                push_to_mongo(doi, matched_affiliations_list, mongo_repo)
             with open(f"{output_dir}/{_format_doi(doi['id'])}.json", 'w') as f:
                 json.dump(doi, f, indent=None)
 
