@@ -35,7 +35,7 @@ class TestProcessor(TestCase):
         fr_doi_file = next(
             file for file in output_dir.glob("*.json") if file.name == fr_doi_file_name
         )
-        self.assertEqual(expected_output_files, output_files)
+        self.assertEqual(sorted(expected_output_files), sorted(output_files))
         with fr_doi_file.open("r", encoding="utf-8") as f:
             content = json.load(f)
         mock_push_to_mongo.assert_called_with(content, expected_mongo_obj, mongo_repo_mock)
