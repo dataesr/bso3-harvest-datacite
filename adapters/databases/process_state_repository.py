@@ -1,3 +1,5 @@
+from typing import List, Union
+
 from domain.databases.abstract_process_state_repository import AbstractProcessStateRepository
 
 from adapters.databases.process_state_table import ProcessStateTable
@@ -35,6 +37,10 @@ class ProcessStateRepository(AbstractProcessStateRepository):
     def get(self, where_args: dict = {}):
         where_clauses: list = check_conformity_and_get_where_clauses(where_args, ProcessStateTable)
 
+        if not ProcessStateTable.checkExistence(self.session.getEngine()):
+             ProcessStateTable.createTable(self.session.getEngine())
+             return []
+
         with self.session.sessionScope() as session:
             statement = select(ProcessStateTable).order_by(asc(ProcessStateTable.__table__.c.id))
 
@@ -45,7 +51,8 @@ class ProcessStateRepository(AbstractProcessStateRepository):
 
             for result in results:
                 session.expunge(result)
-        return results
+
+        return [result.__dict__ for result in results]
 
     def update(self, values_args: dict, where_args: dict = {}):
         check_conformity(values_args, ProcessStateTable)

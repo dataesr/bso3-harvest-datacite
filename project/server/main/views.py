@@ -96,5 +96,8 @@ def process_and_match():
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue("harvest-datacite", default_timeout=150 * 3600)
         task = q.enqueue(create_task_process_and_match_dois)
+
+        task_2 = q.enqueue(create_task_process_and_match_dois)
+
     response_object = {"status": "success", "data": {"task_id": task.get_id()}}
     return jsonify(response_object), 202

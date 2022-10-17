@@ -3,18 +3,33 @@ from unittest import TestCase
 import os
 import glob
 import pandas as pd
+
+from adapters.databases.process_state_repository import ProcessStateRepository
 from tests.unit_test.application.test_global_config import test_config_harvester
 from application.processor import Processor
+from adapters.databases.mock_postgres_session import MockPostgresSession
 
 TESTED_MODULE = "application.processor"
 
 
 class TestProcessor(TestCase):
+    process_state_repository = None
+    mock_postgres_session = None
     processor = None
 
     @classmethod
     def setUpClass(cls):
-        cls.processor = Processor(test_config_harvester)
+        host: str = "fake_host"
+        port: int = 0
+        username: str = "fake_username"
+        password: str = "fake_password"
+        database_name: str = "fake_db_name"
+
+        cls.mock_postgres_session = MockPostgresSession(host, port, username, password, database_name)
+
+        cls.process_state_repository = ProcessStateRepository(cls.mock_postgres_session)
+        
+        cls.processor = Processor(test_config_harvester, 0, [], cls.process_state_repository)
 
     def test_init_processor_return_list_of_files_and_target_directory(self):
         expected_number_of_files = 1

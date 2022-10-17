@@ -55,5 +55,9 @@ class ProcessStateTable(ProcessState):
         ProcessStateTable.__table__.create(engine, checkfirst=True)
 
     @staticmethod
+    def checkExistence(engine: Engine):
+        return ProcessStateTable.__table__.exists(engine)
+
+    @staticmethod
     def dropTable(engine: Engine):
         ProcessStateTable.__table__.drop(engine, checkfirst=True)

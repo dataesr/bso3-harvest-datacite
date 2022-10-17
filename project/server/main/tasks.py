@@ -261,7 +261,7 @@ def read_all(fileType):
 
 
 def create_task_process_and_match_dois():
-    processor = Processor(config_harvester)
+    processor = Processor(config_harvester, 0, 1, None)
     processor.process()
     processor.push_dois_to_ovh()
 

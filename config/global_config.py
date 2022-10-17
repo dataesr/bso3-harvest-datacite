@@ -27,6 +27,9 @@ PROCESSED_DUMP_FOLDER_NAME = "dois"
 GLOBAL_AFFILIATION_FILE_NAME = "global_affiliations.csv"
 DETAILED_AFFILIATION_FILE_NAME = "detailed_affiliations.csv"
 
+# Datacite configuration
+FILES_EXTENSION = "*.ndjson"
+
 
 def get_harvester_config() -> dict:
     load_environment_variables()
@@ -42,11 +45,20 @@ def get_harvester_config() -> dict:
     config_harvester['swift']['os_project_id'] = os.getenv('OS_PROJECT_ID')
     config_harvester['swift']['os_region_name'] = os.getenv('OS_REGION_NAME')
     config_harvester['swift']['os_auth_url'] = os.getenv('OS_AUTH_URL')
+    # PostGreSQL
+    config_harvester["db"] = {}
+    config_harvester["db"]["db_user"] = os.getenv("DB_USER")
+    config_harvester["db"]["db_password"] = os.getenv("DB_PASSWORD")
+    config_harvester["db"]["db_host"] = os.getenv("DB_HOST")
+    config_harvester["db"]["db_port"] = os.getenv("DB_PORT")
+    config_harvester["db"]["db_name"] = os.getenv("DB_NAME")
     # ovh folder
     config_harvester['datacite_container'] = DATACITE_DUMP
     config_harvester['raw_datacite_container'] = RAW_DATACITE_DUMP
     config_harvester['processed_datacite_container'] = PROCESSED_DATACITE_DUMP
     config_harvester['affiliations_prefix'] = "affiliations"
+    config_harvester['detailed_partition_files_prefix'] = "partition_detailed_affiliations_"
+    config_harvester['consolidated_partition_files_prefix'] = "partition_consolidated_affiliations_"
 
     config_harvester['is_level_debug'] = DEBUG_LEVEL
     # local dump folder
@@ -57,6 +69,9 @@ def get_harvester_config() -> dict:
     config_harvester['detailed_affiliation_file_name'] = os.path.join(config_harvester['processed_dump_folder_name'],
                                                                       DETAILED_AFFILIATION_FILE_NAME)
     config_harvester['affiliation_matcher_service'] = os.getenv("AFFILIATION_MATCHER_SERVICE")
+
+    # Datacite configuration
+    config_harvester['files_extenxion'] = FILES_EXTENSION
 
     return config_harvester
 

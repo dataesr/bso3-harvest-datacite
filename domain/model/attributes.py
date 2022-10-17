@@ -53,7 +53,7 @@ class Attributes:
         _doi = str(obj.get("doi"))
         _identifiers = [str(y) for y in obj.get("identifiers")]
         _creators = [Creator.from_dict_custom(y) for y in obj.get("creators")]
-        _titles = [Title.from_dict_custom(y) for y in obj.get("titles")]
+        _titles = [Title.from_dict_custom(y) for y in obj.get("titles",)]
         _publisher = str(obj.get("publisher"))
         _container = str(obj.get("container"))
         _publicationYear = int(obj.get("publicationYear"))
@@ -62,7 +62,8 @@ class Attributes:
         _dates = [Date.from_dict_custom(y) for y in obj.get("dates")]
         _language = str(obj.get("language"))
         _types = Types.from_dict_custom(obj.get("types"))
-        _relatedIdentifiers = [RelatedIdentifier.from_dict_custom(y) for y in obj.get("relatedIdentifiers")]
+        _relatedIdentifiers = [RelatedIdentifier.from_dict_custom(y) for y in
+                               obj.get("relatedIdentifiers")]
         _sizes = [str(y) for y in obj.get("sizes")]
         _formats = [str(y) for y in obj.get("formats")]
 
@@ -75,7 +76,7 @@ class Attributes:
         _descriptions = [Description.from_dict_custom(y) for y in obj.get("descriptions")]
         _geoLocations = [GeoLocation.from_dict_custom(y) for y in obj.get("geoLocations")]
         _fundingReferences = [str(y) for y in obj.get("fundingReferences")]
-        _url = str(obj.get("url"))
+        _url = str(obj.get("url",))
 
         if obj.get("contentUrl") is not None:
             _contentUrl = str(obj.get("contentUrl"))
