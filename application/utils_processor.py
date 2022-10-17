@@ -83,7 +83,7 @@ def process_list_of_files_per_partition(partition_index: int, list_path: List[Un
     :return: the list of
     """
 
-    detailed_affiliations_file_name: str = f"detailed_affiliations_{partition_index}.csv",
+    detailed_affiliations_file_name: str = f"detailed_affiliations_{partition_index}.csv"
     concatenated_affiliations_file_name: str = f"global_affiliation{partition_index}.csv"
 
     logger.info(

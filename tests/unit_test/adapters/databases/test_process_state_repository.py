@@ -6,10 +6,9 @@ from adapters.databases.mock_postgres_session import MockPostgresSession
 
 TESTED_MODULE = "adapters.databases.process_state_repository"
 
-
+@patch(f'adapters.databases.process_state_table.ProcessStateTable.__table__.exists', Mock(return_value=True))
 class TestProcessStateRepository(TestCase):
-    @patch('adapters.databases.process_state_table.ProcessStateTable.checkExistence')
-    def setUp(self, mock_process_state_table):
+    def setUp(self):
         # Given
         host: str = "fake_host"
         port: int = 0
@@ -21,13 +20,11 @@ class TestProcessStateRepository(TestCase):
 
         self.process_state_repository = ProcessStateRepository(self.mock_postgres_session)
 
-        mock_process_state_table = Mock(return_value=True)
-
     def test_given_mock_postgres_session_and_a_process_state_repository_when_using_get_without_filter_then_all_methods_of_the_repository_are_called_once_except_getEngine_called_0_time(
             self):
         # Given after setUp
         nb_calls_init_expected: int = 1
-        nb_calls_getEngine_expected: int = 0
+        nb_calls_getEngine_expected: int = 1
         nb_calls_getSession_expected: int = 1
         nb_calls_sessionScope_expected: int = 1
 
@@ -35,16 +32,17 @@ class TestProcessStateRepository(TestCase):
         self.process_state_repository.get()
 
         # Then
-        assert self.mock_postgres_session.nb_calls_init == nb_calls_init_expected
-        assert self.mock_postgres_session.nb_calls_getEngine == nb_calls_getEngine_expected
-        assert self.mock_postgres_session.nb_calls_getSession == nb_calls_getSession_expected
-        assert self.mock_postgres_session.nb_calls_sessionScope == nb_calls_sessionScope_expected
+        self.assertEqual(self.mock_postgres_session.nb_calls_init, nb_calls_init_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getEngine, nb_calls_getEngine_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getSession, nb_calls_getSession_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_sessionScope, nb_calls_sessionScope_expected)
 
     def test_given_mock_postgres_session_and_a_process_state_repository_when_using_get_with_right_filter_then_all_methods_of_the_repository_are_called_once_except_getEngine_called_0_time(
             self):
+
         # Given after setUp
         nb_calls_init_expected: int = 1
-        nb_calls_getEngine_expected: int = 0
+        nb_calls_getEngine_expected: int = 1
         nb_calls_getSession_expected: int = 1
         nb_calls_sessionScope_expected: int = 1
 
@@ -54,10 +52,10 @@ class TestProcessStateRepository(TestCase):
         self.process_state_repository.get(filter_args)
 
         # Then
-        assert self.mock_postgres_session.nb_calls_init == nb_calls_init_expected
-        assert self.mock_postgres_session.nb_calls_getEngine == nb_calls_getEngine_expected
-        assert self.mock_postgres_session.nb_calls_getSession == nb_calls_getSession_expected
-        assert self.mock_postgres_session.nb_calls_sessionScope == nb_calls_sessionScope_expected
+        self.assertEqual(self.mock_postgres_session.nb_calls_init, nb_calls_init_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getEngine, nb_calls_getEngine_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getSession, nb_calls_getSession_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_sessionScope, nb_calls_sessionScope_expected)
 
     def test_given_mock_postgres_session_and_a_process_state_repository_when_using_get_with_wrong_name_element_in_filter_then_raise_exception(
             self,
@@ -75,14 +73,13 @@ class TestProcessStateRepository(TestCase):
         # When
         with self.assertRaises(Exception) as context:
             self.process_state_repository.get(filter_args)
-
         self.assertTrue(exception_msg_expected in str(context.exception))
 
         # Then
-        assert self.mock_postgres_session.nb_calls_init == nb_calls_init_expected
-        assert self.mock_postgres_session.nb_calls_getEngine == nb_calls_getEngine_expected
-        assert self.mock_postgres_session.nb_calls_getSession == nb_calls_getSession_expected
-        assert self.mock_postgres_session.nb_calls_sessionScope == nb_calls_sessionScope_expected
+        self.assertEqual(self.mock_postgres_session.nb_calls_init, nb_calls_init_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getEngine, nb_calls_getEngine_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getSession, nb_calls_getSession_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_sessionScope, nb_calls_sessionScope_expected)
 
     def test_given_mock_postgres_session_and_a_process_state_repository_when_using_get_with_wrong_type_element_in_filter_then_raise_exception(
             self,
@@ -104,10 +101,10 @@ class TestProcessStateRepository(TestCase):
         self.assertTrue(exception_msg_expected in str(context.exception))
 
         # Then
-        assert self.mock_postgres_session.nb_calls_init == nb_calls_init_expected
-        assert self.mock_postgres_session.nb_calls_getEngine == nb_calls_getEngine_expected
-        assert self.mock_postgres_session.nb_calls_getSession == nb_calls_getSession_expected
-        assert self.mock_postgres_session.nb_calls_sessionScope == nb_calls_sessionScope_expected
+        self.assertEqual(self.mock_postgres_session.nb_calls_init, nb_calls_init_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getEngine, nb_calls_getEngine_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getSession, nb_calls_getSession_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_sessionScope, nb_calls_sessionScope_expected)
 
     def test_given_mock_postgres_session_and_a_process_state_repository_when_using_update_from_repository_with_empty_arg_dict_then_all_methods_of_repository_are_called_once_except_getEngine_called_0_time(
             self):
@@ -123,10 +120,10 @@ class TestProcessStateRepository(TestCase):
         self.process_state_repository.update(elements_to_update)
 
         # Then
-        assert self.mock_postgres_session.nb_calls_init == nb_calls_init_expected
-        assert self.mock_postgres_session.nb_calls_getEngine == nb_calls_getEngine_expected
-        assert self.mock_postgres_session.nb_calls_getSession == nb_calls_getSession_expected
-        assert self.mock_postgres_session.nb_calls_sessionScope == nb_calls_sessionScope_expected
+        self.assertEqual(self.mock_postgres_session.nb_calls_init, nb_calls_init_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getEngine, nb_calls_getEngine_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getSession, nb_calls_getSession_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_sessionScope, nb_calls_sessionScope_expected)
 
     def test_given_mock_postgres_session_and_a_process_state_repository_when_using_update_from_repository_with_not_empty_arg_dict_then_all_methods_of_repository_are_called_once_except_getEngine_called_0_time(
             self):
@@ -142,10 +139,10 @@ class TestProcessStateRepository(TestCase):
         self.process_state_repository.update(elements_to_update)
 
         # Then
-        assert self.mock_postgres_session.nb_calls_init == nb_calls_init_expected
-        assert self.mock_postgres_session.nb_calls_getEngine == nb_calls_getEngine_expected
-        assert self.mock_postgres_session.nb_calls_getSession == nb_calls_getSession_expected
-        assert self.mock_postgres_session.nb_calls_sessionScope == nb_calls_sessionScope_expected
+        self.assertEqual(self.mock_postgres_session.nb_calls_init, nb_calls_init_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getEngine, nb_calls_getEngine_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getSession, nb_calls_getSession_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_sessionScope, nb_calls_sessionScope_expected)
 
     def test_given_mock_postgres_session_and_a_process_state_repository_when_using_update_from_repository_with_wrong_element_in_dict_arg_then_raise_specific_exception(
             self):
@@ -166,10 +163,10 @@ class TestProcessStateRepository(TestCase):
         self.assertTrue(exception_msg_expected in str(context.exception))
 
         # Then
-        assert self.mock_postgres_session.nb_calls_init == nb_calls_init_expected
-        assert self.mock_postgres_session.nb_calls_getEngine == nb_calls_getEngine_expected
-        assert self.mock_postgres_session.nb_calls_getSession == nb_calls_getSession_expected
-        assert self.mock_postgres_session.nb_calls_sessionScope == nb_calls_sessionScope_expected
+        self.assertEqual(self.mock_postgres_session.nb_calls_init, nb_calls_init_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getEngine, nb_calls_getEngine_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getSession, nb_calls_getSession_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_sessionScope, nb_calls_sessionScope_expected)
 
     def test_given_mock_postgres_session_and_a_process_state_repository_when_using_update_from_repository_with_wrong_type_element_in_dict_arg_then_raise_specific_exception(
             self):
@@ -190,10 +187,10 @@ class TestProcessStateRepository(TestCase):
         self.assertTrue(exception_msg_expected in str(context.exception))
 
         # Then
-        assert self.mock_postgres_session.nb_calls_init == nb_calls_init_expected
-        assert self.mock_postgres_session.nb_calls_getEngine == nb_calls_getEngine_expected
-        assert self.mock_postgres_session.nb_calls_getSession == nb_calls_getSession_expected
-        assert self.mock_postgres_session.nb_calls_sessionScope == nb_calls_sessionScope_expected
+        self.assertEqual(self.mock_postgres_session.nb_calls_init, nb_calls_init_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getEngine, nb_calls_getEngine_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getSession, nb_calls_getSession_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_sessionScope, nb_calls_sessionScope_expected)
 
     def test_given_mock_postgres_session_and_a_process_state_repository_when_using_update_from_repository_with_wrong_type_element_in_filter_then_raise_specific_exception(
             self):
@@ -214,10 +211,10 @@ class TestProcessStateRepository(TestCase):
         self.assertTrue(exception_msg_expected in str(context.exception))
 
         # Then
-        assert self.mock_postgres_session.nb_calls_init == nb_calls_init_expected
-        assert self.mock_postgres_session.nb_calls_getEngine == nb_calls_getEngine_expected
-        assert self.mock_postgres_session.nb_calls_getSession == nb_calls_getSession_expected
-        assert self.mock_postgres_session.nb_calls_sessionScope == nb_calls_sessionScope_expected
+        self.assertEqual(self.mock_postgres_session.nb_calls_init, nb_calls_init_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getEngine, nb_calls_getEngine_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getSession, nb_calls_getSession_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_sessionScope, nb_calls_sessionScope_expected)
 
     def test_given_mock_postgres_session_and_a_process_state_repository_when_using_update_from_repository_with_wrong_element_in_filter_arg_then_raise_specific_exception(
             self):
@@ -238,7 +235,7 @@ class TestProcessStateRepository(TestCase):
         self.assertTrue(exception_msg_expected in str(context.exception))
 
         # Then
-        assert self.mock_postgres_session.nb_calls_init == nb_calls_init_expected
-        assert self.mock_postgres_session.nb_calls_getEngine == nb_calls_getEngine_expected
-        assert self.mock_postgres_session.nb_calls_getSession == nb_calls_getSession_expected
-        assert self.mock_postgres_session.nb_calls_sessionScope == nb_calls_sessionScope_expected
+        self.assertEqual(self.mock_postgres_session.nb_calls_init, nb_calls_init_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getEngine, nb_calls_getEngine_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_getSession, nb_calls_getSession_expected)
+        self.assertEqual(self.mock_postgres_session.nb_calls_sessionScope, nb_calls_sessionScope_expected)

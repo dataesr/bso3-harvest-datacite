@@ -41,7 +41,7 @@ class TestPostgresSession(TestCase):
         result_get_session = self.postgres_session.getSession()
 
         # Then
-        assert result_get_session is not None
+        self.assertIsNotNone(result_get_session)
 
     def test_given_a_postgres_session_when_getEngine_is_called_then_the_result_is_not_none(self):
         # Given after setUpClass
@@ -50,7 +50,7 @@ class TestPostgresSession(TestCase):
         result_get_engine = self.postgres_session.getEngine()
 
         # Then
-        assert result_get_engine is not None
+        self.assertIsNotNone(result_get_engine)
 
     def test_given_a_postgres_session_when_sessionScope_is_called_then_the_result_is_a_generator_class(self):
         # Given after setUpClass
@@ -59,4 +59,4 @@ class TestPostgresSession(TestCase):
         generator = self.postgres_session.sessionScope()
 
         # Then
-        assert isinstance(generator, _GeneratorContextManager)
+        self.assertIsInstance(generator, _GeneratorContextManager)

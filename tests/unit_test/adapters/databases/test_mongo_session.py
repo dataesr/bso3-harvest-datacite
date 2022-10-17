@@ -32,4 +32,4 @@ class TestMongoSession(TestCase):
 
         # Then
         mock_MongoClient_init.assert_called_once()
-        assert get_session_type_result == get_session_result_type_expected
+        self.assertEqual(get_session_type_result, get_session_result_type_expected)

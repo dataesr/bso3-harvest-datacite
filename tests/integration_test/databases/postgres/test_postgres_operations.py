@@ -63,9 +63,9 @@ class TestPostgresOperations(TestCase):
         result_request: list = self.harvest_state_repository.get()
 
         # Then
-        assert is_inserted == is_inserted_expected
-        assert len(result_request) == number_of_rows_returned_expected
-        assert result_request[0].__eq__(harvest_state_expected)
+        self.assertEqual(is_inserted, is_inserted_expected)
+        self.assertEqual(len(result_request), number_of_rows_returned_expected)
+        self.assertEqual(result_request[0], harvest_state_expected)
 
     def test_given_repository_and_empty_database_when_using_create_2_objects_and_update_missed_with_filter_id_get_without_filter_then_should_have_2_results_updated(
             self):
@@ -101,11 +101,12 @@ class TestPostgresOperations(TestCase):
         result_request: list = self.harvest_state_repository.get()
 
         # Then
-        assert is_inserted_1 == is_inserted_expected_1
-        assert is_inserted_2 == is_inserted_expected_2
-        assert len(result_request) == number_of_rows_returned_expected
-        assert result_request[0].__eq__(harvest_state_1)
-        assert result_request[1].id == harvest_state_2.id and result_request[1].number_missed == 1
+        self.assertEqual(is_inserted_1, is_inserted_expected_1)
+        self.assertEqual(is_inserted_2, is_inserted_expected_2)
+        self.assertEqual(len(result_request), number_of_rows_returned_expected)
+        self.assertEqual(result_request[0], harvest_state_1)
+        self.assertEqual(result_request[1].id, harvest_state_2.id)
+        self.assertEqual(result_request[1].number_missed, 1)
 
     def test_given_repository_and_empty_database_when_using_create_new_processstate_and_get_without_filter_then_should_have_1_result(
             self):
@@ -132,6 +133,6 @@ class TestPostgresOperations(TestCase):
         result_request: list = self.process_state_repository.get()
 
         # Then
-        assert is_inserted == is_inserted_expected
-        assert len(result_request) == number_of_rows_returned_expected
-        assert result_request[0].__eq__(process_state_expected)
+        self.assertEqual(is_inserted, is_inserted_expected)
+        self.assertEqual(len(result_request), number_of_rows_returned_expected)
+        self.assertEqual(result_request[0], harvest_state_expected)

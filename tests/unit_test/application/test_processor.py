@@ -1,5 +1,6 @@
 from pathlib import Path
 from unittest import TestCase
+from unittest.mock import patch, Mock
 import os
 import glob
 import pandas as pd
@@ -18,6 +19,7 @@ class TestProcessor(TestCase):
     processor = None
 
     @classmethod
+    @patch(f'adapters.databases.process_state_table.ProcessStateTable.__table__.exists', Mock(return_value=True))
     def setUpClass(cls):
         host: str = "fake_host"
         port: int = 0
