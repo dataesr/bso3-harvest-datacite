@@ -62,6 +62,15 @@ def get_harvester_config() -> dict:
 
     return config_harvester
 
+def get_mongo_config() -> dict:
+    return {
+        "host": f"{os.getenv('DB_MONGO_HOST')}:{os.getenv('DB_MONGO_PORT')}",
+        "username": os.getenv('DB_MONGO_USER'),
+        "password": os.getenv('DB_MONGO_PASSWORD'),
+        "database_name": os.getenv('DB_MONGO_NAME'),
+        "authMechanism": os.getenv('DB_MONGO_AUTH_MECH')
+    }
+
 
 def load_environment_variables() -> None:
     try:

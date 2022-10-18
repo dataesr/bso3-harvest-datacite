@@ -74,7 +74,6 @@ def run_task_enrich_doi():
 @main_blueprint.route("/affiliations", methods=["POST"])
 def run_task_affiliations():
     args = request.get_json(force=True)
-    # partition file to parallelize workload (if affiliation matcher is not too limiting)
     response_objects = []
     number_of_partitions = args.get("number_of_partitions", 10_000)
     affiliations_source_file = args.get("affiliations_source_file")

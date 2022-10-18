@@ -4,12 +4,13 @@ from unittest.mock import patch
 from adapters.databases.mongo_session import MongoSession
 from pymongo import MongoClient
 
-TESTED_MODULE = 'adapters.databases.mongo_session'
+TESTED_MODULE = "adapters.databases.mongo_session"
 
 
 class TestMongoSession(TestCase):
-    @patch(f"{TESTED_MODULE}.MongoClient.__init__")
-    def test_init_and_get_session(self, mock_MongoClient_init):
+    @patch.object(MongoClient, "__init__")
+    @patch.object(MongoClient, "__getitem__")
+    def test_init_and_get_session(self, mock_MongoClient__getitem__, mock_MongoClient__init__):
         # Given
 
         # host: str = f"{getenv('DB_MONGO_HOST')}:{getenv('DB_MONGO_PORT')}"
@@ -18,18 +19,18 @@ class TestMongoSession(TestCase):
         # authMechanism: str = getenv('DB_MONGO_AUTH_MECH')
 
         host: str = "fake_host:0"
-        username: str = 'fake_username'
-        password: str = 'fake_password'
-        authMechanism: str = 'fake_auth_mechanisme'
+        username: str = "fake_username"
+        password: str = "fake_password"
+        authMechanism: str = "fake_auth_mechanisme"
+        database_name: str = "fake_database"
 
-        mock_MongoClient_init.return_value = None
-
-        get_session_result_type_expected: type = MongoClient
+        mock_MongoClient__init__.return_value = None
+        mock_MongoClient__getitem__.return_value = None
 
         # When
-        session: MongoSession = MongoSession(host, username, password, authMechanism=authMechanism)
+        session: MongoSession = MongoSession(host, username, password, database_name, authMechanism=authMechanism)
         get_session_type_result = type(session.getSession())
 
         # Then
-        mock_MongoClient_init.assert_called_once()
-        assert get_session_type_result == get_session_result_type_expected
+        mock_MongoClient__init__.assert_called_once()
+        mock_MongoClient__getitem__.assert_called_once()

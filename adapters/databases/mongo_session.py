@@ -1,12 +1,14 @@
 from pymongo import MongoClient
 from domain.databases.abstract_session import AbstractSession
+from pymongo.database import Database
 
 
 class MongoSession(AbstractSession):
-    session: MongoClient
+    session: Database
 
-    def __init__(self, host: str, username: str, password: str, authMechanism: str):
-        self.session = MongoClient(host=host, username=username, password=password, authMechanism=authMechanism)
+    def __init__(self, host: str, username: str, password: str, database_name: str, authMechanism: str):
+        mongo_client = MongoClient(host=host, username=username, password=password, authMechanism=authMechanism)
+        self.session = mongo_client[database_name]
 
-    def getSession(self) -> MongoClient:
+    def getSession(self) -> Database:
         return self.session

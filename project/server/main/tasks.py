@@ -144,15 +144,15 @@ def create_task_consolidate_results():
         volume_destination=dest_dir,
     )
     # aggregate results in one file
-    consolidated_affiliations_file = "consolidated_affiliations.csv"
+    consolidated_affiliations_filepath = f"{partitions_dir}/consolidated_affiliations.csv"
     pd.concat([pd.read_csv(f) for f in glob(f"{partitions_dir}/*")]).to_csv(
-        f"{partitions_dir}/{consolidated_affiliations_file}", index=False
+        consolidated_affiliations_filepath, index=False
     )
     # upload the resulting file
     upload_object(
         config_harvester["datacite_container"],
-        source=consolidated_affiliations_file,
-        target=os.path.basename(consolidated_affiliations_file),
+        source=consolidated_affiliations_filepath,
+        target=os.path.basename(consolidated_affiliations_filepath),
     )
 
 
@@ -255,44 +255,7 @@ def create_task_tmp(filename):
         if is_fr:
             fr_elements.append(elt)
     pd.DataFrame(fr_elements).to_json(f"{filename}_fr.jsonl", lines=True, orient="records")
-    # if args.get('extract_affiliations', False):
-    #    quote = '"'
-    #    cmd_1 = f"cd {volume} && cat {dump_file}.json | jq -rc '.attributes.contributors[].affiliation | @csv' | fgrep '{quote}' > {dump_file}_affiliations_contributors.jsonl"
-    #    logger.debug(cmd_1)
-    #    os.system(cmd_1)
-    #    cmd_2 = f"cd {volume} && cat {dump_file}.json | jq -rc '.attributes.creators[].affiliation | @csv' | fgrep '{quote}' > {dump_file}_affiliations_creators.jsonl"
-    #    logger.debug(cmd_2)
-    #    os.system(cmd_2)
-    #    cmd_11 = f'cd {volume} && cat {dump_file}_affiliations_contributors.jsonl | sort -u > {dump_file}_affiliations_contributors_uniq.jsonl'
-    #    cmd_21 = f'cd {volume} && cat {dump_file}_affiliations_creators.jsonl | sort -u > {dump_file}_affiliations_creators_uniq.jsonl'
-    #    logger.debug(cmd_11)
-    #    os.system(cmd_11)
-    #    logger.debug(cmd_21)
-    #    os.system(cmd_21)
-    #    cmd_3 = f'cd {volume} && cat {dump_file}_affiliations_contributors_uniq.jsonl > {dump_file}_affiliations.jsonl'
-    #    cmd_3 += f' && cat {dump_file}_affiliations_creators_uniq.jsonl >> {dump_file}_affiliations.jsonl'
-    #    cmd_3 += f' && cat {dump_file}_affiliations.jsonl | sort -u > {dump_file}_affiliations_uniq.jsonl'
-    #    logger.debug(cmd_3)
-    #    os.system(cmd_3)
-    # if args.get('match_affiliations', False):
-    #    os.system(f'mkdir -p {volume}/match')
-    #    chunk_res = []
-    #    ix = 0
-    #    with open(f'{volume}/{dump_file}_affiliations_creators_uniq.jsonl') as infile:
-    #        for line in infile:
-    #            query = line.replace('"', ' ').strip()
-    #            for match_type in ['country']:
-    #                elt = {"query": query, "type": match_type}
-    #                res = requests.post('http://matcher-affiliation:5001/match_api', json=elt).json()
-    #                elt['results'] = res['results']
-    #                if len(chunk_res) == 1000:
-    #                    logger.debug(f'write file nb {ix}')
-    #                    pd.DataFrame(chunk_res).to_json(f'{volume}/match/match_{ix}.jsonl', lines=True, orient='records')
-    #                    chunk_res = []
-    #                    ix += 1
-    #                chunk_res.append(elt)
 
-#    url_hal_update = "https://api.archives-ouvertes.fr/search/?fq=doiId_s:*%20AND%20structCountry_s:fr%20AND%20modifiedDate_tdate:[{0}T00:00:00Z%20TO%20{1}T00:00:00Z]%20AND%20producedDate_tdate:[2013-01-01T00:00:00Z%20TO%20{1}T00:00:00Z]&fl=halId_s,doiId_s,openAccess_bool&rows={2}&start={3}"
 
 def create_task_analyze(args):
     for fileType in args.get("fileType", []):
