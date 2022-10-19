@@ -3,7 +3,7 @@ CURRENT_VERSION=$(shell cat project/__init__.py | cut -d "'" -f 2)
 
 docker-build:
 	@echo Building a new docker image
-	docker build -t $(DOCKER_IMAGE_NAME):$(CURRENT_VERSION) -t $(DOCKER_IMAGE_NAME):latest -f ./Dockerfiles/prod/. .
+	docker build -t $(DOCKER_IMAGE_NAME):$(CURRENT_VERSION) -t $(DOCKER_IMAGE_NAME):latest -f ./Dockerfiles/prod/Dockerfile .
 	@echo Docker image built
 
 docker-push:
