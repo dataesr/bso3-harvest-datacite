@@ -129,6 +129,8 @@ def _get_path(folder_name: Union[str, PathLike]):
     current_path = Path.cwd()
     if isinstance(folder_name, str):
         current_path = Path(folder_name)
+        if not current_path.exists():
+            current_path.mkdir()
     assert current_path.exists() and current_path.is_dir()
     return current_path
 
