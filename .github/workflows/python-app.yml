@@ -39,13 +39,13 @@ jobs:
           make unit-tests
       - name: Integration-Tests with pytest
         env:
-          - DB_MONGO_AUTH_MECH: ${{ secrets.DB_MONGO_AUTH_MECH }}
-          - DB_MONGO_HOST: ${{ secrets.DB_MONGO_HOST }}
-          - DB_MONGO_NAME: ${{ secrets.DB_MONGO_NAME }}
-          - DB_MONGO_PASSWORD: ${{ secrets.DB_MONGO_PASSWORD }}
-          - DB_MONGO_PORT: ${{ secrets.DB_MONGO_PORT }}
-          - DB_MONGO_USER: ${{ secrets.DB_MONGO_USER }}
-          - FLASK_ENV: ${{ secrets.FLASK_ENV }}
+          DB_MONGO_AUTH_MECH: ${{ secrets.DB_MONGO_AUTH_MECH }}
+          DB_MONGO_HOST: ${{ secrets.DB_MONGO_HOST }}
+          DB_MONGO_NAME: ${{ secrets.DB_MONGO_NAME }}
+          DB_MONGO_PASSWORD: ${{ secrets.DB_MONGO_PASSWORD }}
+          DB_MONGO_PORT: ${{ secrets.DB_MONGO_PORT }}
+          DB_MONGO_USER: ${{ secrets.DB_MONGO_USER }}
+          FLASK_ENV: ${{ secrets.FLASK_ENV }}
         run: |
           make docker-compose-up
           make integration-tests
