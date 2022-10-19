@@ -135,4 +135,4 @@ class TestPostgresOperations(TestCase):
         # Then
         self.assertEqual(is_inserted, is_inserted_expected)
         self.assertEqual(len(result_request), number_of_rows_returned_expected)
-        self.assertEqual(result_request[0], harvest_state_expected)
+        self.assertEqual(result_request[0], process_state_expected)
