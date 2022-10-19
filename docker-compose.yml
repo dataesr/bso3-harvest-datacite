@@ -9,18 +9,18 @@ services:
       - ./:/src
       - /src/dcdump
     environment:
-      - FLASK_ENV=${FLASK_ENV}
+      - APP_SETTINGS=project.server.config.DevelopmentConfig
+      - DB_MONGO_AUTH_MECH=${DB_MONGO_AUTH_MECH}
       - DB_MONGO_HOST=${DB_MONGO_HOST}
+      - DB_MONGO_NAME=${DB_MONGO_NAME}
+      - DB_MONGO_PASSWORD=${DB_MONGO_PASSWORD}
       - DB_MONGO_PORT=${DB_MONGO_PORT}
       - DB_MONGO_USER=${DB_MONGO_USER}
-      - DB_MONGO_PASSWORD=${DB_MONGO_PASSWORD}
-      - DB_MONGO_NAME=${DB_MONGO_NAME}
-      - DB_MONGO_AUTH_MECH=${DB_MONGO_AUTH_MECH}
-      - DB_POSTGRES_USER=${DB_POSTGRES_USER}
-      - DB_POSTGRES_PASSWORD=${DB_POSTGRES_PASSWORD}
-      - DB_POSTGRES_NAME=${DB_POSTGRES_NAME}
-      - DB_POSTGRES_HOST=${DB_POSTGRES_HOST}
-      - DB_POSTGRES_PORT=${DB_POSTGRES_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - FLASK_ENV=${FLASK_ENV}
     command: bash -c "sleep 10 && python3 manage.py run -h 0.0.0.0"
     depends_on:
       - mongodb
@@ -32,16 +32,18 @@ services:
             #- ./:/data/db
             - ./mongod.conf:/etc/mongod.conf
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=${DB_MONGO_USER}
-      - MONGO_INITDB_ROOT_PASSWORD=${DB_MONGO_PASSWORD}
+      - DB_MONGO_AUTH_MECH=${DB_MONGO_AUTH_MECH}
+      - DB_MONGO_HOST=${DB_MONGO_HOST}
+      - DB_MONGO_NAME=${DB_MONGO_NAME}
+      - DB_MONGO_PASSWORD=${DB_MONGO_PASSWORD}
       - DB_MONGO_PORT=${DB_MONGO_PORT}
-      - MONGO_INITDB_DATABASE:${DB_MONGO_NAME}
+      - DB_MONGO_USER=${DB_MONGO_USER}
   postgres:
     container_name: postgres
     image: postgres:12.0-alpine
     ports:
-      - ${DB_POSTGRES_PORT}:5432
+      - ${DB_PORT}:5432
     environment:
-      - POSTGRES_USER=${DB_POSTGRES_USER}
-      - POSTGRES_PASSWORD=${DB_POSTGRES_PASSWORD}
-      - POSTGRES_DB=${DB_POSTGRES_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
