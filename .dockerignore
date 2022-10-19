@@ -3,3 +3,5 @@
 *.ndjson
 *.json
 __pycache__
+dois/*
+processed/*

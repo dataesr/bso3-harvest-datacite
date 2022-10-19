@@ -100,7 +100,7 @@ def process_dois():
     args = request.get_json(force=True)
     # partition file to parallelize workload (if affiliation matcher is not too limiting)
     response_objects = []
-    total_number_of_partitions = args.get("total_number_of_partitions", 10)
+    total_number_of_partitions = args.get("total_number_of_partitions", 100)
 
     if _is_files_list_splittable_into_mutiple_partitions(total_number_of_partitions):
         partitions = list(_get_partitions(total_number_of_partitions))
