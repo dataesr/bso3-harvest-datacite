@@ -45,10 +45,10 @@ jobs:
           DB_MONGO_PASSWORD: ${{ secrets.DB_MONGO_PASSWORD }}
           DB_MONGO_PORT: ${{ secrets.DB_MONGO_PORT }}
           DB_MONGO_USER: ${{ secrets.DB_MONGO_USER }}
-          DB_NAME: ${{ DB_NAME }}
-          DB_PASSWORD: ${{ DB_PASSWORD }}
-          DB_PORT: ${{ DB_PORT }}
-          DB_USER: ${{ DB_USER }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USER: ${{ secrets.DB_USER }}
           FLASK_ENV: ${{ secrets.FLASK_ENV }}
         run: |
           make docker-compose-up
