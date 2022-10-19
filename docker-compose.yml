@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: ./Dockerfiles/dev/Dockerfile
     ports:
-      - ${HARVEST_PROCESS_PORT}:5000
+      - 5000:5000
     volumes:
       - ./:/src
       - /src/dcdump
