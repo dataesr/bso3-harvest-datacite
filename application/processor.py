@@ -1,4 +1,5 @@
 import json
+import shutil
 from datetime import datetime
 from json import JSONDecodeError
 from os import path
@@ -13,9 +14,9 @@ from adapters.storages.swift_session import SwiftSession
 from domain.api.abstract_processor import AbstractProcessor
 from domain.ovh_path import OvhPath
 from application.utils_processor import (
-    _list_dump_files_and_get_target_directory,
-    split_dump_file_concat_and_save_doi_files, _create_file, _get_path, _load_csv_file_and_drop_duplicates,
+    _create_file, _load_csv_file_and_drop_duplicates,
     _append_file, _format_string, _concat_affiliation, _get_partitions, _list_files_in_directory, _merge_files,
+    _get_path,
 )
 from config.global_config import config_harvester
 from project.server.main.logger import get_logger
@@ -65,10 +66,9 @@ class Processor(AbstractProcessor):
         self.config = config
         self.source_folder = config['raw_dump_folder_name']
         self.target_folder_name = config['processed_dump_folder_name']
+        self.target_directory = _get_path(config['processed_dump_folder_name'])
+
         # TODO : Remove this part of the code
-        self.list_of_files, self.target_directory = _list_dump_files_and_get_target_directory(
-            config['raw_dump_folder_name'], target_folder_name=config['processed_dump_folder_name']
-        )
 
         # TODO : Remove this part of the code
         self.detailed_affiliation_file_path = config['detailed_affiliation_file_name']
@@ -191,29 +191,11 @@ class Processor(AbstractProcessor):
                     f' and {self.partition_consolidated_affiliation_file_name}')
 
         already_exist, self.partition_consolidated_affiliation_file_path = \
-            _create_file(target_directory=self.target_directory,
+            _create_file(target_directory=self.target_folder_name,
                          file_name=self.partition_consolidated_affiliation_file_name)
         already_exist, self.partition_detailed_affiliation_file_path = \
-            _create_file(target_directory=self.target_directory,
+            _create_file(target_directory=self.target_folder_name,
                          file_name=self.partition_detailed_affiliation_file_name)
-
-    def process(self, use_thread=True):
-        """
-            The process function,
-            loop through all dumped files from datacite,
-            split those in doi.json
-            proceed to concatenation.
-
-        Args:
-
-        Returns:
-
-        """
-        return split_dump_file_concat_and_save_doi_files(
-            self.source_folder, target_folder_name=self.target_folder_name,
-            detailed_affiliation_file_name=self.detailed_affiliation_file_path,
-            global_affiliation_file_name=self.global_affiliation_file_path
-        )
 
     def push_state_to_database(self, state: Dict):
 
@@ -298,13 +280,7 @@ class ProcessorController:
         )
 
     def _clear_local_directory(self):
-
-        pass
-
-
-    def _clear_files_in_ovh_directory(self):
-
-        pass
+        shutil.rmtree(self.config['processed_tmp_folder_name'])
 
 
 if __name__ == "__main__":

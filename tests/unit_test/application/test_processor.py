@@ -6,6 +6,7 @@ import glob
 import pandas as pd
 
 from adapters.databases.process_state_repository import ProcessStateRepository
+from application.utils_processor import _list_files_in_directory
 from tests.unit_test.application.test_global_config import test_config_harvester
 from application.processor import Processor
 from adapters.databases.mock_postgres_session import MockPostgresSession
@@ -31,15 +32,18 @@ class TestProcessor(TestCase):
 
         cls.process_state_repository = ProcessStateRepository(cls.mock_postgres_session)
         
-        cls.processor = Processor(test_config_harvester, 0, [], cls.process_state_repository)
+        cls.processor = Processor(test_config_harvester, 0,
+                                    _list_files_in_directory(test_config_harvester['raw_dump_folder_name'], test_config_harvester['files_extenxion']),
+                                  cls.process_state_repository)
 
     def test_init_processor_return_list_of_files_and_target_directory(self):
         expected_number_of_files = 1
 
+        expected_number_of_files = len(_list_files_in_directory(test_config_harvester['raw_dump_folder_name'], test_config_harvester['files_extenxion']))
         # Given processor in SetUpClass
 
         # expect
-        self.assertEqual(len(self.processor.list_of_files), expected_number_of_files)
+        self.assertEqual(len(self.processor.list_of_files_in_partition), expected_number_of_files)
 
     def test_init_processor_given_one_dump_file_containing_four_dois_when_call_process_files_expect_four_dois(
             self,
@@ -52,7 +56,7 @@ class TestProcessor(TestCase):
             os.remove(filePath)
 
         # expect
-        global_number_of_processed_dois, processed_files_and_status = self.processor.process()
+        global_number_of_processed_dois, processed_files_and_status = self.processor.process_list_of_files_in_partition()
 
         self.assertEqual(global_number_of_processed_dois, expected_number_of_dois_processed)
 
@@ -80,9 +84,9 @@ class TestProcessor(TestCase):
         for filePath in fileList:
             os.remove(filePath)
 
-        self.processor.process()
+        self.processor.process_list_of_files_in_partition()
 
-        global_affiliation = pd.read_csv(target_target_directory / self.processor.global_affiliation_file_path,
+        global_affiliation = pd.read_csv(target_target_directory / self.processor.partition_consolidated_affiliation_file_name,
                                          sep=",",
                                          names=['doi_publisher', 'doi_client_id', 'affiliation'],
                                          header=None)
@@ -96,17 +100,17 @@ class TestProcessor(TestCase):
         parent_directory = current_directory.parent
 
         # Given processor in SetUpClass
-        target_target_directory = Path(parent_directory, "test_dois")
+        target_directory = Path(parent_directory, "test_dois")
         expected_number_global_affiliation = 4
 
-        fileList = glob.glob(str(target_target_directory / '*.csv'))
+        fileList = glob.glob(str(target_directory / '*.csv'))
 
         for filePath in fileList:
             os.remove(filePath)
 
-        self.processor.process()
+        self.processor.process_list_of_files_in_partition()
 
-        global_affiliation = pd.read_csv(target_target_directory / self.processor.detailed_affiliation_file_path,
+        global_affiliation = pd.read_csv(target_directory / self.processor.partition_detailed_affiliation_file_name,
                                          sep=",",
                                          names=['doi_publisher', 'doi_client_id', 'affiliation'],
                                          header=None)

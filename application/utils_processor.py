@@ -15,179 +15,6 @@ from tqdm import tqdm
 logger = get_logger(__name__, level=LOGGER_LEVEL)
 
 
-def _list_dump_files_and_get_target_directory(
-        dump_folder: Union[str, PathLike], target_folder_name: str
-):
-    path = Path.cwd()
-
-    if isinstance(dump_folder, str):
-        path = Path(dump_folder)
-
-    assert path.exists() and path.is_dir()
-
-    target_dois_directory = path.parent / Path(target_folder_name)
-
-    if not target_dois_directory.exists():
-        target_dois_directory.mkdir()
-
-    files = path.glob("*.ndjson")
-
-    files_list = list(files)
-
-    return files_list, target_dois_directory
-
-
-def get_list_creators_or_contributors_and_affiliations(path_file):
-    list_creators_or_contributors_and_affiliations = []
-    number_of_non_null_dois = 0
-    number_of_null_dois = 0
-    number_of_processed_dois_per_file = 0
-
-    for jsonstring in path_file.open("r", encoding="utf-8"):
-        if jsonstring.strip() != "":
-            try:
-                json_obj: dict = json.loads(jsonstring)
-            except (TypeError, JSONDecodeError) as e:
-                logger.error(f"error  reading line in file {str(path_file)}. Detailed error {e}")
-            if json_obj["data"]:
-                for idx, doi in enumerate(json_obj["data"]):
-                    doi["mapped_id"] = _format_string(doi["id"])
-                    current_size = len(list_creators_or_contributors_and_affiliations)
-                    try:
-                        list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "creators")
-                        list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "contributors")
-                    except BaseException as e:
-                        logger.exception(f'Error while creating concat for {doi["id"]}. \n Detailed error {e}')
-
-                    if len(list_creators_or_contributors_and_affiliations) > current_size:
-                        number_of_non_null_dois += 1
-                    else:
-                        number_of_null_dois += 1
-
-                number_of_processed_dois_per_file = number_of_processed_dois_per_file + len(json_obj["data"])
-
-    logger.info(
-        f'{path_file} number of dois {number_of_processed_dois_per_file} number of non null dois {number_of_non_null_dois} and null dois {number_of_null_dois}')
-
-    return number_of_processed_dois_per_file, number_of_non_null_dois, number_of_null_dois, list_creators_or_contributors_and_affiliations
-
-
-def process_list_of_files_per_partition(partition_index: int, list_path: List[Union[Path, str]],
-                                        target_directory: str = "dois") -> Tuple[int, List[Dict]]:
-    """
-        Process a partition of files, retrieve the affiliations per creator or contributors
-        store the result in a detailed affiliation file and consolidated affiliation files
-    :param partition_index: index of the partition to process
-    :param list_path: List of file path to process
-    :param target_directory: target directory where to store the processed files
-    :return: the list of
-    """
-
-    detailed_affiliations_file_name: str = f"detailed_affiliations_{partition_index}.csv"
-    concatenated_affiliations_file_name: str = f"global_affiliation{partition_index}.csv"
-
-    logger.info(
-        f' Partition index : {partition_index} Processing json files'
-        f' Creating files {detailed_affiliations_file_name} and {concatenated_affiliations_file_name}')
-
-    concatenated_affiliations_file_path_already_exist, concatenated_affiliations_file_path = _create_file(
-        target_directory, concatenated_affiliations_file_name)
-    detailed_affiliations_file_path_already_exist, detailed_affiliations_file_path = _create_file(
-        target_directory, detailed_affiliations_file_name)
-
-    processed_files_and_status = []
-
-    global_number_of_processed_dois = 0
-    global_number_of_non_null_dois = 0
-    global_number_of_null_dois = 0
-
-    for index, path_file in enumerate(tqdm(list_path)):
-
-        number_of_processed_dois_per_file, number_of_non_null_dois, \
-        number_of_null_dois, list_creators_or_contributors_and_affiliations = \
-            get_list_creators_or_contributors_and_affiliations(path_file)
-
-        global_number_of_processed_dois = global_number_of_processed_dois + number_of_processed_dois_per_file
-        global_number_of_non_null_dois = global_number_of_non_null_dois + number_of_non_null_dois
-        global_number_of_null_dois = global_number_of_null_dois + number_of_null_dois
-
-        affiliation = pd.DataFrame.from_dict(list_creators_or_contributors_and_affiliations)
-
-        if affiliation.shape[0] > 0:
-            global_affiliation = affiliation[["doi_publisher", "doi_client_id", "affiliation"]].drop_duplicates()
-            _append_file(global_affiliation, concatenated_affiliations_file_path)
-
-        _append_file(affiliation, detailed_affiliations_file_path)
-
-        # Append list of path dictionary
-        processed_status = {'path_file': path_file, 'processed': True, 'processed_date': datetime.now()}
-        # push to postgreSQL
-        processed_files_and_status.append(processed_status)
-
-    logger.info(
-        f' Total number of processed dois {global_number_of_processed_dois}, total non null dois '
-        f'{global_number_of_non_null_dois} total null dois {global_number_of_null_dois}')
-
-    # Filter out global affiliation files
-    _load_csv_file_and_drop_duplicates(concatenated_affiliations_file_path,
-                                       ["doi_publisher", "doi_client_id", "affiliation"])
-
-    return global_number_of_processed_dois, processed_files_and_status
-
-
-# TODO rework to have list of files in parameter
-# TODO Push status to database
-# TODO Retrieve list of filename and status from DB
-def split_dump_file_concat_and_save_doi_files(
-        dump_folder: Union[str, PathLike],
-        target_folder_name: str = "dois",
-        detailed_affiliation_file_name: str = "detailed_affiliations.csv",
-        global_affiliation_file_name: str = "global_affiliation.csv",
-):
-    list_path, target_directory = _list_dump_files_and_get_target_directory(dump_folder, target_folder_name)
-
-    concatenated_affiliations_file_path_already_exist, concatenated_affiliations_file_path = _create_file(
-        target_directory, global_affiliation_file_name)
-    detailed_affiliations_file_path_already_exist, detailed_affiliations_file_path = _create_file(
-        target_directory, detailed_affiliation_file_name)
-
-    processed_files_and_status = []
-
-    global_number_of_processed_dois = 0
-    global_number_of_non_null_dois = 0
-    global_number_of_null_dois = 0
-
-    for index, path_file in enumerate(tqdm(list_path)):
-
-        number_of_processed_dois_per_file, number_of_non_null_dois, number_of_null_dois, list_creators_or_contributors_and_affiliations = get_list_creators_or_contributors_and_affiliations(
-            path_file)
-
-        global_number_of_processed_dois = global_number_of_processed_dois + number_of_processed_dois_per_file
-        global_number_of_non_null_dois = global_number_of_non_null_dois + number_of_non_null_dois
-        global_number_of_null_dois = global_number_of_null_dois + number_of_null_dois
-
-        affiliation = pd.DataFrame.from_dict(list_creators_or_contributors_and_affiliations)
-
-        if affiliation.shape[0] > 0:
-            global_affiliation = affiliation[["doi_publisher", "doi_client_id", "affiliation"]].drop_duplicates()
-            _append_file(global_affiliation, concatenated_affiliations_file_path)
-
-        _append_file(affiliation, detailed_affiliations_file_path)
-
-        # Append list of path dictionary
-        processed_files_and_status.append({'path_file': path_file, 'processed': True, 'processed_date': datetime.now()})
-
-    logger.info(
-        f' Total number of processed dois {global_number_of_processed_dois}, total non null dois '
-        f'{global_number_of_non_null_dois} total null dois {global_number_of_null_dois}')
-
-    # Filter out global affiliation files
-    _load_csv_file_and_drop_duplicates(concatenated_affiliations_file_path,
-                                       ["doi_publisher", "doi_client_id", "affiliation"])
-
-    return global_number_of_processed_dois, processed_files_and_status
-
-
 def _list_dump_files_in_directory():
     dump_folder_path = _get_path(config_harvester['raw_dump_folder_name'])
     return list(dump_folder_path.glob(config_harvester["files_extenxion"]))
@@ -202,13 +29,24 @@ def _list_files_in_directory(folder: Union[str, Path], regex: str):
     return list(folder_path.glob(regex))
 
 
+def _is_files_list_splittable_into_mutiple_partitions(total_number_of_partitions) -> bool:
+    list_of_files_in_dump_folder = _list_files_in_directory(config_harvester['raw_dump_folder_name'],
+                                                            config_harvester['files_extenxion'])
+    return len(list_of_files_in_dump_folder) > total_number_of_partitions
+
+
 def _get_partitions(total_number_of_partitions) -> Generator[List, Any, None]:
     # TODO optimize the partition to have list of equal size in Mb
     list_of_files_in_dump_folder = _list_files_in_directory(config_harvester['raw_dump_folder_name'],
                                                             config_harvester['files_extenxion'])
-    size_of_partitions = len(list_of_files_in_dump_folder) // total_number_of_partitions
-    for index in range(0, len(list_of_files_in_dump_folder), size_of_partitions):
-        yield list(itertools.islice(list_of_files_in_dump_folder, index, index + size_of_partitions))
+    try:
+        size_of_partitions = len(list_of_files_in_dump_folder) // total_number_of_partitions if len(
+            list_of_files_in_dump_folder) > total_number_of_partitions else len(list_of_files_in_dump_folder)
+        for index in range(0, len(list_of_files_in_dump_folder), size_of_partitions):
+            yield list(itertools.islice(list_of_files_in_dump_folder, index, index + size_of_partitions))
+    except KeyboardInterrupt as e:
+        logger.exception(f"Exception occured while processing files. \n Detailed exception  {e}")
+        raise SystemExit
 
 
 def _concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str):

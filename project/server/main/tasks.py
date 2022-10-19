@@ -3,7 +3,11 @@ import os
 import requests
 import pandas as pd
 from urllib import parse
+
+from adapters.databases.postgres_session import PostgresSession
+from adapters.databases.process_state_repository import ProcessStateRepository
 from application.processor import Processor
+from application.utils_processor import _get_partitions
 from config.global_config import config_harvester
 from project.server.main.utils_swift import download_container, upload_object, download_object
 from project.server.main.logger import get_logger
@@ -265,3 +269,17 @@ def create_task_process_and_match_dois():
     processor.process()
     processor.push_dois_to_ovh()
 
+
+def create_task_process_dois(partition_index, files_in_partition):
+    postgres_session = PostgresSession(host=config_harvester['db']['db_host'],
+                                       port=config_harvester['db']['db_port'],
+                                       database_name=config_harvester['db']['db_name'],
+                                       password=config_harvester['db']['db_password'],
+                                       username=config_harvester['db']['db_user'])
+
+    process_state_repository = ProcessStateRepository(postgres_session)
+
+    processor = Processor(config=config_harvester, index_of_partition=partition_index,
+                          files_in_partition=files_in_partition,
+                          repository=process_state_repository)
+    processor.process_list_of_files_in_partition()
