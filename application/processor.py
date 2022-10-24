@@ -267,13 +267,13 @@ class ProcessorController:
 
     def _push_to_ovh(self):
         upload_object(
-            self.config["processed_datacite_container"],
+            self.config["datacite_container"],
             source=str(self.global_consolidated_affiliation_file_path),
             target=OvhPath(self.config['processed_datacite_container'],
                            path.basename(self.global_consolidated_affiliation_file_path)).__str__(),
         )
         upload_object(
-            self.config["processed_datacite_container"],
+            self.config["datacite_container"],
             source=str(self.global_detailed_affiliation_file_path),
             target=OvhPath(self.config['processed_datacite_container'],
                            path.basename(self.global_detailed_affiliation_file_path)).__str__(),
@@ -284,19 +284,6 @@ class ProcessorController:
 
 
 if __name__ == "__main__":
-    config_harvester['raw_dump_folder_name'] = r"C:\Users\maurice.ketevi\Documents\datadump"
-    total_number_of_partitions = 10
-    partitions = list(_get_partitions(total_number_of_partitions))
-    postgres_session = PostgresSession(host=config_harvester['db']['db_host'],
-                                       port=config_harvester['db']['db_port'],
-                                       database_name=config_harvester['db']['db_name'],
-                                       password=config_harvester['db']['db_password'],
-                                       username=config_harvester['db']['db_user'])
-
-    process_state_repository = ProcessStateRepository(postgres_session)
-
-    for partition_index in range(0, total_number_of_partitions):
-        processor = Processor(config=config_harvester, index_of_partition=partition_index,
-                              files_in_partition=partitions[partition_index],
-                              repository=process_state_repository)
-        processor.process_list_of_files_in_partition()
+    processor_controller = ProcessorController(config_harvester, 100)
+    processor_controller.process_files()
+    processor_controller._push_to_ovh()

@@ -7,6 +7,7 @@ from os import PathLike
 from typing import Union, Dict, List, Tuple, Generator, Any
 import pandas as pd
 
+from config.exceptions import FileLoadingException
 from config.global_config import config_harvester
 from project.server.main.logger import get_logger
 from config.logger_config import LOGGER_LEVEL
@@ -21,7 +22,7 @@ def _list_dump_files_in_directory():
 
 
 def _merge_files(list_of_files: List[Union[str, Path]], target_file_path: Path):
-    pd.concat([pd.read_csv(file) for file in list_of_files]).to_csv(f"{target_file_path}", index=False)
+    pd.concat([pd.read_csv(file) for file in list_of_files]).to_csv(f"{target_file_path}", index=False, low_memory=False)
 
 
 def _list_files_in_directory(folder: Union[str, Path], regex: str):
@@ -172,12 +173,17 @@ def _load_csv_file_and_drop_duplicates(global_affiliations_file_path: Union[Path
                                        separator: str = ",", header=None):
     if names is None:
         names = ["doi_publisher", "doi_client_id", "affiliation"]
-    global_affiliation = pd.read_csv(
-        global_affiliations_file_path,
-        sep=separator,
-        names=names,
-        header=header,
-    )
+
+    try:
+        global_affiliation = pd.read_csv(
+            global_affiliations_file_path,
+            sep=separator,
+            names=names,
+            header=header,
+            lineterminator="\n"
+        )
+    except FileLoadingException as e:
+        logger.exception(f"Failed to load file {global_affiliations_file_path} . Detailed messages {e}")
 
     if global_affiliation.shape[0] > 0:
         global_affiliation.drop_duplicates(inplace=True)
