@@ -9,6 +9,7 @@ services:
     volumes:
       - ./:/src
       - /src/dcdump
+      - ./dcdump:/data/dump
     environment:
       - APP_SETTINGS=project.server.config.DevelopmentConfig
       - FLASK_ENV=${FLASK_ENV}
@@ -18,11 +19,11 @@ services:
       - DB_MONGO_PASSWORD=${DB_MONGO_PASSWORD}
       - DB_MONGO_NAME=${DB_MONGO_NAME}
       - DB_MONGO_AUTH_MECH=${DB_MONGO_AUTH_MECH}
-      - DB_POSTGRES_USER=${DB_POSTGRES_USER}
-      - DB_POSTGRES_PASSWORD=${DB_POSTGRES_PASSWORD}
-      - DB_POSTGRES_NAME=${DB_POSTGRES_NAME}
-      - DB_POSTGRES_HOST=${DB_POSTGRES_HOST}
-      - DB_POSTGRES_PORT=${DB_POSTGRES_PORT}
+      - DB_USER=${DB_POSTGRES_USER}
+      - DB_PASSWORD=${DB_POSTGRES_PASSWORD}
+      - DB_NAME=${DB_POSTGRES_NAME}
+      - DB_HOST=${DB_POSTGRES_HOST}
+      - DB_PORT=${DB_POSTGRES_PORT}
     env_file:
       - .env
     command: bash -c "sleep 10 && python3 manage.py run -h 0.0.0.0"
@@ -36,6 +37,7 @@ services:
     volumes:
       - ./:/src
       - /src/dcdump
+      - ./dcdump:/data/dump
     environment:
       - APP_SETTINGS=project.server.config.DevelopmentConfig
       - FLASK_ENV=${FLASK_ENV}
@@ -45,11 +47,11 @@ services:
       - DB_MONGO_PASSWORD=${DB_MONGO_PASSWORD}
       - DB_MONGO_NAME=${DB_MONGO_NAME}
       - DB_MONGO_AUTH_MECH=${DB_MONGO_AUTH_MECH}
-      - DB_POSTGRES_USER=${DB_POSTGRES_USER}
-      - DB_POSTGRES_PASSWORD=${DB_POSTGRES_PASSWORD}
-      - DB_POSTGRES_NAME=${DB_POSTGRES_NAME}
-      - DB_POSTGRES_HOST=${DB_POSTGRES_HOST}
-      - DB_POSTGRES_PORT=${DB_POSTGRES_PORT}
+      - DB_USER=${DB_POSTGRES_USER}
+      - DB_PASSWORD=${DB_POSTGRES_PASSWORD}
+      - DB_NAME=${DB_POSTGRES_NAME}
+      - DB_HOST=${DB_POSTGRES_HOST}
+      - DB_PORT=${DB_POSTGRES_PORT}
     env_file:
       - .env
     command: bash -c "sleep 10 && python3 manage.py run_worker"

@@ -15,7 +15,7 @@ class Creator:
     @staticmethod
     def from_dict_custom(obj: Any) -> "Creator":
         _name = str(obj.get("name"))
-        _givenName = str(obj.get("givenName", ""))
+        _givenName = str(obj.get("givenName"))
         _familyName = str(obj.get("familyName"))
         _affiliation = [str(y) for y in obj.get("affiliation")]
         _nameIdentifiers = [str(y) for y in obj.get("nameIdentifiers")]

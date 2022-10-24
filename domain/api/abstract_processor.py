@@ -1,16 +1,13 @@
 from abc import ABCMeta, abstractmethod
 
-from domain.databases.abstract_session import AbstractSession
-
 
 class AbstractProcessor(metaclass=ABCMeta):
-
     source_folder: str
 
     @abstractmethod
-    def __init__(self, source_folder: str):
+    def __init__(self):
         raise NotImplementedError
 
     @abstractmethod
-    def process(self):
+    def process_list_of_files_in_partition(self):
         raise NotImplementedError

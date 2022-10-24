@@ -25,8 +25,8 @@ class TestAffiliationMatcher(TestCase):
             headers=self.affiliation_matcher.headers,
             json={"type": self.match_type, "query": self.affiliation_string},
         )
-        assert self.affiliation_matcher.get_affiliation.cache_info().hits == 0
-        assert self.affiliation_matcher.get_affiliation.cache_info().currsize == 1
+        self.assertEqual(self.affiliation_matcher.get_affiliation.cache_info().hits, 0)
+        self.assertEqual(self.affiliation_matcher.get_affiliation.cache_info().currsize, 1)
 
     @patch(f"{TESTED_MODULE}.requests.post")
     def test_get_affiliation_cached_request(self, mock_post):
@@ -36,5 +36,5 @@ class TestAffiliationMatcher(TestCase):
         self.affiliation_matcher.get_affiliation(self.match_type, self.affiliation_string)
         # Then
         mock_post.assert_called_once()
-        assert self.affiliation_matcher.get_affiliation.cache_info().currsize == 1
-        assert self.affiliation_matcher.get_affiliation.cache_info().hits == 1
+        self.assertEqual(self.affiliation_matcher.get_affiliation.cache_info().currsize, 1)
+        self.assertEqual(self.affiliation_matcher.get_affiliation.cache_info().hits, 1)

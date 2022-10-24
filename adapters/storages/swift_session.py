@@ -32,6 +32,7 @@ class SwiftSession(AbstractSwiftSession):
         except SwiftError as e:
             logger.exception(f"error listing containers: {str(e)}")
 
+        # TODO change to only datacite folder
         for container_name in [config_harvester['raw_datacite_container'], config_harvester['processed_datacite_container']]:
             if container_name not in container_names:
                 # create the container

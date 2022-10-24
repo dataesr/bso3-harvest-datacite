@@ -1,0 +1,3 @@
+
+class FileLoadingException(Exception):
+    pass

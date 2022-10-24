@@ -9,3 +9,4 @@ processed
 sample-dump/*.ndjson
 test_dois
 venv/
+dcdump/

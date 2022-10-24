@@ -34,3 +34,4 @@ class TestMongoSession(TestCase):
         # Then
         mock_MongoClient__init__.assert_called_once()
         mock_MongoClient__getitem__.assert_called_once()
+

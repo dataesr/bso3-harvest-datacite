@@ -59,8 +59,8 @@ class TestHarvester(TestCase):
         results = self.harvest_state_repository.get()
 
         # Then
-        assert downloaded
-        assert results[0].__eq__(harvest_state_expected)
+        self.assertIs(downloaded)
+        self.assertEqual(results[0], harvest_state_expected)
 
     def test_launching_download_without_thread(self):
         # Given
@@ -75,5 +75,5 @@ class TestHarvester(TestCase):
         results = self.harvest_state_repository.get()
 
         # Then
-        assert downloaded
-        assert results[0].__eq__(harvest_state_expected)
+        self.assertIs(downloaded)
+        self.assertEqual(results[0], harvest_state_expected)

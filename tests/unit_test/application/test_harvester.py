@@ -47,7 +47,7 @@ class TestHarvesterExecution(TestCase):
             results.append(self.harvester.selectInterval(input))
 
         # Then
-        assert results == results_expected
+        self.assertEqual(results, results_expected)
 
     @patch(f"{TESTED_MODULE}.run")
     @patch(f"{TESTED_MODULE}.Path")
@@ -93,7 +93,7 @@ class TestHarvesterExecution(TestCase):
 
         # Then
         mock_run.assert_called_once()
-        assert number_of_slices == number_of_slices_expected
+        self.assertEqual(number_of_slices, number_of_slices_expected)
 
     @patch(f"{TESTED_MODULE}.run")
     def test_given_inputs_and_returncode_of_run_returns_2_when_using_getNumberSlices_then_run_called_once_and_raise_exception(self, mock_run):
@@ -124,8 +124,8 @@ class TestHarvesterExecution(TestCase):
         number_downloaded: int = self.harvester.getNumberDownloaded(self.target_directory, self.file_prefix, self.start_date, self.end_date)
 
         # Then
-        assert mock_run.call_count == number_mock_run_calls_expected
-        assert number_downloaded == number_downloaded_expected
+        self.assertEqual(mock_run.call_count, number_mock_run_calls_expected)
+        self.assertEqual(number_downloaded, number_downloaded_expected)
 
     @patch(f"{TESTED_MODULE}.run")
     def test_given_inputs_and_returncode_of_run_returns_2_and_stdout_returns_error_when_using_getNumberDownloaded_then_run_is_called_once_and_should_raise_exception_error(self, mock_run):
@@ -185,13 +185,13 @@ class TestHarvesterExecution(TestCase):
         downloading, harvest_state = self.harvester.download(self.target_directory, self.start_date, self.end_date, self.interval)
 
         # Then
-        assert self.mock_harvest_state_repository.nb_calls_create == nb_calls_create_expected
+        self.assertEqual(self.mock_harvest_state_repository.nb_calls_create, nb_calls_create_expected)
         mock_selectInterval.assert_called_once()
         mock_getNumberSlices.assert_called_once()
         mock_thread.assert_called_once()
-        assert mock_harvesting.call_count == nb_calls_harvesting_expected
-        assert downloading
-        assert harvest_state.__eq__(harvest_state_expected)
+        self.assertEqual(mock_harvesting.call_count, nb_calls_harvesting_expected)
+        self.assertIs(downloading, True)
+        self.assertEqual(harvest_state, harvest_state_expected)
 
     @patch(f"{TESTED_MODULE}.Harvester.selectInterval")
     @patch(f"{TESTED_MODULE}.Harvester.getNumberSlices")
@@ -215,13 +215,13 @@ class TestHarvesterExecution(TestCase):
         downloading, harvest_state = self.harvester.download(self.target_directory, self.start_date, self.end_date, self.interval)
 
         # Then
-        assert self.mock_harvest_state_repository.nb_calls_create == nb_calls_create_expected
-        assert mock_selectInterval.call_count == nb_calls_mock_selectInterval
-        assert mock_getNumberSlices.call_count == nb_calls_mock_getNumberSlices
-        assert mock_thread.call_count == nb_calls_mock_thread
-        assert mock_harvesting.call_count == nb_calls_harvesting_expected
-        assert not downloading
-        assert harvest_state.__eq__(harvest_state_expected)
+        self.assertEqual(self.mock_harvest_state_repository.nb_calls_create, nb_calls_create_expected)
+        self.assertEqual(mock_selectInterval.call_count, nb_calls_mock_selectInterval)
+        self.assertEqual(mock_getNumberSlices.call_count, nb_calls_mock_getNumberSlices)
+        self.assertEqual(mock_thread.call_count, nb_calls_mock_thread)
+        self.assertEqual(mock_harvesting.call_count, nb_calls_harvesting_expected)
+        self.assertIs(downloading, False)
+        self.assertEqual(harvest_state, harvest_state_expected)
 
     @patch(f"{TESTED_MODULE}.Harvester.selectInterval")
     @patch(f"{TESTED_MODULE}.Harvester.getNumberSlices")
@@ -242,13 +242,13 @@ class TestHarvesterExecution(TestCase):
         downloading, harvest_state = self.harvester.download(self.target_directory, self.start_date, self.end_date, self.interval, use_thread=False)
 
         # Then
-        assert self.mock_harvest_state_repository.nb_calls_create == nb_calls_create_expected
+        self.assertEqual(self.mock_harvest_state_repository.nb_calls_create, nb_calls_create_expected)
         mock_selectInterval.assert_called_once()
         mock_getNumberSlices.assert_called_once()
-        assert mock_thread.call_count == nb_calls_mock_expected
+        self.assertEqual(mock_thread.call_count, nb_calls_mock_expected)
         mock_harvesting.assert_called_once
-        assert downloading
-        assert harvest_state.__eq__(harvest_state_expected)
+        self.assertIs(downloading, True)
+        self.assertEqual(harvest_state, harvest_state_expected)
 
     @patch(f"{TESTED_MODULE}.Harvester.executeDcdump")
     @patch(f"{TESTED_MODULE}.Harvester.getNumberDownloaded")
@@ -267,8 +267,8 @@ class TestHarvesterExecution(TestCase):
         # Then
         mock_executeDcdump.assert_called_once()
         mock_getNumberDownloaded.assert_called_once()
-        assert self.mock_harvest_state_repository.nb_calls_update == nb_calls_update_expected
-        assert self.mock_harvest_state_repository.update_args_calls == update_args_call_expected
+        self.assertEqual(self.mock_harvest_state_repository.nb_calls_update, nb_calls_update_expected)
+        self.assertEqual(self.mock_harvest_state_repository.update_args_calls, update_args_call_expected)
 
     @patch(f"{TESTED_MODULE}.Harvester.executeDcdump")
     @patch(f"{TESTED_MODULE}.Harvester.getNumberDownloaded")
@@ -287,5 +287,5 @@ class TestHarvesterExecution(TestCase):
         # Then
         mock_executeDcdump.assert_called_once()
         mock_getNumberDownloaded.assert_called_once()
-        assert self.mock_harvest_state_repository.nb_calls_update == nb_calls_update_expected
-        assert self.mock_harvest_state_repository.update_args_calls == update_args_call_expected
+        self.assertEqual(self.mock_harvest_state_repository.nb_calls_update, nb_calls_update_expected)
+        self.assertEqual(self.mock_harvest_state_repository.update_args_calls, update_args_call_expected)

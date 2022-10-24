@@ -27,4 +27,4 @@ class TestSwiftSession(TestCase):
 
         # Then
         mock_create_engine.assert_called_once()
-        assert get_session_result is not None
+        self.assertIsNotNone(get_session_result)

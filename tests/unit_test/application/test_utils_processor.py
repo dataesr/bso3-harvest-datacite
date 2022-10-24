@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 import pandas as pd
 from tests.unit_test.fixtures.utils_processor import *
 
-from application.utils_processor import _format_doi, write_doi_files
+from application.utils_processor import _format_string, write_doi_files
 
 TESTED_MODULE = "application.utils_processor"
 
@@ -20,7 +20,7 @@ class TestProcessor(TestCase):
         mongo_repo_mock = Mock()
         mock_get_mongo_repo.return_value = mongo_repo_mock
         sample_affiliations = pd.read_csv(fixture_path / "sample_affiliations.csv")
-        fr_doi_file_name = f"{_format_doi(sample_affiliations.doi.values[0])}.json"
+        fr_doi_file_name = f"{_format_string(sample_affiliations.doi.values[0])}.json"
         output_dir = fixture_path / "doi_files"
         expected_fr_doi_file = fixture_path / "expected_fr_doi.json"
         with expected_fr_doi_file.open("r", encoding="utf-8") as f:
