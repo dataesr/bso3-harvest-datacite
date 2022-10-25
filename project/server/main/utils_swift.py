@@ -1,8 +1,11 @@
 import os
+from typing import Union
+
 import swiftclient
 
 from retry import retry
 
+from domain.ovh_path import OvhPath
 from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
@@ -42,14 +45,15 @@ def get_connection() -> swiftclient.Connection:
             authurl="https://auth.cloud.ovh.net/v3",
             user=user,
             key=key,
-            os_options={"user_domain_name": "Default", "project_domain_name": "Default", "project_id": project_id, "project_name": project_name, "region_name": "GRA"},
+            os_options={"user_domain_name": "Default", "project_domain_name": "Default", "project_id": project_id,
+                        "project_name": project_name, "region_name": "GRA"},
             auth_version="3",
         )
     return conn
 
 
 @retry(delay=2, tries=50)
-def upload_object(container: str, source: str, target: str, segments=True) -> str:
+def upload_object(container: str, source: str, target: Union[str, OvhPath], segments=True) -> str:
     logger.debug(f"Uploading {source} in {container} as {target}")
     cmd = init_cmd + f" upload {container} {source} --object-name {target}"
     if segments:

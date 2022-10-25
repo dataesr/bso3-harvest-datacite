@@ -1,3 +1,5 @@
+from typing import Tuple
+
 from domain.api.abstract_harvester import AbstractHarvester
 
 from adapters.databases.harvest_state_repository import HarvestStateRepository
@@ -29,17 +31,17 @@ class Harvester(AbstractHarvester):
         self.harvest_state_repository = harvest_state_repository
 
     def download(
-        self,
-        target_directory: str,
-        start_date: datetime,
-        end_date: datetime,
-        interval: str,
-        max_requests: int = 16777216,
-        file_prefix: str = "dcdump-",
-        workers: int = 4,
-        sleep_duration: str = "3m0s",
-        use_thread=True,
-    ) -> bool:
+            self,
+            target_directory: str,
+            start_date: datetime,
+            end_date: datetime,
+            interval: str,
+            max_requests: int = 16777216,
+            file_prefix: str = "dcdump-",
+            workers: int = 4,
+            sleep_duration: str = "3m0s",
+            use_thread=True,
+    ) -> tuple[bool, HarvestStateTable]:
 
         """
         The download function check if we can download. If we can, the function prepares and launch harvesting.
@@ -62,24 +64,30 @@ class Harvester(AbstractHarvester):
         harvest_state = HarvestStateTable(start_date, end_date, "in progress", target_directory, slice_type=interval)
 
         begin_harvesting: bool = True
+
+        HarvestStateTable.createTable(self.harvest_state_repository.session.getEngine())
+
         if not self.harvest_state_repository.create(harvest_state):
             begin_harvesting = False
             harvest_state.status = "already exists"
 
         if begin_harvesting:
             dcdump_interval: str = self.selectInterval(harvest_state.slice_type)
-            number_of_slices: int = self.getNumberSlices(harvest_state.start_date, harvest_state.end_date, dcdump_interval)
+            number_of_slices: int = self.getNumberSlices(harvest_state.start_date, harvest_state.end_date,
+                                                         dcdump_interval)
 
             harvest_state.number_slices = number_of_slices
             if use_thread:
-                thread: Thread = Thread(target=self.harvesting, args=(harvest_state, dcdump_interval, max_requests, file_prefix, workers, sleep_duration))
+                thread: Thread = Thread(target=self.harvesting, args=(
+                    harvest_state, dcdump_interval, max_requests, file_prefix, workers, sleep_duration))
                 thread.start()
             else:
                 self.harvesting(harvest_state, dcdump_interval, max_requests, file_prefix, workers, sleep_duration)
 
         return begin_harvesting, harvest_state
 
-    def harvesting(self, harvest_state: HarvestStateTable, dcdump_interval, max_requests, file_prefix, workers, sleep_duration):
+    def harvesting(self, harvest_state: HarvestStateTable, dcdump_interval, max_requests, file_prefix, workers,
+                   sleep_duration):
         """
         The harvesting function executes dcdump, check different information and update harvest state
 
@@ -94,9 +102,11 @@ class Harvester(AbstractHarvester):
         Returns:
             Nothing (void).
         """
-        self.executeDcdump(harvest_state.current_directory, harvest_state.start_date, harvest_state.end_date, dcdump_interval, max_requests, file_prefix, workers, sleep_duration)
+        self.executeDcdump(harvest_state.current_directory, harvest_state.start_date, harvest_state.end_date,
+                           dcdump_interval, max_requests, file_prefix, workers, sleep_duration)
 
-        number_downloaded: int = self.getNumberDownloaded(harvest_state.current_directory, file_prefix, harvest_state.start_date, harvest_state.end_date)
+        number_downloaded: int = self.getNumberDownloaded(harvest_state.current_directory, file_prefix,
+                                                          harvest_state.start_date, harvest_state.end_date)
 
         harvest_state.number_missed = harvest_state.number_slices - number_downloaded
 
@@ -105,7 +115,8 @@ class Harvester(AbstractHarvester):
         else:
             harvest_state.status = "error"
 
-        elements_update: dict = {"number_missed": harvest_state.number_missed, "status": harvest_state.status, "number_slices": harvest_state.number_slices}
+        elements_update: dict = {"number_missed": harvest_state.number_missed, "status": harvest_state.status,
+                                 "number_slices": harvest_state.number_slices}
         filter: dict = {"id": harvest_state.id}
         self.harvest_state_repository.update(elements_update, filter)
 
@@ -168,7 +179,8 @@ class Harvester(AbstractHarvester):
 
         return result
 
-    def executeDcdump(self, target_directory: str, start_date: datetime, end_date: datetime, interval: str, max_requests: int, file_prefix: str, workers: int, sleep_duration: int):
+    def executeDcdump(self, target_directory: str, start_date: datetime, end_date: datetime, interval: str,
+                      max_requests: int, file_prefix: str, workers: int, sleep_duration: int):
         """
         The executeDcdump function executes dcdump with the arguments passed.
 
@@ -217,7 +229,8 @@ class Harvester(AbstractHarvester):
         if p.returncode != 0:
             raise Exception(p.stdout)
 
-    def getNumberDownloaded(self, target_directory: str, file_prefix: str, start_date: datetime, end_date: datetime) -> int:
+    def getNumberDownloaded(self, target_directory: str, file_prefix: str, start_date: datetime,
+                            end_date: datetime) -> int:
         """
         The getNumberDownloaded function gets the number of files between start_date and end_date in target_directory and with as prefix file_prefix.
 
@@ -239,7 +252,8 @@ class Harvester(AbstractHarvester):
 
         getListFromTargetDirectory: list = ["ls", "-f", target_directory]
         grepByFilePrefix: list = ["grep", file_prefix]
-        filterByLimit: list = ["awk", '{ if ($0 < "' + upper_limit + '" && $0 > "' + lower_limit + '") {print "1"; } } ']
+        filterByLimit: list = ["awk",
+                               '{ if ($0 < "' + upper_limit + '" && $0 > "' + lower_limit + '") {print "1"; } } ']
         countNumberOfLine: list = ["wc", "-l"]
 
         cmds: list = [getListFromTargetDirectory, grepByFilePrefix, filterByLimit, countNumberOfLine]

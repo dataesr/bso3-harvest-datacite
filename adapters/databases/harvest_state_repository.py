@@ -15,6 +15,7 @@ class HarvestStateRepository(AbstractHarvestStateRepository):
 
     def create(self, harvest_state: HarvestStateTable) -> bool:
         added: bool = False
+
         with self.session.sessionScope() as session:
             error_message: str = "error"
 

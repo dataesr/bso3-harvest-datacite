@@ -1,4 +1,5 @@
 import json
+import os.path
 import shutil
 from datetime import datetime
 from json import JSONDecodeError
@@ -244,8 +245,8 @@ class ProcessorController:
 
         self.list_of_consolidated_affiliation_files, self.list_of_detailed_affiliation_files = self._get_list_of_files()
 
-        self.global_detailed_affiliation_file_path = config['detailed_affiliation_file_name']
-        self.global_consolidated_affiliation_file_path = config['global_affiliation_file_name']
+        self.global_detailed_affiliation_file_path = Path(os.path.join(f"{config_harvester['files_prefix']}_{config['detailed_affiliation_file_name']}"))
+        self.global_consolidated_affiliation_file_path = Path(os.path.join(f"{config_harvester['files_prefix']}_{config['global_affiliation_file_name']}"))
 
         self.swift = None
         is_swift_config = ("swift" in self.config) and len(self.config["swift"]) > 0
@@ -265,7 +266,7 @@ class ProcessorController:
                                         self.partition_consolidated_affiliation_file_name_pattern), \
                _list_files_in_directory(self.target_folder_name, self.partition_detailed_affiliation_file_name_pattern)
 
-    def _push_to_ovh(self):
+    def push_to_ovh(self):
         upload_object(
             self.config["datacite_container"],
             source=str(self.global_consolidated_affiliation_file_path),
@@ -286,4 +287,4 @@ class ProcessorController:
 if __name__ == "__main__":
     processor_controller = ProcessorController(config_harvester, 100)
     processor_controller.process_files()
-    processor_controller._push_to_ovh()
+    processor_controller.push_to_ovh()

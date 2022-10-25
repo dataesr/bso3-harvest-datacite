@@ -31,6 +31,8 @@ DETAILED_AFFILIATION_FILE_NAME = "detailed_affiliations.csv"
 # Datacite configuration
 FILES_EXTENSION = "*.ndjson"
 
+DEFAULT_START_DATE = "2018-01-01"
+
 
 def get_harvester_config() -> dict:
     load_environment_variables()
@@ -68,11 +70,14 @@ def get_harvester_config() -> dict:
     config_harvester['raw_dump_folder_name'] = RAW_DUMP_FOLDER_NAME
     config_harvester['processed_dump_folder_name'] = os.path.join(PROJECT_DIRNAME, PROCESSED_DUMP_FOLDER_NAME)
     config_harvester['processed_tmp_folder_name'] = os.path.join(PROJECT_DIRNAME, PROCESSED_TMP_FOLDER_NAME)
-    config_harvester['global_affiliation_file_name'] = os.path.join(config_harvester['processed_dump_folder_name'],
-                                                                    GLOBAL_AFFILIATION_FILE_NAME)
-    config_harvester['detailed_affiliation_file_name'] = os.path.join(config_harvester['processed_dump_folder_name'],
-                                                                      DETAILED_AFFILIATION_FILE_NAME)
+    # config_harvester['global_affiliation_file_name'] = os.path.join(config_harvester['processed_dump_folder_name'],
+    #                                                                GLOBAL_AFFILIATION_FILE_NAME)
+    # config_harvester['detailed_affiliation_file_name'] = os.path.join(config_harvester['processed_dump_folder_name'],
+    #                                                                   DETAILED_AFFILIATION_FILE_NAME)
+    config_harvester['global_affiliation_file_name'] = GLOBAL_AFFILIATION_FILE_NAME
+    config_harvester['detailed_affiliation_file_name'] = DETAILED_AFFILIATION_FILE_NAME
     config_harvester['affiliation_matcher_service'] = os.getenv("AFFILIATION_MATCHER_SERVICE")
+    config_harvester['dump_default_start_date'] = DEFAULT_START_DATE
 
     # Datacite configuration
     config_harvester['files_extenxion'] = FILES_EXTENSION

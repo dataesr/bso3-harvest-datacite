@@ -1,6 +1,10 @@
 from glob import glob
 import os
 from pathlib import Path
+from datetime import datetime
+
+from adapters.databases.harvest_state_repository import HarvestStateRepository
+from application.harvester import Harvester
 from application.utils_processor import write_doi_files
 import requests
 import pandas as pd
@@ -8,8 +12,7 @@ from urllib import parse
 
 from adapters.databases.postgres_session import PostgresSession
 from adapters.databases.process_state_repository import ProcessStateRepository
-from application.processor import Processor
-from application.utils_processor import _get_partitions
+from application.processor import Processor, ProcessorController
 from config.global_config import config_harvester
 from project.server.main.utils_swift import download_container, upload_object, download_object
 from project.server.main.logger import get_logger
@@ -38,8 +41,8 @@ def import_es(args):
     logger.debug("loading datacite index")
     # reset_index(index=index_name)
     elasticimport = (
-        f"elasticdump --input={enriched_output_file} --output={es_host}{index_name} --type=data --limit 50 "
-        + "--transform='doc._source=Object.assign({},doc)'"
+            f"elasticdump --input={enriched_output_file} --output={es_host}{index_name} --type=data --limit 50 "
+            + "--transform='doc._source=Object.assign({},doc)'"
     )
     logger.debug(f"{elasticimport}")
     logger.debug("starting import in elastic")
@@ -93,10 +96,10 @@ def create_task_match_affiliations_partition(affiliations_source_file, partition
     # Download csv file from ovh storage
     dest_dir = "."
     local_affiliation_file = download_file(
-                                container=config_harvester["datacite_container"],
-                                filename=affiliations_source_file,
-                                destination_dir=dest_dir,
-                            )
+        container=config_harvester["datacite_container"],
+        filename=affiliations_source_file,
+        destination_dir=dest_dir,
+    )
     # read partition
     partition_size = get_partition_size(local_affiliation_file, total_partition_number)
     not_in_partition = lambda x: not x in range(
@@ -105,24 +108,30 @@ def create_task_match_affiliations_partition(affiliations_source_file, partition
     affiliations_df = pd.read_csv(local_affiliation_file, header=None,
                                   names=["doi_publisher", "doi_client_id", "affiliation_str"],
                                   skiprows=not_in_partition
-                                )
+                                  )
     if affiliations_df.empty:
         logger.debug("affiliations_df is empty")
         return
     # process partition
     affiliation_matcher = AffiliationMatcher(base_url=config_harvester["affiliation_matcher_service"])
     affiliation_matcher_version = affiliation_matcher.get_version()
-    affiliations_df["countries"] = affiliations_df["affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("country", x))
-    affiliations_df["is_publisher_fr"] = affiliations_df["doi_publisher"].apply(str).apply(affiliation_matcher.is_publisher_fr)
-    affiliations_df["is_clientId_fr"] = affiliations_df["doi_client_id"].apply(str).apply(affiliation_matcher.is_clientId_fr)
+    affiliations_df["countries"] = affiliations_df["affiliation_str"].apply(
+        lambda x: affiliation_matcher.get_affiliation("country", x))
+    affiliations_df["is_publisher_fr"] = affiliations_df["doi_publisher"].apply(str).apply(
+        affiliation_matcher.is_publisher_fr)
+    affiliations_df["is_clientId_fr"] = affiliations_df["doi_client_id"].apply(str).apply(
+        affiliation_matcher.is_clientId_fr)
     affiliations_df["is_countries_fr"] = affiliations_df["countries"].apply(affiliation_matcher.is_countries_fr)
     is_fr = (affiliations_df.is_publisher_fr | affiliations_df.is_clientId_fr | affiliations_df.is_countries_fr)
     affiliations_df["grid"] = [[]] * len(affiliations_df)
     affiliations_df["rnsr"] = [[]] * len(affiliations_df)
     affiliations_df["ror"] = [[]] * len(affiliations_df)
-    affiliations_df.loc[is_fr, "grid"] = affiliations_df.loc[is_fr, "affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("grid", x))
-    affiliations_df.loc[is_fr, "rnsr"] = affiliations_df.loc[is_fr, "affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("rnsr", x))
-    affiliations_df.loc[is_fr, "ror"] = affiliations_df.loc[is_fr, "affiliation_str"].apply(lambda x: affiliation_matcher.get_affiliation("ror", x))
+    affiliations_df.loc[is_fr, "grid"] = affiliations_df.loc[is_fr, "affiliation_str"].apply(
+        lambda x: affiliation_matcher.get_affiliation("grid", x))
+    affiliations_df.loc[is_fr, "rnsr"] = affiliations_df.loc[is_fr, "affiliation_str"].apply(
+        lambda x: affiliation_matcher.get_affiliation("rnsr", x))
+    affiliations_df.loc[is_fr, "ror"] = affiliations_df.loc[is_fr, "affiliation_str"].apply(
+        lambda x: affiliation_matcher.get_affiliation("ror", x))
 
     processed_filename = f"{affiliation_matcher_version}_{partition_index}.csv"
     logger.debug(affiliation_matcher.get_affiliation.cache_info())
@@ -164,25 +173,26 @@ def get_merged_affiliations(dest_dir: str) -> pd.DataFrame:
     """Downloads (if need be) consolidated and detailled csv files
     and returns the merged DataFrame"""
     consolidated_affiliations_file = download_file(
-                                container=config_harvester["datacite_container"],
-                                filename="consolidated_affiliations.csv",
-                                destination_dir=dest_dir,
-                            )
+        container=config_harvester["datacite_container"],
+        filename="consolidated_affiliations.csv",
+        destination_dir=dest_dir,
+    )
     consolidated_affiliations = pd.read_csv(consolidated_affiliations_file)
     detailled_affiliations_file = download_file(
-                                container=config_harvester["datacite_container"],
-                                filename="processed/detailed_affiliations.csv",
-                                destination_dir=dest_dir,
-                            )
+        container=config_harvester["datacite_container"],
+        filename="processed/detailed_affiliations.csv",
+        destination_dir=dest_dir,
+    )
     detailled_affiliations = pd.read_csv(detailled_affiliations_file,
-                                        names=[
-                                            "doi", "doi_file_name",
-                                            "creator_contributor",
-                                            "name", "doi_publisher",
-                                            "doi_client_id", "affiliation_str"
-                                        ], header=None)
+                                         names=[
+                                             "doi", "doi_file_name",
+                                             "creator_contributor",
+                                             "name", "doi_publisher",
+                                             "doi_client_id", "affiliation_str"
+                                         ], header=None)
     # merge en merged_affiliation
-    return pd.merge(consolidated_affiliations, detailled_affiliations, 'left', on=["doi_publisher", "doi_client_id", "affiliation_str"])
+    return pd.merge(consolidated_affiliations, detailled_affiliations, 'left',
+                    on=["doi_publisher", "doi_client_id", "affiliation_str"])
 
 
 def clean_up(output_dir):
@@ -204,7 +214,8 @@ def create_task_enrich_dois(partition_files):
     dest_dir = "./csv/"
     merged_affiliations = get_merged_affiliations(dest_dir)
 
-    is_fr = (merged_affiliations.is_publisher_fr | merged_affiliations.is_clientId_fr | merged_affiliations.is_countries_fr)
+    is_fr = (
+            merged_affiliations.is_publisher_fr | merged_affiliations.is_clientId_fr | merged_affiliations.is_countries_fr)
     fr_affiliated_dois_df = merged_affiliations[is_fr]
     output_dir = './dois/'
     for file in tqdm(partition_files):
@@ -213,11 +224,11 @@ def create_task_enrich_dois(partition_files):
     # Upload and clean up
     all_files = glob(output_dir + '*.json')
     fr_files = [
-            file
-            for file in all_files
-            if os.path.splitext(os.path.basename(file))[0] in fr_affiliated_dois_df.doi_file_name.values
-        ]
-    upload_doi_files(fr_files , prefix=config_harvester["fr_doi_files_prefix"])
+        file
+        for file in all_files
+        if os.path.splitext(os.path.basename(file))[0] in fr_affiliated_dois_df.doi_file_name.values
+    ]
+    upload_doi_files(fr_files, prefix=config_harvester["fr_doi_files_prefix"])
     upload_doi_files(all_files, prefix=config_harvester["doi_files_prefix"])
     for file in all_files:
         os.remove(file)
@@ -321,3 +332,25 @@ def create_task_process_dois(partition_index, files_in_partition):
                           files_in_partition=files_in_partition,
                           repository=process_state_repository)
     processor.process_list_of_files_in_partition()
+
+
+def create_task_harvest_dois(target_directory, start_date, end_date, interval):
+    postgres_session = PostgresSession(host=config_harvester['db']['db_host'],
+                                       port=config_harvester['db']['db_port'],
+                                       database_name=config_harvester['db']['db_name'],
+                                       password=config_harvester['db']['db_password'],
+                                       username=config_harvester['db']['db_user'])
+    harvester_repository = HarvestStateRepository(postgres_session)
+    harvester = Harvester(harvester_repository)
+    harvester.download(
+        target_directory=target_directory,
+        start_date=datetime.strptime(start_date, "%Y-%m-%d"),
+        end_date=datetime.strptime(end_date, "%Y-%m-%d"),
+        interval=interval
+    )
+
+
+def create_task_consolidate_processed_files(total_number_of_partitions):
+    processor_controller = ProcessorController(config_harvester, total_number_of_partitions)
+    processor_controller.process_files()
+    # processor_controller.push_to_ovh()

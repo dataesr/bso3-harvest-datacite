@@ -58,5 +58,10 @@ class HarvestStateTable(HarvestState):
     def createTable(engine: Engine):
         HarvestStateTable.__table__.create(engine, checkfirst=True)
 
+    @staticmethod
     def dropTable(engine: Engine):
         HarvestStateTable.__table__.drop(engine, checkfirst=True)
+
+    @staticmethod
+    def checkExistence(engine: Engine):
+        return HarvestStateTable.__table__.exists(engine)

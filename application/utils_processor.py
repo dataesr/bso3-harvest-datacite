@@ -1,10 +1,8 @@
 import itertools
-from datetime import datetime
 import json
 from json import JSONDecodeError
 from pathlib import Path
 from os import PathLike
-from typing import Union, Dict, List, Tuple
 from adapters.databases.doi_collection import get_mongo_repo
 from typing import Union, Dict, List, Tuple, Generator, Any
 import pandas as pd
@@ -25,8 +23,7 @@ def _list_dump_files_in_directory():
 
 
 def _merge_files(list_of_files: List[Union[str, Path]], target_file_path: Path):
-    pd.concat([pd.read_csv(file) for file in list_of_files]).to_csv(f"{target_file_path}", index=False,
-                                                                    low_memory=False)
+    pd.concat([pd.read_csv(file) for file in list_of_files]).to_csv(f"{target_file_path}", index=False)
 
 
 def json_line_generator(ndjson_file):
@@ -144,7 +141,7 @@ def get_list_creators_or_contributors_and_affiliations(path_file):
                 list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "creators")
                 list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "contributors")
             except BaseException as e:
-                logger.exception(f'Error while creating concat for {doi["id"]}')
+                logger.exception(f'Error while creating concat for {doi["id"]}. \n Details of the error {e}')
 
             if len(list_creators_or_contributors_and_affiliations) > current_size:
                 number_of_non_null_dois += 1
@@ -154,9 +151,11 @@ def get_list_creators_or_contributors_and_affiliations(path_file):
         number_of_processed_dois_per_file = number_of_processed_dois_per_file + len(json_obj["data"])
 
     logger.info(
-        f'{path_file} number of dois {number_of_processed_dois_per_file} number of non null dois {number_of_non_null_dois} and null dois {number_of_null_dois}')
+        f'{path_file} number of dois {number_of_processed_dois_per_file} number of non null dois '
+        f'{number_of_non_null_dois} and null dois {number_of_null_dois}')
 
-    return number_of_processed_dois_per_file, number_of_non_null_dois, number_of_null_dois, list_creators_or_contributors_and_affiliations
+    return number_of_processed_dois_per_file, number_of_non_null_dois, number_of_null_dois, \
+           list_creators_or_contributors_and_affiliations
 
 
 def _list_files_in_directory(folder: Union[str, Path], regex: str):

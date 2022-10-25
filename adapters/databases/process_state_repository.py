@@ -1,7 +1,4 @@
-from typing import List, Union
-
 from domain.databases.abstract_process_state_repository import AbstractProcessStateRepository
-
 from adapters.databases.process_state_table import ProcessStateTable
 from adapters.databases.postgres_session import PostgresSession
 from adapters.databases.utils import check_conformity, check_conformity_and_get_where_clauses
@@ -38,8 +35,8 @@ class ProcessStateRepository(AbstractProcessStateRepository):
         where_clauses: list = check_conformity_and_get_where_clauses(where_args, ProcessStateTable)
 
         if not ProcessStateTable.checkExistence(self.session.getEngine()):
-             ProcessStateTable.createTable(self.session.getEngine())
-             return []
+            ProcessStateTable.createTable(self.session.getEngine())
+            return []
 
         with self.session.sessionScope() as session:
             statement = select(ProcessStateTable).order_by(asc(ProcessStateTable.__table__.c.id))

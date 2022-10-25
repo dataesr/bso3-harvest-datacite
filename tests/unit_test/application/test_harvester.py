@@ -1,5 +1,5 @@
 from unittest import TestCase, skip
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 from types import SimpleNamespace
 
@@ -26,7 +26,9 @@ class TestHarvesterExecution(TestCase):
         self.sleep_duration: int = "3m0s"
 
     def setUp(self):
-        self.mock_harvest_state_repository: MockHarvestStateRepository = MockHarvestStateRepository(None)
+        mock_session = Mock()
+        mock_session.getEngine.return_value = Mock()
+        self.mock_harvest_state_repository: MockHarvestStateRepository = MockHarvestStateRepository(mock_session)
 
         self.harvester: Harvester = Harvester(self.mock_harvest_state_repository)
 
