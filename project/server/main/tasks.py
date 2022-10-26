@@ -350,7 +350,7 @@ def create_task_harvest_dois(target_directory, start_date, end_date, interval):
     )
 
 
-def create_task_consolidate_processed_files(total_number_of_partitions):
-    processor_controller = ProcessorController(config_harvester, total_number_of_partitions)
+def create_task_consolidate_processed_files(total_number_of_partitions, files_prefix):
+    processor_controller = ProcessorController(config_harvester, total_number_of_partitions, files_prefix)
     processor_controller.process_files()
     # processor_controller.push_to_ovh()

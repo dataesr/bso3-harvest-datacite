@@ -1,5 +1,6 @@
-from typing import Tuple
-
+import os
+from project.server.main.logger import get_logger
+from config.logger_config import LOGGER_LEVEL
 from domain.api.abstract_harvester import AbstractHarvester
 
 from adapters.databases.harvest_state_repository import HarvestStateRepository
@@ -11,7 +12,9 @@ from datetime import datetime
 
 from pathlib import Path
 
-from subprocess import run, PIPE, STDOUT
+from subprocess import run, PIPE, STDOUT, Popen, CalledProcessError
+
+logger = get_logger(__name__, level=LOGGER_LEVEL)
 
 
 class Harvester(AbstractHarvester):
@@ -72,6 +75,7 @@ class Harvester(AbstractHarvester):
             harvest_state.status = "already exists"
 
         if begin_harvesting:
+            logger.info(f"Begin Harvesting")
             dcdump_interval: str = self.selectInterval(harvest_state.slice_type)
             number_of_slices: int = self.getNumberSlices(harvest_state.start_date, harvest_state.end_date,
                                                          dcdump_interval)
@@ -200,7 +204,6 @@ class Harvester(AbstractHarvester):
         Returns:
             Nothing (void)
         """
-
         # create directory if not exists
         Path(target_directory).mkdir(exist_ok=True)
 
@@ -224,10 +227,12 @@ class Harvester(AbstractHarvester):
             str(sleep_duration),
         ]
 
-        p = run(cmd, stdout=PIPE, stderr=STDOUT, text=True)
+        p = run(' '.join(cmd), text=True, capture_output=True)
 
         if p.returncode != 0:
             raise Exception(p.stdout)
+
+        return str(p.stdout)
 
     def getNumberDownloaded(self, target_directory: str, file_prefix: str, start_date: datetime,
                             end_date: datetime) -> int:

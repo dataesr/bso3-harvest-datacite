@@ -152,7 +152,7 @@ def process_dois():
 
 @main_blueprint.route("/harvest_dois", methods=["POST"])
 def start_harvest_dois():
-    current_date = datetime.date().strftime("%Y-%m-%d")
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
     args = request.get_json(force=True)
     task_kwargs = {
         "target_directory": args.get("target_directory", config_harvester['raw_dump_folder_name']),
@@ -160,7 +160,6 @@ def start_harvest_dois():
         "end_date": args.get("end_date", current_date),
         "interval": args.get("interval", 'day')
     }
-
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue("harvest-datacite", default_timeout=150 * 3600)
         task = q.enqueue(create_task_harvest_dois, **task_kwargs)
@@ -184,7 +183,7 @@ def start_full_process_pipeline():
     }
     # process arguments
     total_number_of_partitions = args.get("total_number_of_partitions", 100)
-    config_harvester['files_prefix'] = args.get("process_files_prefix", datetime.datetime.now().strftime("%Y-%m-%d"))
+    files_prefix = args.get("processed_files_prefix", f"processed_files_prefix_{datetime.datetime.now().strftime('%Y-%m-%d')}")
 
     if _is_files_list_splittable_into_mutiple_partitions(total_number_of_partitions):
         partitions = list(_get_partitions(total_number_of_partitions))
@@ -204,8 +203,9 @@ def start_full_process_pipeline():
         q = Queue("harvest-datacite", default_timeout=150 * 3600)
 
         # harvest
+        logger.info(f" received harvest task")
         task_harvest_dois = q.enqueue(create_task_harvest_dois, **harvester_kwargs)
-        response_objects.append({"status": "success", "data": {"task_id": task_harvest_dois.get_id()}})
+        response_objects.append({"status": "success", "data": {"task_id": f"task_harvest_dois-{task_harvest_dois.get_id()}"}})
 
         # Create task process
         task_process_list = []
@@ -217,20 +217,26 @@ def start_full_process_pipeline():
             task_process = q.enqueue(create_task_process_dois, depends_on=task_harvest_dois,
                                      **process_task_kwargs)
             task_process_list.append(task_process)
-            response_objects.append({"status": "success", "data": {"task_id": task_process.get_id()}})
+            response_objects.append({"status": "success", "data": {"task_id": f"task_process-{task_process.get_id()}"}})
 
         # create task consolidation
+        consolidate_task_kwargs = {
+            "total_number_of_partitions": total_number_of_partitions,
+            "files_prefix": files_prefix
+        }
         task_consolidate_processed_files = q.enqueue(create_task_consolidate_processed_files,
-                                                     total_number_of_partitions,
+                                                     **consolidate_task_kwargs,
                                                      depends_on=task_process_list)
 
-        response_objects.append({"status": "success", "data": {"task_id": task_consolidate_processed_files.get_id()}})
+        response_objects.append({"status": "success",
+                                 "data": {"task_id": f"task_consolidate_processed_files-"
+                                                     f"{task_consolidate_processed_files.get_id()}"}})
 
         # create task affiliations
         task_affiliations_list = []
         for partition_index in range(number_of_partitions + 1):
             affiliations_task_kwargs = {
-                "affiliations_source_file": affiliations_source_file,
+                "affiliations_source_file": f"{files_prefix}_{affiliations_source_file}",
                 "partition_index": partition_index,
                 "total_partition_number": number_of_partitions,
                 "job_timeout": 2 * 3600,
@@ -239,13 +245,15 @@ def start_full_process_pipeline():
                                          depends_on=task_consolidate_processed_files,
                                          **affiliations_task_kwargs)
             task_affiliations_list.append(task_affiliation)
-            response_objects.append({"status": "success", "data": {"task_id": task_affiliation.get_id()}})
+            response_objects.append({"status": "success",
+                                     "data": {"task_id": f"task_affiliation-{task_affiliation.get_id()}"}})
 
         # create task affiliation files consolidation
         task_consolidate_affiliations_files = q.enqueue(create_task_consolidate_results,
                                                         depends_on=task_affiliations_list)
         response_objects.append(
-            {"status": "success", "data": {"task_id": task_consolidate_affiliations_files.get_id()}})
+            {"status": "success", "data":
+                {"task_id": f"task_consolidate_affiliations_files-{task_consolidate_affiliations_files.get_id()}"}})
 
         # create task enrichment
         task_enrichment_list = []
@@ -259,6 +267,7 @@ def start_full_process_pipeline():
                                         **enrichment_task_kwargs)
 
             task_enrichment_list.append(task_enrichment)
-            response_objects.append({"status": "success", "data": {"task_id": task_enrichment.get_id()}})
+            response_objects.append({"status": "success",
+                                     "data": {"task_id": f"task_enrichment-{task_enrichment.get_id()}"}})
 
     return jsonify(response_objects), 202

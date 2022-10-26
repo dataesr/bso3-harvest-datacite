@@ -1,5 +1,4 @@
 import json
-import os.path
 import shutil
 from datetime import datetime
 from json import JSONDecodeError
@@ -8,7 +7,6 @@ from pathlib import Path
 from typing import Union, Dict, List, Generator, Any, Tuple
 import pandas as pd
 
-from adapters.databases.postgres_session import PostgresSession
 from adapters.databases.process_state_repository import ProcessStateRepository
 from adapters.databases.process_state_table import ProcessStateTable
 from adapters.storages.swift_session import SwiftSession
@@ -16,7 +14,7 @@ from domain.api.abstract_processor import AbstractProcessor
 from domain.ovh_path import OvhPath
 from application.utils_processor import (
     _create_file, _load_csv_file_and_drop_duplicates,
-    _append_file, _format_string, _concat_affiliation, _get_partitions, _list_files_in_directory, _merge_files,
+    _append_file, _format_string, _concat_affiliation, _list_files_in_directory, _merge_files,
     _get_path,
 )
 from config.global_config import config_harvester
@@ -236,7 +234,7 @@ class ProcessorController:
     total_number_of_partitions: int = 1
     partitions: List[Dict] = None
 
-    def __init__(self, config, total_number_of_partitions):
+    def __init__(self, config, total_number_of_partitions, file_prefix):
         self.config = config
         self.target_folder_name = config['processed_dump_folder_name']
 
@@ -245,8 +243,10 @@ class ProcessorController:
 
         self.list_of_consolidated_affiliation_files, self.list_of_detailed_affiliation_files = self._get_list_of_files()
 
-        self.global_detailed_affiliation_file_path = Path(os.path.join(f"{config_harvester['files_prefix']}_{config['detailed_affiliation_file_name']}"))
-        self.global_consolidated_affiliation_file_path = Path(os.path.join(f"{config_harvester['files_prefix']}_{config['global_affiliation_file_name']}"))
+        _, self.global_detailed_affiliation_file_path = _create_file(self.target_folder_name,
+                                                                     f"{file_prefix}_{self.config['detailed_affiliation_file_name']}")
+        _, self.global_consolidated_affiliation_file_path = _create_file(self.target_folder_name,
+                                                                         f"{file_prefix}_{self.config['global_affiliation_file_name']}")
 
         self.swift = None
         is_swift_config = ("swift" in self.config) and len(self.config["swift"]) > 0
@@ -285,6 +285,6 @@ class ProcessorController:
 
 
 if __name__ == "__main__":
-    processor_controller = ProcessorController(config_harvester, 100)
+    processor_controller = ProcessorController(config_harvester, 100, "")
     processor_controller.process_files()
     processor_controller.push_to_ovh()
