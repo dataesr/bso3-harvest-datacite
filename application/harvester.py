@@ -43,7 +43,8 @@ class Harvester(AbstractHarvester):
             file_prefix: str = "dcdump-",
             workers: int = 4,
             sleep_duration: str = "3m0s",
-            use_thread=True,
+            use_thread=False,
+            force=False
     ) -> tuple[bool, HarvestStateTable]:
 
         """
@@ -70,7 +71,7 @@ class Harvester(AbstractHarvester):
 
         HarvestStateTable.createTable(self.harvest_state_repository.session.getEngine())
 
-        if not self.harvest_state_repository.create(harvest_state):
+        if not self.harvest_state_repository.create(harvest_state) and (not force):
             begin_harvesting = False
             harvest_state.status = "already exists"
 

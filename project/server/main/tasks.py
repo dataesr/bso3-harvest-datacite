@@ -346,7 +346,9 @@ def create_task_harvest_dois(target_directory, start_date, end_date, interval):
         target_directory=target_directory,
         start_date=datetime.strptime(start_date, "%Y-%m-%d"),
         end_date=datetime.strptime(end_date, "%Y-%m-%d"),
-        interval=interval
+        interval=interval,
+        use_thread=False,
+        force=True
     )
 
 
