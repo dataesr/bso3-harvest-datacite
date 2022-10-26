@@ -54,6 +54,10 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 COPY . /src
 
 RUN go version
-RUN git clone https://github.com/miku/dcdump.git && cd dcdump && make
+RUN cd /src && git clone https://github.com/miku/dcdump.git
+
+COPY affiliation_main.go /src/dcdump/cmd/main.go
+
+RUN cd /src/dcdump && make
 
 COPY . /src
