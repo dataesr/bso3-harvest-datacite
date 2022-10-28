@@ -106,8 +106,9 @@ def process_dois():
             "file_prefix": file_prefix,
         }
         task_consolidate_processed_files = q.enqueue(create_task_consolidate_processed_files,
-                                                    **consolidate_task_kwargs,
-                                                    depends_on=tasks_list)
+                                                     **consolidate_task_kwargs,
+                                                     depends_on=tasks_list
+                                                    )
         response_objects.append({"status": "success", "data": {"task_id": task_consolidate_processed_files.get_id()}})
     return jsonify(response_objects), 202
 
@@ -118,6 +119,7 @@ def run_task_affiliations():
     response_objects = []
     number_of_partitions = args.get("number_of_partitions", 10_000)
     affiliations_source_file = args.get("affiliations_source_file")
+    file_prefix = args.get("file_prefix")
     tasks_list = []
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue(name="harvest-datacite", default_timeout=150 * 3600)
@@ -131,10 +133,14 @@ def run_task_affiliations():
             task = q.enqueue(create_task_match_affiliations_partition, **task_kwargs)
             response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
             tasks_list.append(task)
-
-        task_consolidate_affiliation_files = q.enqueue(
-            create_task_consolidate_results, depends_on=tasks_list
-        )
+        # consolidate files
+        consolidate_task_kwargs = {
+            "file_prefix": file_prefix,
+        }
+        task_consolidate_affiliation_files = q.enqueue(create_task_consolidate_results,
+                                                       **consolidate_task_kwargs,
+                                                       depends_on=tasks_list
+                                                       )
         response_objects.append(
             {"status": "success", "data": {"task_id": task_consolidate_affiliation_files.get_id()}}
         )

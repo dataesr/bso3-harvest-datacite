@@ -1,23 +1,23 @@
-from glob import glob
 import os
-from pathlib import Path
 from datetime import datetime
-
-from adapters.databases.harvest_state_repository import HarvestStateRepository
-from application.harvester import Harvester
-from application.utils_processor import write_doi_files
-import requests
-import pandas as pd
+from glob import glob
+from pathlib import Path
 from urllib import parse
 
+import pandas as pd
+import requests
+from adapters.api.affiliation_matcher import AffiliationMatcher
+from adapters.databases.harvest_state_repository import HarvestStateRepository
 from adapters.databases.postgres_session import PostgresSession
 from adapters.databases.process_state_repository import ProcessStateRepository
+from application.harvester import Harvester
 from application.processor import Processor, ProcessorController
+from application.utils_processor import _merge_files, write_doi_files
 from config.global_config import config_harvester
-from project.server.main.utils_swift import download_container, upload_object, download_object
-from project.server.main.logger import get_logger
-from adapters.api.affiliation_matcher import AffiliationMatcher
 from domain.ovh_path import OvhPath
+from project.server.main.logger import get_logger
+from project.server.main.utils_swift import (download_container,
+                                             download_object, upload_object)
 from tqdm import tqdm
 
 logger = get_logger(__name__)
@@ -147,7 +147,7 @@ def create_task_match_affiliations_partition(affiliations_source_file, partition
     os.remove(processed_filename)
 
 
-def create_task_consolidate_results():
+def create_task_consolidate_results(file_prefix):
     # retrieve all files
     dest_dir = "."
     partitions_dir = download_container(
@@ -157,10 +157,8 @@ def create_task_consolidate_results():
         volume_destination=dest_dir,
     )
     # aggregate results in one file
-    consolidated_affiliations_filepath = f"{partitions_dir}/consolidated_affiliations.csv"
-    pd.concat([pd.read_csv(f) for f in glob(f"{partitions_dir}/*")]).to_csv(
-        consolidated_affiliations_filepath, index=False
-    )
+    consolidated_affiliations_filepath = f"{partitions_dir}/{file_prefix}_consolidated_affiliations.csv"
+    _merge_files(glob(f"{partitions_dir}/*"), consolidated_affiliations_filepath)
     # upload the resulting file
     upload_object(
         config_harvester["datacite_container"],
