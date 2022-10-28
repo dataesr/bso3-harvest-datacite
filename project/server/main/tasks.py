@@ -334,7 +334,7 @@ def create_task_process_dois(partition_index, files_in_partition):
     processor.process_list_of_files_in_partition()
 
 
-def create_task_harvest_dois(target_directory, start_date, end_date, interval):
+def create_task_harvest_dois(target_directory, start_date, end_date, interval, use_thread=False, force=True):
     postgres_session = PostgresSession(host=config_harvester['db']['db_host'],
                                        port=config_harvester['db']['db_port'],
                                        database_name=config_harvester['db']['db_name'],
@@ -347,12 +347,12 @@ def create_task_harvest_dois(target_directory, start_date, end_date, interval):
         start_date=datetime.strptime(start_date, "%Y-%m-%d"),
         end_date=datetime.strptime(end_date, "%Y-%m-%d"),
         interval=interval,
-        use_thread=False,
-        force=True
+        use_thread=use_thread,
+        force=force
     )
 
 
-def create_task_consolidate_processed_files(total_number_of_partitions, files_prefix):
-    processor_controller = ProcessorController(config_harvester, total_number_of_partitions, files_prefix)
+def create_task_consolidate_processed_files(total_number_of_partitions, file_prefix):
+    processor_controller = ProcessorController(config_harvester, total_number_of_partitions, file_prefix)
     processor_controller.process_files()
     # processor_controller.push_to_ovh()

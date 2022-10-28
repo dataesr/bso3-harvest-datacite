@@ -169,20 +169,6 @@ def _is_files_list_splittable_into_mutiple_partitions(total_number_of_partitions
     return len(list_of_files_in_dump_folder) > total_number_of_partitions
 
 
-def _get_partitions(total_number_of_partitions) -> Generator[List, Any, None]:
-    # TODO optimize the partition to have list of equal size in Mb
-    list_of_files_in_dump_folder = _list_files_in_directory(config_harvester['raw_dump_folder_name'],
-                                                            config_harvester['files_extenxion'])
-    try:
-        size_of_partitions = len(list_of_files_in_dump_folder) // total_number_of_partitions if len(
-            list_of_files_in_dump_folder) > total_number_of_partitions else len(list_of_files_in_dump_folder)
-        for index in range(0, len(list_of_files_in_dump_folder), size_of_partitions):
-            yield list(itertools.islice(list_of_files_in_dump_folder, index, index + size_of_partitions))
-    except KeyboardInterrupt as e:
-        logger.exception(f"Exception occured while processing files. \n Detailed exception  {e}")
-        raise SystemExit
-
-
 def _create_affiliation_file(target_directory: Union[Path, str],
                              file_name: str = "global_affiliation.csv"
                              ) -> Tuple[bool, Path]:

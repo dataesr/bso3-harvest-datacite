@@ -34,20 +34,11 @@ def home():
     return render_template("main/home.html")
 
 
-@main_blueprint.route("/harvest", methods=["POST"])
-def run_task_tmp():
-    # args = request.get_json(force=True) request is from flask
-    with Connection(redis.from_url(current_app.config["REDIS_URL"])):
-        q = Queue("harvest-datacite", default_timeout=150 * 3600)
-        task = q.enqueue(create_task_harvest, TARGET_DUMP)
-    response_object = {"status": "success", "data": {"task_id": task.get_id()}}
-    return jsonify(response_object), 202
-
-
-def get_partitions(files, partition_size: int) -> List:
-    """Return a list of partitions of files"""
-    partitions = [files[i: i + partition_size] for i in range(0, len(files), partition_size)]
-    return partitions
+def get_partitions(files: List[str], partition_size: int) -> List[List[str]]:
+    """Return a list of partitions of files. If partition_size > len(files), returns one partition"""
+    if len(files) > partition_size:
+        return [files[i : i + partition_size] for i in range(0, len(files), partition_size)]
+    return [files]
 
 
 @main_blueprint.route("/enrich_dois", methods=["POST"])
@@ -77,6 +68,7 @@ def run_task_affiliations():
     response_objects = []
     number_of_partitions = args.get("number_of_partitions", 10_000)
     affiliations_source_file = args.get("affiliations_source_file")
+    tasks_list = []
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue(name="harvest-datacite", default_timeout=150 * 3600)
         for partition_index in range(number_of_partitions + 1):
@@ -88,16 +80,12 @@ def run_task_affiliations():
             }
             task = q.enqueue(create_task_match_affiliations_partition, **task_kwargs)
             response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
+            tasks_list.append(task)
+
+        task_consolidate_affiliation_files = q.enqueue(create_task_consolidate_results, depends_on=tasks_list)
+        response_objects.append({"status": "success", "data": {"task_id": task_consolidate_affiliation_files.get_id()}})
+
     return jsonify(response_objects), 202
-
-
-@main_blueprint.route("/consolidate_affiliations_files", methods=["POST"])
-def run_task_consolidate_affiliations_files():
-    with Connection(redis.from_url(current_app.config["REDIS_URL"])):
-        q = Queue(name="harvest-datacite", default_timeout=150 * 3600)
-        task = q.enqueue(create_task_consolidate_results)
-        response_object = {"status": "success", "data": {"task_id": task.get_id()}}
-    return jsonify(response_object), 202
 
 
 @main_blueprint.route("/tasks/<task_id>", methods=["GET"])
@@ -122,19 +110,13 @@ def get_status(task_id):
 @main_blueprint.route("/process", methods=["POST"])
 def process_dois():
     args = request.get_json(force=True)
-    # partition file to parallelize workload (if affiliation matcher is not too limiting)
     response_objects = []
     total_number_of_partitions = args.get("total_number_of_partitions", 100)
-
-    if _is_files_list_splittable_into_mutiple_partitions(total_number_of_partitions):
-        partitions = list(_get_partitions(total_number_of_partitions))
-    else:
-        logger.info(
-            f"Number of files in directory {config_harvester['raw_dump_folder_name']} not enough to create partitions")
-        total_number_of_partitions = 1
-        partitions = [_list_files_in_directory(config_harvester['raw_dump_folder_name'],
-                                               config_harvester['files_extenxion'])]
-
+    file_prefix = args.get("file_prefix")
+    dump_files = _list_files_in_directory(config_harvester['raw_dump_folder_name'], config_harvester['files_extenxion'])
+    partition_size = len(dump_files) // total_number_of_partitions
+    partitions = get_partitions(dump_files, partition_size)
+    tasks_list = []
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue("harvest-datacite", default_timeout=150 * 3600)
         for index_of_partition in range(total_number_of_partitions):
@@ -145,9 +127,17 @@ def process_dois():
             print(f"printing task kwargs {task_kwargs}")
             task = q.enqueue(create_task_process_dois, **task_kwargs)
             response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
-
-    response_object = {"status": "success", "data": {"task_id": task.get_id()}}
-    return jsonify(response_object), 202
+            tasks_list.append(task)
+        # consolidate files
+        consolidate_task_kwargs = {
+            "total_number_of_partitions": total_number_of_partitions,
+            "file_prefix": file_prefix
+        }
+        task_consolidate_processed_files = q.enqueue(create_task_consolidate_processed_files,
+                                                    **consolidate_task_kwargs,
+                                                    depends_on=tasks_list)
+        response_objects.append({"status": "success", "data": {"task_id": task_consolidate_processed_files.get_id()}})
+    return jsonify(response_objects), 202
 
 
 @main_blueprint.route("/harvest_dois", methods=["POST"])
@@ -160,6 +150,11 @@ def start_harvest_dois():
         "end_date": args.get("end_date", current_date),
         "interval": args.get("interval", 'day')
     }
+    if args.get("use_threads"):
+        task_kwargs.update({"use_threads": args.get("use_thread")})
+    if args.get("force"):
+        task_kwargs.update({"force": args.get("force")})
+
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue("harvest-datacite", default_timeout=150 * 3600)
         task = q.enqueue(create_task_harvest_dois, **task_kwargs)
