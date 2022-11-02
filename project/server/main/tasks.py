@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 from glob import glob
+from os.path import exists
 from pathlib import Path
 from urllib import parse
 
@@ -10,6 +11,7 @@ from adapters.api.affiliation_matcher import AffiliationMatcher
 from adapters.databases.harvest_state_repository import HarvestStateRepository
 from adapters.databases.postgres_session import PostgresSession
 from adapters.databases.process_state_repository import ProcessStateRepository
+from application.elastic import reset_index
 from application.harvester import Harvester
 from application.processor import Processor, ProcessorController
 from application.utils_processor import _merge_files, write_doi_files
@@ -27,29 +29,25 @@ container = "bso3_publications_dump"
 
 FRENCH_ALPHA2 = ["fr", "gp", "gf", "mq", "re", "yt", "pm", "mf", "bl", "wf", "tf", "nc", "pf"]
 
-ES_LOGIN_BSO_BACK = os.getenv("ES_LOGIN_BSO_BACK", "")
-ES_PASSWORD_BSO_BACK = os.getenv("ES_PASSWORD_BSO_BACK", "")
-ES_URL = os.getenv("ES_URL", "http://localhost:9200")
 
-
-def import_es(args):
+def run_task_import_elastic_search():
     index_name = "bso-datacite"
     enriched_output_file = "/data/datacite_fr.jsonl"
-    # elastic
-    es_url_without_http = ES_URL.replace("https://", "").replace("http://", "")
-    es_host = f"https://{ES_LOGIN_BSO_BACK}:{parse.quote(ES_PASSWORD_BSO_BACK)}@{es_url_without_http}"
+    # elastic.py
+    es_url_without_http = config_harvester["ES_URL"].replace("https://", "").replace("http://", "")
+    es_host = f"https://{config_harvester['ES_LOGIN_BSO_BACK']}:{parse.quote(config_harvester['ES_PASSWORD_BSO_BACK'])}@{es_url_without_http}"
     logger.debug("loading datacite index")
-    # reset_index(index=index_name)
+    reset_index(index=index_name)
     elasticimport = (
             f"elasticdump --input={enriched_output_file} --output={es_host}{index_name} --type=data --limit 50 "
             + "--transform='doc._source=Object.assign({},doc)'"
     )
     logger.debug(f"{elasticimport}")
-    logger.debug("starting import in elastic")
+    logger.debug("starting import in elastic.py")
     os.system(elasticimport)
 
 
-def create_task_download(args):
+def run_task_download(args):
     dump_file = args.get("dump_file", "datacite_dump_20211022")
     CHUNK_SIZE = 128
     DATACITE_DUMP_URL = f"https://archive.org/download/{dump_file}/{dump_file}.json.zst"
@@ -92,7 +90,7 @@ def get_partition_size(source_metadata_file, total_partition_number):
     return partition_size
 
 
-def create_task_match_affiliations_partition(affiliations_source_file, partition_index, total_partition_number):
+def _task_mrunatch_affiliations_partition(affiliations_source_file, partition_index, total_partition_number):
     # Download csv file from ovh storage
     dest_dir = "."
     local_affiliation_file = download_file(
@@ -147,7 +145,7 @@ def create_task_match_affiliations_partition(affiliations_source_file, partition
     os.remove(processed_filename)
 
 
-def create_task_consolidate_results(file_prefix):
+def run_task_consolidate_results(file_prefix):
     # retrieve all files
     dest_dir = "."
     partitions_dir = download_container(
@@ -208,7 +206,7 @@ def upload_doi_files(files, prefix):
         )
 
 
-def create_task_enrich_dois(partition_files):
+def run_task_enrich_dois(partition_files):
     dest_dir = "./csv/"
     merged_affiliations = get_merged_affiliations(dest_dir)
 
@@ -232,13 +230,13 @@ def create_task_enrich_dois(partition_files):
         os.remove(file)
 
 
-def create_task_harvest(target):
+def run_task_harvest(target):
     cmd = f"cd dcdump && ./dcdump -d {target}"
     logger.debug(cmd)
     os.system(cmd)
 
 
-def create_task_tmp(filename):
+def run_task_tmp(filename):
     elements = pd.read_json(filename, lines=True).to_dict(orient="records")
     affiliations_cache = {}
     for elt in elements:
@@ -270,7 +268,7 @@ def create_task_tmp(filename):
     pd.DataFrame(fr_elements).to_json(f"{filename}_fr.jsonl", lines=True, orient="records")
 
 
-def create_task_analyze(args):
+def run_task_analyze(args):
     for fileType in args.get("fileType", []):
         logger.debug(f"getting {fileType} data")
         if args.get("download", False):
@@ -311,13 +309,13 @@ def read_all(fileType):
     return pd.concat(all_dfs)
 
 
-def create_task_process_and_match_dois():
+def run_task_process_and_match_dois():
     processor = Processor(config_harvester, 0, 1, None)
     processor.process()
     processor.push_dois_to_ovh()
 
 
-def create_task_process_dois(partition_index, files_in_partition):
+def run_task_process_dois(partition_index, files_in_partition):
     postgres_session = PostgresSession(host=config_harvester['db']['db_host'],
                                        port=config_harvester['db']['db_port'],
                                        database_name=config_harvester['db']['db_name'],
@@ -332,7 +330,7 @@ def create_task_process_dois(partition_index, files_in_partition):
     processor.process_list_of_files_in_partition()
 
 
-def create_task_harvest_dois(target_directory, start_date, end_date, interval, use_thread=False, force=True):
+def run_task_harvest_dois(target_directory, start_date, end_date, interval, use_thread=False, force=True):
     postgres_session = PostgresSession(host=config_harvester['db']['db_host'],
                                        port=config_harvester['db']['db_port'],
                                        database_name=config_harvester['db']['db_name'],
@@ -350,7 +348,7 @@ def create_task_harvest_dois(target_directory, start_date, end_date, interval, u
     )
 
 
-def create_task_consolidate_processed_files(total_number_of_partitions, file_prefix):
+def run_task_consolidate_processed_files(total_number_of_partitions, file_prefix):
     processor_controller = ProcessorController(config_harvester, total_number_of_partitions, file_prefix)
     processor_controller.process_files()
-    # processor_controller.push_to_ovh()
+    processor_controller.push_to_ovh()

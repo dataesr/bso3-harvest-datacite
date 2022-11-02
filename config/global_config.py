@@ -30,8 +30,12 @@ DETAILED_AFFILIATION_FILE_NAME = "detailed_affiliations.csv"
 
 # Datacite configuration
 FILES_EXTENSION = "*.ndjson"
-
 DEFAULT_START_DATE = "2018-01-01"
+
+# Elastic Searh configurations
+ES_LOGIN_BSO3_BACK = os.getenv("ES_LOGIN_BSO3_BACK", "")
+ES_PASSWORD_BSO3_BACK = os.getenv("ES_PASSWORD_BSO3_BACK", "")
+ES_URL = os.getenv("ES_URL", "http://localhost:9200")
 
 
 def get_harvester_config() -> dict:
@@ -82,7 +86,13 @@ def get_harvester_config() -> dict:
     # Datacite configuration
     config_harvester['files_extenxion'] = FILES_EXTENSION
 
+    # Elastic Search configuration
+    config_harvester['ES_LOGIN_BSO3_BACK'] = ES_LOGIN_BSO3_BACK
+    config_harvester['ES_PASSWORD_BSO3_BACK'] = ES_PASSWORD_BSO3_BACK
+    config_harvester['ES_URL'] = ES_URL
+
     return config_harvester
+
 
 def get_mongo_config() -> dict:
     return {
