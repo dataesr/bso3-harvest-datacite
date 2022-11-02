@@ -93,14 +93,21 @@ def count_newlines(fname):
 
 
 def append_to_es_index_sourcefile(doi, matched_affiliations_list):
-    with open(config_harvester["es_index_sourcefile"], "a") as f:
-        f.write(json.dumps({
+    append_to_file(
+        file=config_harvester["es_index_sourcefile"],
+        _str=json.dumps({
         "doi": str(doi["id"]),
         "matched_affiliations_list": matched_affiliations_list,
         "clientId": str(safe_get("", doi, "relationships", "client", "data", "id")),
         "publisher": str(safe_get("", doi, "attributes", "publisher")),
         "update_date": str(safe_get("", doi, "attributes", "updated")),
     }))
+
+
+def append_to_file(file, _str):
+    with open(file, "a") as f:
+        f.write(_str)
+        f.write(os.linesep)
 
 
 def write_doi_files(merged_affiliations_df: pd.DataFrame,
