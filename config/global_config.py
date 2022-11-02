@@ -78,7 +78,7 @@ def get_harvester_config() -> dict:
     config_harvester['detailed_affiliation_file_name'] = DETAILED_AFFILIATION_FILE_NAME
     config_harvester['affiliation_matcher_service'] = os.getenv("AFFILIATION_MATCHER_SERVICE")
     config_harvester['dump_default_start_date'] = DEFAULT_START_DATE
-
+    config_harvester['es_index_sourcefile'] = os.path.join(PROJECT_DIRNAME, "es_index_sourcefile.jsonl")
     # Datacite configuration
     config_harvester['files_extenxion'] = FILES_EXTENSION
 

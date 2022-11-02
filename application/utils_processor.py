@@ -1,10 +1,8 @@
-import itertools
 import json
 from json import JSONDecodeError
 from pathlib import Path
 from os import PathLike
-from adapters.databases.doi_collection import get_mongo_repo
-from typing import Union, Dict, List, Tuple, Generator, Any
+from typing import Union, Dict, List, Tuple
 import pandas as pd
 
 from config.exceptions import FileLoadingException
@@ -94,14 +92,15 @@ def count_newlines(fname):
     return count
 
 
-def push_to_mongo(doi, matched_affiliations_list, mongo_repo):
-    mongo_repo.create(**{
+def append_to_es_index_sourcefile(doi, matched_affiliations_list):
+    with open(config_harvester["es_index_sourcefile"], "a") as f:
+        f.write(json.dumps({
         "doi": str(doi["id"]),
         "matched_affiliations_list": matched_affiliations_list,
         "clientId": str(safe_get("", doi, "relationships", "client", "data", "id")),
         "publisher": str(safe_get("", doi, "attributes", "publisher")),
         "update_date": str(safe_get("", doi, "attributes", "updated")),
-    })
+    }))
 
 
 def write_doi_files(merged_affiliations_df: pd.DataFrame,
@@ -114,7 +113,6 @@ def write_doi_files(merged_affiliations_df: pd.DataFrame,
     """
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
-    mongo_repo = get_mongo_repo()
     for json_obj in tqdm(json_line_generator(dump_file), total=count_newlines(str(dump_file))):
         for doi in json_obj.get('data'):
             doi_contains_selected_affiliations = not (
@@ -122,7 +120,7 @@ def write_doi_files(merged_affiliations_df: pd.DataFrame,
             ).empty
             if doi_contains_selected_affiliations:
                 matched_affiliations_list = enrich_doi(doi, merged_affiliations_df)
-                push_to_mongo(doi, matched_affiliations_list, mongo_repo)
+                append_to_es_index_sourcefile(doi, matched_affiliations_list)
             with open(f"{output_dir}/{_format_string(doi['id'])}.json", 'w') as f:
                 json.dump(doi, f, indent=None)
 
