@@ -1,4 +1,5 @@
 import os
+from typing import Tuple
 from project.server.main.logger import get_logger
 from config.logger_config import LOGGER_LEVEL
 from domain.api.abstract_harvester import AbstractHarvester
@@ -45,7 +46,7 @@ class Harvester(AbstractHarvester):
             sleep_duration: str = "3m0s",
             use_thread=False,
             force=False
-    ) -> tuple[bool, HarvestStateTable]:
+    ) -> Tuple[bool, HarvestStateTable]:
 
         """
         The download function check if we can download. If we can, the function prepares and launch harvesting.
