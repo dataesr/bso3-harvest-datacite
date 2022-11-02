@@ -184,7 +184,7 @@ class TestHarvesterExecution(TestCase):
         harvest_state_expected: HarvestStateTable = HarvestStateTable(self.start_date, self.end_date, "in progress", self.target_directory, id=1, slice_type=self.interval, number_slices=50)
 
         # When
-        downloading, harvest_state = self.harvester.download(self.target_directory, self.start_date, self.end_date, self.interval)
+        downloading, harvest_state = self.harvester.download(self.target_directory, self.start_date, self.end_date, self.interval, use_thread=True)
 
         # Then
         self.assertEqual(self.mock_harvest_state_repository.nb_calls_create, nb_calls_create_expected)
@@ -241,7 +241,7 @@ class TestHarvesterExecution(TestCase):
         harvest_state_expected: HarvestStateTable = HarvestStateTable(self.start_date, self.end_date, "in progress", self.target_directory, id=1, slice_type=self.interval, number_slices=50)
 
         # When
-        downloading, harvest_state = self.harvester.download(self.target_directory, self.start_date, self.end_date, self.interval, use_thread=False)
+        downloading, harvest_state = self.harvester.download(self.target_directory, self.start_date, self.end_date, self.interval)
 
         # Then
         self.assertEqual(self.mock_harvest_state_repository.nb_calls_create, nb_calls_create_expected)
