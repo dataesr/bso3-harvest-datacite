@@ -32,14 +32,13 @@ FRENCH_ALPHA2 = ["fr", "gp", "gf", "mq", "re", "yt", "pm", "mf", "bl", "wf", "tf
 
 def run_task_import_elastic_search():
     index_name = "bso-datacite"
-    enriched_output_file = "/data/datacite_fr.jsonl"
     # elastic.py
     es_url_without_http = config_harvester["ES_URL"].replace("https://", "").replace("http://", "")
-    es_host = f"https://{config_harvester['ES_LOGIN_BSO_BACK']}:{parse.quote(config_harvester['ES_PASSWORD_BSO_BACK'])}@{es_url_without_http}"
+    es_host = f"https://{config_harvester['ES_LOGIN_BSO3_BACK']}:{parse.quote(config_harvester['ES_PASSWORD_BSO3_BACK'])}@{es_url_without_http}"
     logger.debug("loading datacite index")
     reset_index(index=index_name)
     elasticimport = (
-            f"elasticdump --input={enriched_output_file} --output={es_host}{index_name} --type=data --limit 50 "
+            f"elasticdump --input={config_harvester['es_index_sourcefile']} --output={es_host}{index_name} --type=data --limit 50 "
             + "--transform='doc._source=Object.assign({},doc)'"
     )
     logger.debug(f"{elasticimport}")
@@ -69,7 +68,7 @@ def download_file(container, filename, destination_dir):
     Download file on object storage if it has not been already downloaded.
     Returns the path of the file once downloaded
     """
-    local_file_destination = os.path.normpath(os.path.join(f"{destination_dir}", f"{os.path.basename(filename)}"))
+    local_file_destination = os.path.normpath(os.path.join(destination_dir, os.path.basename(filename)))
     logger.debug(f"Downloading {filename} at {local_file_destination}")
     if not os.path.isdir(destination_dir):
         os.makedirs(destination_dir)
@@ -90,7 +89,7 @@ def get_partition_size(source_metadata_file, total_partition_number):
     return partition_size
 
 
-def _task_mrunatch_affiliations_partition(affiliations_source_file, partition_index, total_partition_number):
+def run_task_match_affiliations_partition(affiliations_source_file, partition_index, total_partition_number):
     # Download csv file from ovh storage
     dest_dir = "."
     local_affiliation_file = download_file(

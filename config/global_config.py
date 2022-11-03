@@ -22,8 +22,9 @@ RAW_DATACITE_DUMP = 'raw'
 PROCESSED_DATACITE_DUMP = 'processed'
 
 # folder in project
+MOUNTED_VOLUME_PATH = os.getenv("MOUNTED_VOLUME_PATH", PROJECT_DIRNAME)
 RAW_DUMP_FOLDER_NAME = os.getenv("RAW_DUMP_FOLDER_NAME", os.path.join(PROJECT_DIRNAME, "sample-dump"))
-PROCESSED_DUMP_FOLDER_NAME = "dois"
+PROCESSED_DUMP_FOLDER_NAME = "dois" # consolidated processed output dir
 PROCESSED_TMP_FOLDER_NAME = "tmp"
 GLOBAL_AFFILIATION_FILE_NAME = "global_affiliations.csv"
 DETAILED_AFFILIATION_FILE_NAME = "detailed_affiliations.csv"
@@ -82,7 +83,7 @@ def get_harvester_config() -> dict:
     config_harvester['detailed_affiliation_file_name'] = DETAILED_AFFILIATION_FILE_NAME
     config_harvester['affiliation_matcher_service'] = os.getenv("AFFILIATION_MATCHER_SERVICE")
     config_harvester['dump_default_start_date'] = DEFAULT_START_DATE
-    config_harvester['es_index_sourcefile'] = os.path.join(PROJECT_DIRNAME, "es_index_sourcefile.jsonl")
+    config_harvester['es_index_sourcefile'] = os.path.join(MOUNTED_VOLUME_PATH, "datacite_fr.jsonl")
     # Datacite configuration
     config_harvester['files_extenxion'] = FILES_EXTENSION
 

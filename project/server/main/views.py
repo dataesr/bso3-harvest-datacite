@@ -1,9 +1,11 @@
 import datetime
+from glob import glob
+import os
 from typing import List
 
 import redis
 from application.utils_processor import (
-    _get_partitions, _is_files_list_splittable_into_mutiple_partitions,
+    _is_files_list_splittable_into_mutiple_partitions,
     _list_files_in_directory)
 from config.global_config import config_harvester
 from flask import Blueprint, current_app, jsonify, render_template, request
@@ -11,7 +13,8 @@ from project.server.main.logger import get_logger
 from project.server.main.tasks import (
     run_task_consolidate_processed_files, run_task_consolidate_results,
     run_task_enrich_dois, run_task_harvest_dois,
-    _task_mrunatch_affiliations_partition, run_task_process_dois)
+    run_task_match_affiliations_partition, run_task_process_dois,
+    run_task_import_elastic_search)
 from rq import Connection, Queue
 
 main_blueprint = Blueprint(
@@ -114,10 +117,10 @@ def process_dois():
 
 
 @main_blueprint.route("/affiliations", methods=["POST"])
-def run_task_affiliations():
+def create_task_affiliations():
     args = request.get_json(force=True)
     response_objects = []
-    number_of_partitions = args.get("number_of_partitions", 10_000)
+    number_of_partitions = args.get("number_of_partitions", 1_000)
     affiliations_source_file = args.get("affiliations_source_file")
     file_prefix = args.get("file_prefix")
     tasks_list = []
@@ -130,7 +133,7 @@ def run_task_affiliations():
                 "total_partition_number": number_of_partitions,
                 "job_timeout": 2 * 3600,
             }
-            task = q.enqueue(_task_mrunatch_affiliations_partition, **task_kwargs)
+            task = q.enqueue(run_task_match_affiliations_partition, **task_kwargs)
             response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
             tasks_list.append(task)
         # consolidate files
@@ -149,11 +152,14 @@ def run_task_affiliations():
 
 
 @main_blueprint.route("/enrich_dois", methods=["POST"])
-def run_task_enrich_doi():
+def create_task_enrich_doi():
     args = request.get_json(force=True)
     response_objects = []
     partition_size = args.get("partition_size", 90)
-    # datacite_dump_files = glob('/data/dump/*.ndjson')
+    # datacite_dump_files = glob(os.path.join(
+    #     config_harvester['raw_dump_folder_name'],
+    #     '*' + config_harvester['files_extension'])
+    # )
     datacite_dump_file = "/data/dump/dcdump-20220603000000-20220603235959.ndjson"
     # partitions = get_partitions(datacite_dump_files, partition_size)
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
@@ -161,11 +167,20 @@ def run_task_enrich_doi():
         # for partition in partitions:
         task_kwargs = {
             "partition_files": [datacite_dump_file],
+            # "partition_files": partition,
             "job_timeout": 2 * 3600,
         }
         task = q.enqueue(run_task_enrich_dois, **task_kwargs)
         response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
         # break
+    return jsonify(response_objects), 202
+
+@main_blueprint.route("/create_index", methods=["POST"])
+def create_task_import_elastic_search():
+    with Connection(redis.from_url(current_app.config["REDIS_URL"])):
+        q = Queue(name="harvest-datacite", default_timeout=150 * 3600)
+        task = q.enqueue(run_task_import_elastic_search)
+        response_object = {"status": "success", "data": {"task_id": task.get_id()}}
     return jsonify(response_objects), 202
 
 
@@ -187,20 +202,9 @@ def start_full_process_pipeline():
         "processed_files_prefix",
         f"processed_files_prefix_{datetime.datetime.now().strftime('%Y-%m-%d')}",
     )
-
-    if _is_files_list_splittable_into_mutiple_partitions(total_number_of_partitions):
-        partitions = list(_get_partitions(total_number_of_partitions))
-    else:
-        logger.info(
-            f"Number of files in directory {config_harvester['raw_dump_folder_name']} not enough to create partitions"
-        )
-        total_number_of_partitions = 1
-        partitions = [
-            _list_files_in_directory(
-                config_harvester["raw_dump_folder_name"], config_harvester["files_extenxion"]
-            )
-        ]
-
+    dump_files = _list_files_in_directory(config_harvester["raw_dump_folder_name"], config_harvester["files_extenxion"])
+    partition_size = len(dump_files) // total_number_of_partitions
+    partitions = get_partitions(dump_files, partition_size)
     # affiliation arguments
     number_of_partitions = args.get("affiliations_number_of_partitions", 10_000)
     affiliations_source_file = args.get("affiliations_source_file")
