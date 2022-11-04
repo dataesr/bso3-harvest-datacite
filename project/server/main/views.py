@@ -177,11 +177,13 @@ def create_task_enrich_doi():
 
 @main_blueprint.route("/create_index", methods=["POST"])
 def create_task_import_elastic_search():
+    args = request.get_json(force=True)
+    index_name = args.get("index_name")
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue(name="harvest-datacite", default_timeout=150 * 3600)
-        task = q.enqueue(run_task_import_elastic_search)
+        task = q.enqueue(run_task_import_elastic_search, index_name=index_name)
         response_object = {"status": "success", "data": {"task_id": task.get_id()}}
-    return jsonify(response_objects), 202
+    return jsonify(response_object), 202
 
 
 @main_blueprint.route("/full_pipeline", methods=["POST"])
