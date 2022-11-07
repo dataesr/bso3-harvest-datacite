@@ -271,7 +271,7 @@ def start_full_process_pipeline():
                 "job_timeout": 2 * 3600,
             }
             task_affiliation = q.enqueue(
-                _task_mrunatch_affiliations_partition,
+                run_task_match_affiliations_partition,
                 depends_on=task_consolidate_processed_files,
                 **affiliations_task_kwargs,
             )
