@@ -73,8 +73,9 @@ def get_harvester_config() -> dict:
     config_harvester['is_level_debug'] = DEBUG_LEVEL
     # local dump folder
     config_harvester['raw_dump_folder_name'] = RAW_DUMP_FOLDER_NAME
-    config_harvester['processed_dump_folder_name'] = os.path.join(PROJECT_DIRNAME, PROCESSED_DUMP_FOLDER_NAME)
-    config_harvester['processed_tmp_folder_name'] = os.path.join(PROJECT_DIRNAME, PROCESSED_TMP_FOLDER_NAME)
+    config_harvester['processed_dump_folder_name'] = os.path.join(MOUNTED_VOLUME_PATH, PROCESSED_DUMP_FOLDER_NAME)
+    config_harvester['processed_tmp_folder_path'] = os.path.join(PROJECT_DIRNAME, PROCESSED_TMP_FOLDER_NAME)
+    config_harvester['processed_tmp_folder_name'] = PROCESSED_TMP_FOLDER_NAME
     # config_harvester['global_affiliation_file_name'] = os.path.join(config_harvester['processed_dump_folder_name'],
     #                                                                GLOBAL_AFFILIATION_FILE_NAME)
     # config_harvester['detailed_affiliation_file_name'] = os.path.join(config_harvester['processed_dump_folder_name'],

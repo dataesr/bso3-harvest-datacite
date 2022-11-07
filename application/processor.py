@@ -39,9 +39,8 @@ class Processor(AbstractProcessor):
     source_folder: str = ""
     target_folder_name: str = ""
     target_directory: str = ""
-
-    # TODO remove this part of the code
-    list_of_files: List = []
+    tmp_directory_name: str = ""
+    tmp_directory_path: str = ""
 
     list_of_files_in_partition: List = [Union[str, Path]]
 
@@ -66,12 +65,8 @@ class Processor(AbstractProcessor):
         self.source_folder = config['raw_dump_folder_name']
         self.target_folder_name = config['processed_dump_folder_name']
         self.target_directory = _get_path(config['processed_dump_folder_name'])
-
-        # TODO : Remove this part of the code
-
-        # TODO : Remove this part of the code
-        self.detailed_affiliation_file_path = config['detailed_affiliation_file_name']
-        self.global_affiliation_file_path = config['global_affiliation_file_name']
+        self.tmp_directory_name = config['processed_tmp_folder_name']
+        self.tmp_directory_path = _get_path(config['processed_tmp_folder_name'])
 
         self.swift = None
         self.process_state = None
@@ -190,10 +185,10 @@ class Processor(AbstractProcessor):
                     f' and {self.partition_consolidated_affiliation_file_name}')
 
         already_exist, self.partition_consolidated_affiliation_file_path = \
-            _create_file(target_directory=self.target_folder_name,
+            _create_file(target_directory=self.tmp_directory_name,
                          file_name=self.partition_consolidated_affiliation_file_name)
         already_exist, self.partition_detailed_affiliation_file_path = \
-            _create_file(target_directory=self.target_folder_name,
+            _create_file(target_directory=self.tmp_directory_name,
                          file_name=self.partition_detailed_affiliation_file_name)
 
     def push_state_to_database(self, state: Dict):
@@ -236,7 +231,10 @@ class ProcessorController:
 
     def __init__(self, config, total_number_of_partitions, file_prefix):
         self.config = config
+
         self.target_folder_name = config['processed_dump_folder_name']
+        self.tmp_directory_name = config['processed_tmp_folder_name']
+        self.tmp_directory_path = config['processed_tmp_folder_path']
 
         self.partition_consolidated_affiliation_file_name_pattern = f"partition_consolidated_affiliations_*.csv"
         self.partition_detailed_affiliation_file_name_pattern = f"partition_detailed_affiliations_*.csv"
@@ -262,9 +260,9 @@ class ProcessorController:
         _merge_files(self.list_of_detailed_affiliation_files, self.global_detailed_affiliation_file_path)
 
     def _get_list_of_files(self) -> Tuple[List[Union[str, Path]], List[Union[str, Path]]]:
-        return _list_files_in_directory(self.target_folder_name,
+        return _list_files_in_directory(self.tmp_directory_name,
                                         self.partition_consolidated_affiliation_file_name_pattern), \
-               _list_files_in_directory(self.target_folder_name, self.partition_detailed_affiliation_file_name_pattern)
+               _list_files_in_directory(self.tmp_directory_name, self.partition_detailed_affiliation_file_name_pattern)
 
     def push_to_ovh(self):
         upload_object(
@@ -280,11 +278,12 @@ class ProcessorController:
                            path.basename(self.global_detailed_affiliation_file_path)).__str__(),
         )
 
-    def _clear_local_directory(self):
-        shutil.rmtree(self.config['processed_tmp_folder_name'])
+    def clear_local_directory(self):
+        shutil.rmtree(self.config['processed_tmp_folder_path'])
 
 
 if __name__ == "__main__":
     processor_controller = ProcessorController(config_harvester, 100, "")
     processor_controller.process_files()
     processor_controller.push_to_ovh()
+    processor_controller.clear_local_directory()

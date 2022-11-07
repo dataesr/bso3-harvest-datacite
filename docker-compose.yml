@@ -5,7 +5,6 @@ services:
       dockerfile: ./Dockerfiles/dev/Dockerfile
     ports:
       - ${HARVEST_PROCESS_PORT}:5000
-      - 46809:46809
     volumes:
       - ./:/src
       - /src/dcdump
@@ -26,7 +25,7 @@ services:
       - DB_PORT=${DB_POSTGRES_PORT}
     env_file:
       - .env
-    command: bash -c "sleep 10 && python3 manage.py run -h 0.0.0.0"
+    command: bash -c "sleep 10 && python3.8 manage.py run -h 0.0.0.0"
     depends_on:
       - mongodb
 
@@ -54,7 +53,7 @@ services:
       - DB_PORT=${DB_POSTGRES_PORT}
     env_file:
       - .env
-    command: bash -c "sleep 10 && python3 manage.py run_worker"
+    command: bash -c "sleep 10 && python3.8 manage.py run_worker"
     depends_on:
       - mongodb
 

@@ -10,3 +10,5 @@ sample-dump/*.ndjson
 test_dois
 venv/
 dcdump/
+tmp
+.ipynb_checkpoints/

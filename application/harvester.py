@@ -1,4 +1,5 @@
 import os
+import subprocess
 from typing import Tuple
 from project.server.main.logger import get_logger
 from config.logger_config import LOGGER_LEVEL
@@ -228,7 +229,6 @@ class Harvester(AbstractHarvester):
             "-sleep",
             str(sleep_duration),
         ]
-
         p = run(' '.join(cmd), text=True, capture_output=True)
 
         if p.returncode != 0:

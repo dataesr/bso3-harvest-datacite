@@ -4,25 +4,21 @@ RUN  apt-get update \
   && apt-get install -y wget \
      gnupg2
 
-RUN wget -qO - https://www.mongodb.org/static/pgp/server-3.4.asc | apt-key add -
-
-RUN echo "deb [ arch=amd64,arm64 ] http://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/3.4 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-3.4.list
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.8 \
-    python3-pip \
     python3.8-dev \
     libpython3.8 \
     libpython3.8-dev \
+    python3-wheel \
+    python3-distutils \
+    python3-apt \
+    build-essential \
     jq \
-    mongodb-org \
     locales \
     locales-all \
-    python3-setuptools \
     g++ \
     git \
     make \
-    python3-dev \
     npm \
     curl \
     zstd \

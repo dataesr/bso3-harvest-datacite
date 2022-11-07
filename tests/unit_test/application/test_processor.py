@@ -72,21 +72,17 @@ class TestProcessor(TestCase):
 
     def test_init_processor_given_one_dump_file_containing_dois_with_only_two_same_affiliations_in_different_creator_produce_only_one_affiliation_in_global_affiliation_file(
             self):
-        current_directory = self.processor.target_directory
-        parent_directory = current_directory.parent
-
         # Given processor in SetUpClass
-        target_target_directory = Path(parent_directory, "test_dois")
         expected_number_global_affiliation = 2
 
-        fileList = glob.glob(str(target_target_directory / '*.csv'))
+        fileList = glob.glob(str(self.processor.tmp_directory_path / '*.csv'))
 
         for filePath in fileList:
             os.remove(filePath)
 
         self.processor.process_list_of_files_in_partition()
 
-        global_affiliation = pd.read_csv(target_target_directory / self.processor.partition_consolidated_affiliation_file_name,
+        global_affiliation = pd.read_csv(self.processor.partition_consolidated_affiliation_file_path,
                                          sep=",",
                                          names=['doi_publisher', 'doi_client_id', 'affiliation'],
                                          header=None)
@@ -96,21 +92,17 @@ class TestProcessor(TestCase):
 
     def test_init_processor_given_one_dump_file_containing_dois_with_only_two_same_affiliations_in_different_creator_produce_two_affiliation_in_detailed_affiliation_file(
             self):
-        current_directory = self.processor.target_directory
-        parent_directory = current_directory.parent
-
         # Given processor in SetUpClass
-        target_directory = Path(parent_directory, "test_dois")
         expected_number_global_affiliation = 4
 
-        fileList = glob.glob(str(target_directory / '*.csv'))
+        fileList = glob.glob(str(self.processor.tmp_directory_path / '*.csv'))
 
         for filePath in fileList:
             os.remove(filePath)
 
         self.processor.process_list_of_files_in_partition()
 
-        global_affiliation = pd.read_csv(target_directory / self.processor.partition_detailed_affiliation_file_name,
+        global_affiliation = pd.read_csv(self.processor.partition_detailed_affiliation_file_path,
                                          sep=",",
                                          names=['doi_publisher', 'doi_client_id', 'affiliation'],
                                          header=None)

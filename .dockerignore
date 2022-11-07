@@ -4,7 +4,12 @@
 *.json
 __pycache__
 *.zip
-tmp/
-dois/
-processed/
-dcdump/
+tmp
+dois
+processed
+dcdump
+sample-dump
+.git
+.pytest_cache
+.vscode
+.idea

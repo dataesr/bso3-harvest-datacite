@@ -50,11 +50,11 @@ tests: unit-tests integration-tests
 
 unit-tests:
 	@echo Unit Testing
-	python3 -m pytest --disable-warnings tests/unit_test
+	python3.8 -m pytest --disable-warnings tests/unit_test
 
 integration-tests:
 	@echo Integration Testing
-	python3 -m pytest --disable-warnings tests/integration_test
+	python3.8 -m pytest --disable-warnings tests/integration_test
 
 coverage-report:
 	@echo Calculating coverage
@@ -64,7 +64,7 @@ coverage-report:
 
 show-pydoc:
 	@echo launching pydoc server
-	python3 -m pydoc -b -p 46809 -n 0.0.0.0
+	python3.8 -m pydoc -b -p 46809 -n 0.0.0.0
 
 show-pdoc3:
 	pdoc3 --http 0.0.0.0:46809 adapters application domain project
