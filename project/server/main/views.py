@@ -99,7 +99,6 @@ def process_dois():
                 "partition_index": index_of_partition,
                 "files_in_partition": partitions[index_of_partition],
             }
-            print(f"printing task kwargs {task_kwargs}")
             task = q.enqueue(run_task_process_dois, **task_kwargs)
             response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
             tasks_list.append(task)
@@ -111,7 +110,7 @@ def process_dois():
         task_consolidate_processed_files = q.enqueue(run_task_consolidate_processed_files,
                                                      **consolidate_task_kwargs,
                                                      depends_on=tasks_list
-                                                     )
+                                                    )
         response_objects.append({"status": "success", "data": {"task_id": task_consolidate_processed_files.get_id()}})
     return jsonify(response_objects), 202
 
@@ -156,23 +155,20 @@ def create_task_enrich_doi():
     args = request.get_json(force=True)
     response_objects = []
     partition_size = args.get("partition_size", 90)
-    # datacite_dump_files = glob(os.path.join(
-    #     config_harvester['raw_dump_folder_name'],
-    #     '*' + config_harvester['files_extension'])
-    # )
-    datacite_dump_file = "/data/dump/dcdump-20220603000000-20220603235959.ndjson"
-    # partitions = get_partitions(datacite_dump_files, partition_size)
+    datacite_dump_files = glob(os.path.join(
+        config_harvester['raw_dump_folder_name'],
+        '*' + config_harvester['files_extension'])
+    )
+    partitions = get_partitions(datacite_dump_files, partition_size)
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue(name="harvest-datacite", default_timeout=150 * 3600)
-        # for partition in partitions:
-        task_kwargs = {
-            "partition_files": [datacite_dump_file],
-            # "partition_files": partition,
-            "job_timeout": 2 * 3600,
-        }
-        task = q.enqueue(run_task_enrich_dois, **task_kwargs)
-        response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
-        # break
+        for partition in partitions:
+            task_kwargs = {
+                "partition_files": partition,
+                "job_timeout": 2 * 3600,
+            }
+            task = q.enqueue(run_task_enrich_dois, **task_kwargs)
+            response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
     return jsonify(response_objects), 202
 
 @main_blueprint.route("/create_index", methods=["POST"])

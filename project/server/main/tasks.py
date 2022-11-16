@@ -96,6 +96,7 @@ def run_task_match_affiliations_partition(affiliations_source_file, partition_in
         filename=affiliations_source_file,
         destination_dir=dest_dir,
     )
+    local_affiliation_file = os.path.join(config_harvester['processed_dump_folder_name'], config_harvester['global_affiliation_file_name'])
     # read partition
     partition_size = get_partition_size(local_affiliation_file, total_partition_number)
     not_in_partition = lambda x: not x in range(
@@ -347,6 +348,8 @@ def run_task_harvest_dois(target_directory, start_date, end_date, interval, use_
 
 
 def run_task_consolidate_processed_files(total_number_of_partitions, file_prefix):
+    logger.info("Consolidating of processed files")
     processor_controller = ProcessorController(config_harvester, total_number_of_partitions, file_prefix)
     processor_controller.process_files()
     processor_controller.push_to_ovh()
+    processor_controller.clear_local_directory()

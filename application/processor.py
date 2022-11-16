@@ -1,4 +1,6 @@
+from glob import glob
 import json
+import os
 import shutil
 from datetime import datetime
 from json import JSONDecodeError
@@ -186,10 +188,10 @@ class Processor(AbstractProcessor):
                     f' and {self.partition_consolidated_affiliation_file_name}')
 
         already_exist, self.partition_consolidated_affiliation_file_path = \
-            _create_file(target_directory=self.tmp_directory_name,
+            _create_file(target_directory=self.target_folder_name,
                          file_name=self.partition_consolidated_affiliation_file_name)
         already_exist, self.partition_detailed_affiliation_file_path = \
-            _create_file(target_directory=self.tmp_directory_name,
+            _create_file(target_directory=self.target_folder_name,
                          file_name=self.partition_detailed_affiliation_file_name)
 
     def push_state_to_database(self, state: Dict):
@@ -256,14 +258,16 @@ class ProcessorController:
 
     def process_files(self):
         # Merge consolidated files
+        logger.debug(f"merging consolidated_affiliation_files: {self.list_of_consolidated_affiliation_files}")
         _merge_files(self.list_of_consolidated_affiliation_files, self.global_consolidated_affiliation_file_path)
         # Merge detailed files
+        logger.debug(f"merging detailed_affiliation_files: {self.list_of_detailed_affiliation_files}")
         _merge_files(self.list_of_detailed_affiliation_files, self.global_detailed_affiliation_file_path)
 
     def _get_list_of_files(self) -> Tuple[List[Union[str, Path]], List[Union[str, Path]]]:
-        return _list_files_in_directory(self.tmp_directory_name,
+        return _list_files_in_directory(self.target_folder_name,
                                         self.partition_consolidated_affiliation_file_name_pattern), \
-               _list_files_in_directory(self.tmp_directory_name, self.partition_detailed_affiliation_file_name_pattern)
+               _list_files_in_directory(self.target_folder_name, self.partition_detailed_affiliation_file_name_pattern)
 
     def push_to_ovh(self):
         upload_object(
@@ -280,7 +284,8 @@ class ProcessorController:
         )
 
     def clear_local_directory(self):
-        shutil.rmtree(self.config['processed_tmp_folder_path'])
+        for f in glob(self.config['processed_dump_folder_name'] + "/partition_*"):
+            os.remove(f)
 
 
 if __name__ == "__main__":

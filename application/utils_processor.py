@@ -21,7 +21,7 @@ def _list_dump_files_in_directory():
 
 
 def _merge_files(list_of_files: List[Union[str, Path]], target_file_path: Path):
-    pd.concat([pd.read_csv(file) for file in list_of_files]).to_csv(f"{target_file_path}", index=False)
+    pd.concat([pd.read_csv(file, header=None, dtype='str') for file in list_of_files if file.stat().st_size > 0]).to_csv(f"{target_file_path}.zip", compression='zip', index=False)
 
 
 def json_line_generator(ndjson_file):
@@ -482,8 +482,17 @@ def _safe_get(default_value, _dict, *keys):
 
 def _append_file(affiliation: pd.DataFrame, target_file: Union[str, Path], append_header=False):
     if affiliation.shape[0] > 0:
-        affiliation.to_csv(target_file, mode="a", index=False, header=append_header, encoding="utf-8")
-
+        if target_file.stat().st_size > 0:
+            checkpoint_target_df = pd.read_csv(target_file, header=None, dtype='str')
+        else:
+            checkpoint_target_df = pd.DataFrame()
+        try:
+            affiliation.to_csv(target_file, mode="a", index=False, header=append_header, encoding="utf-8")
+            # is the file still readable or is there a malformed line?
+            pd.read_csv(target_file, header=None, dtype='str')
+        except:
+            logger.exception(f"Error when adding {affiliation} to {target_file}", exc_info=True)
+            checkpoint_target_df.to_csv(target_file, index=False, header=False, encoding="utf-8")
 
 def _load_csv_file_and_drop_duplicates(global_affiliations_file_path: Union[Path, str],
                                        names=None,
