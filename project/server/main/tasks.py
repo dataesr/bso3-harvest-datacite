@@ -89,9 +89,9 @@ def get_partition_size(source_metadata_file, total_partition_number):
     return partition_size
 
 
-def run_task_match_affiliations_partition(affiliations_source_file, partition_index, total_partition_number):
+def run_task_match_affiliations_partition(file_prefix, partition_index, total_partition_number):
     # Download csv file from ovh storage
-    local_affiliation_file = os.path.join(config_harvester['processed_dump_folder_name'], config_harvester['global_affiliation_file_name'])
+    local_affiliation_file = os.path.join(config_harvester['processed_dump_folder_name'], f"{file_prefix}_{config_harvester['global_affiliation_file_name']}")
     # read partition
     partition_size = get_partition_size(local_affiliation_file, total_partition_number)
     not_in_partition = lambda x: not x in range(

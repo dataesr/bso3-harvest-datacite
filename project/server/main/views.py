@@ -120,14 +120,13 @@ def create_task_affiliations():
     args = request.get_json(force=True)
     response_objects = []
     number_of_partitions = args.get("number_of_partitions", 1_000)
-    affiliations_source_file = args.get("affiliations_source_file")
     file_prefix = args.get("file_prefix")
     tasks_list = []
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue(name="harvest-datacite", default_timeout=150 * 3600)
         for partition_index in range(number_of_partitions + 1):
             task_kwargs = {
-                "affiliations_source_file": affiliations_source_file,
+                "file_prefix": file_prefix,
                 "partition_index": partition_index,
                 "total_partition_number": number_of_partitions,
                 "job_timeout": 2 * 3600,
