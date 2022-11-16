@@ -3,6 +3,7 @@ from datetime import datetime
 from glob import glob
 from os.path import exists
 from pathlib import Path
+import re
 from urllib import parse
 
 import pandas as pd
@@ -90,12 +91,6 @@ def get_partition_size(source_metadata_file, total_partition_number):
 
 def run_task_match_affiliations_partition(affiliations_source_file, partition_index, total_partition_number):
     # Download csv file from ovh storage
-    dest_dir = "."
-    local_affiliation_file = download_file(
-        container=config_harvester["datacite_container"],
-        filename=affiliations_source_file,
-        destination_dir=dest_dir,
-    )
     local_affiliation_file = os.path.join(config_harvester['processed_dump_folder_name'], config_harvester['global_affiliation_file_name'])
     # read partition
     partition_size = get_partition_size(local_affiliation_file, total_partition_number)
@@ -130,55 +125,41 @@ def run_task_match_affiliations_partition(affiliations_source_file, partition_in
     affiliations_df.loc[is_fr, "ror"] = affiliations_df.loc[is_fr, "affiliation_str"].apply(
         lambda x: affiliation_matcher.get_affiliation("ror", x))
 
-    processed_filename = f"{affiliation_matcher_version}_{partition_index}.csv"
+    processed_filename = f"{affiliation_matcher_version}_partition_{partition_index}.csv"
     logger.debug(affiliation_matcher.get_affiliation.cache_info())
     logger.debug(f"Saving affiliations_df at {processed_filename}")
-    affiliations_df.to_csv(processed_filename, index=False)
-    # upload file containing only the affiliated entries made by the worker to ovh
-    upload_object(
-        container=config_harvester["datacite_container"],
-        source=processed_filename,
-        target=OvhPath(config_harvester['affiliations_prefix'], processed_filename),
-        segments=False,
-    )
-    os.remove(processed_filename)
+    affiliations_df.to_csv(os.path.join(config_harvester['affiliation_folder_name'], processed_filename), index=False)
+
+
+def get_affiliation_matcher_version():
+    """Parse the affiliation matcher version from partition filenames"""
+    return next(iter(re.findall(r"(\d+\.\d+\.\d+)_partition_.*", next(iter(glob(f"{config_harvester['affiliation_folder_name']}/*_partition_*.csv"))))), None)
 
 
 def run_task_consolidate_results(file_prefix):
-    # retrieve all files
-    dest_dir = "."
-    partitions_dir = download_container(
-        config_harvester["datacite_container"],
-        skip_download=False,
-        download_prefix=config_harvester["affiliations_prefix"],
-        volume_destination=dest_dir,
-    )
     # aggregate results in one file
-    consolidated_affiliations_filepath = f"{partitions_dir}/{file_prefix}_consolidated_affiliations.csv"
-    _merge_files(glob(f"{partitions_dir}/*"), consolidated_affiliations_filepath)
+    affiliation_matcher_version = get_affiliation_matcher_version()
+    consolidated_affiliations_filepath = f"{config_harvester['affiliation_folder_name']}/{file_prefix}_"
+    consolidated_affiliations_filepath += f"{affiliation_matcher_version}_" if affiliation_matcher_version else ""
+    consolidated_affiliations_filepath += "consolidated_affiliations.csv"
+    _merge_files(glob(f"{config_harvester['affiliation_folder_name']}/*"), consolidated_affiliations_filepath)
     # upload the resulting file
     upload_object(
         config_harvester["datacite_container"],
         source=consolidated_affiliations_filepath,
         target=os.path.basename(consolidated_affiliations_filepath),
     )
+    # remove partitions files
+    for f in glob(f"{config_harvester['affiliation_folder_name']}/*_partition_*.csv"):
+        os.remove(f)
 
 
-def get_merged_affiliations(dest_dir: str) -> pd.DataFrame:
-    """Downloads (if need be) consolidated and detailled csv files
-    and returns the merged DataFrame"""
-    consolidated_affiliations_file = download_file(
-        container=config_harvester["datacite_container"],
-        filename="consolidated_affiliations.csv",
-        destination_dir=dest_dir,
-    )
+def get_merged_affiliations() -> pd.DataFrame:
+    """Read consolidated and detailled csv files and returns the merged DataFrame"""
+    consolidated_affiliations_file = os.path.join(config_harvester["processed_dump_folder_name"], config_harvester["global_affiliation_file_name"])
     consolidated_affiliations = pd.read_csv(consolidated_affiliations_file)
-    detailled_affiliations_file = download_file(
-        container=config_harvester["datacite_container"],
-        filename="processed/detailed_affiliations.csv",
-        destination_dir=dest_dir,
-    )
-    detailled_affiliations = pd.read_csv(detailled_affiliations_file,
+    detailed_affiliations_file = os.path.join(config_harvester["processed_dump_folder_name"], config_harvester["detailed_affiliation_file_name"])
+    detailed_affiliations = pd.read_csv(detailed_affiliations_file,
                                          names=[
                                              "doi", "doi_file_name",
                                              "creator_contributor",
@@ -186,7 +167,7 @@ def get_merged_affiliations(dest_dir: str) -> pd.DataFrame:
                                              "doi_client_id", "affiliation_str"
                                          ], header=None)
     # merge en merged_affiliation
-    return pd.merge(consolidated_affiliations, detailled_affiliations, 'left',
+    return pd.merge(consolidated_affiliations, detailed_affiliations, 'left',
                     on=["doi_publisher", "doi_client_id", "affiliation_str"])
 
 
@@ -206,11 +187,8 @@ def upload_doi_files(files, prefix):
 
 
 def run_task_enrich_dois(partition_files):
-    dest_dir = "./csv/"
-    merged_affiliations = get_merged_affiliations(dest_dir)
-
-    is_fr = (
-            merged_affiliations.is_publisher_fr | merged_affiliations.is_clientId_fr | merged_affiliations.is_countries_fr)
+    merged_affiliations = get_merged_affiliations()
+    is_fr = (merged_affiliations.is_publisher_fr | merged_affiliations.is_clientId_fr | merged_affiliations.is_countries_fr)
     fr_affiliated_dois_df = merged_affiliations[is_fr]
     output_dir = './dois/'
     for file in tqdm(partition_files):

@@ -21,20 +21,24 @@ class TestProcessor(TestCase):
 
     @classmethod
     @patch(f'adapters.databases.process_state_table.ProcessStateTable.__table__.exists', Mock(return_value=True))
-    def setUpClass(cls):
+    def setUp(self):
         host: str = "fake_host"
         port: int = 0
         username: str = "fake_username"
         password: str = "fake_password"
         database_name: str = "fake_db_name"
 
-        cls.mock_postgres_session = MockPostgresSession(host, port, username, password, database_name)
+        self.mock_postgres_session = MockPostgresSession(host, port, username, password, database_name)
 
-        cls.process_state_repository = ProcessStateRepository(cls.mock_postgres_session)
+        self.process_state_repository = ProcessStateRepository(self.mock_postgres_session)
         
-        cls.processor = Processor(test_config_harvester, 0,
+        self.processor = Processor(test_config_harvester, 0,
                                     _list_files_in_directory(test_config_harvester['raw_dump_folder_name'], test_config_harvester['files_extenxion']),
-                                  cls.process_state_repository)
+                                  self.process_state_repository)
+
+    def tearDown(self):
+        for f in glob.glob(f"{test_config_harvester['processed_dump_folder_name']}/*"):
+            os.remove(f)
 
     def test_init_processor_return_list_of_files_and_target_directory(self):
         expected_number_of_files = 1
@@ -49,11 +53,6 @@ class TestProcessor(TestCase):
             self,
     ):
         expected_number_of_dois_processed = 4
-
-        fileList = glob.glob(str(self.processor.target_directory / '*.csv'))
-
-        for filePath in fileList:
-            os.remove(filePath)
 
         # expect
         global_number_of_processed_dois, processed_files_and_status = self.processor.process_list_of_files_in_partition()
@@ -75,11 +74,6 @@ class TestProcessor(TestCase):
         # Given processor in SetUpClass
         expected_number_global_affiliation = 2
 
-        fileList = glob.glob(str(self.processor.tmp_directory_path / '*.csv'))
-
-        for filePath in fileList:
-            os.remove(filePath)
-
         self.processor.process_list_of_files_in_partition()
 
         global_affiliation = pd.read_csv(self.processor.partition_consolidated_affiliation_file_path,
@@ -93,19 +87,13 @@ class TestProcessor(TestCase):
     def test_init_processor_given_one_dump_file_containing_dois_with_only_two_same_affiliations_in_different_creator_produce_two_affiliation_in_detailed_affiliation_file(
             self):
         # Given processor in SetUpClass
-        expected_number_global_affiliation = 4
-
-        fileList = glob.glob(str(self.processor.tmp_directory_path / '*.csv'))
-
-        for filePath in fileList:
-            os.remove(filePath)
+        expected_number_detailed_affiliation = 4
 
         self.processor.process_list_of_files_in_partition()
-
-        global_affiliation = pd.read_csv(self.processor.partition_detailed_affiliation_file_path,
+        detailed_affiliation = pd.read_csv(self.processor.partition_detailed_affiliation_file_path,
                                          sep=",",
                                          names=['doi_publisher', 'doi_client_id', 'affiliation'],
                                          header=None)
 
         # expect
-        self.assertEqual(global_affiliation.shape[0], expected_number_global_affiliation)
+        self.assertEqual(detailed_affiliation.shape[0], expected_number_detailed_affiliation)

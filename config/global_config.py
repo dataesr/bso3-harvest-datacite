@@ -25,6 +25,7 @@ PROCESSED_DATACITE_DUMP = 'processed'
 MOUNTED_VOLUME_PATH = os.getenv("MOUNTED_VOLUME_PATH", PROJECT_DIRNAME)
 RAW_DUMP_FOLDER_NAME = os.getenv("RAW_DUMP_FOLDER_NAME", os.path.join(PROJECT_DIRNAME, "sample-dump"))
 PROCESSED_DUMP_FOLDER_NAME = "dois" # consolidated processed output dir
+AFFILIATION_FOLDER_NAME = "affiliations" # consolidated affiliation output dir
 PROCESSED_TMP_FOLDER_NAME = "tmp"
 GLOBAL_AFFILIATION_FILE_NAME = "global_affiliations.csv"
 DETAILED_AFFILIATION_FILE_NAME = "detailed_affiliations.csv"
@@ -74,6 +75,7 @@ def get_harvester_config() -> dict:
     # local dump folder
     config_harvester['raw_dump_folder_name'] = RAW_DUMP_FOLDER_NAME
     config_harvester['processed_dump_folder_name'] = os.path.join(MOUNTED_VOLUME_PATH, PROCESSED_DUMP_FOLDER_NAME)
+    config_harvester['affiliation_folder_name'] = os.path.join(MOUNTED_VOLUME_PATH, AFFILIATION_FOLDER_NAME)
     config_harvester['processed_tmp_folder_path'] = os.path.join(PROJECT_DIRNAME, PROCESSED_TMP_FOLDER_NAME)
     config_harvester['processed_tmp_folder_name'] = PROCESSED_TMP_FOLDER_NAME
     # config_harvester['global_affiliation_file_name'] = os.path.join(config_harvester['processed_dump_folder_name'],

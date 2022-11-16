@@ -20,8 +20,11 @@ def _list_dump_files_in_directory():
     return list(dump_folder_path.glob(config_harvester["files_extenxion"]))
 
 
-def _merge_files(list_of_files: List[Union[str, Path]], target_file_path: Path):
-    pd.concat([pd.read_csv(file, header=None, dtype='str') for file in list_of_files if file.stat().st_size > 0]).to_csv(f"{target_file_path}.zip", compression='zip', index=False)
+def _merge_files(list_of_files: List[Union[str, Path]], target_file_path: Path, is_compressed=True):
+    if is_compressed:
+        pd.concat([pd.read_csv(file, header=None, dtype='str') for file in list_of_files if file.stat().st_size > 0]).to_csv(target_file_path, compression='zip', index=False)
+    else:
+        pd.concat([pd.read_csv(file, header=None, dtype='str') for file in list_of_files if file.stat().st_size > 0]).to_csv(target_file_path, index=False)
 
 
 def json_line_generator(ndjson_file):

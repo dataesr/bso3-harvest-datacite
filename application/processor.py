@@ -259,7 +259,7 @@ class ProcessorController:
     def process_files(self):
         # Merge consolidated files
         logger.debug(f"merging consolidated_affiliation_files: {self.list_of_consolidated_affiliation_files}")
-        _merge_files(self.list_of_consolidated_affiliation_files, self.global_consolidated_affiliation_file_path)
+        _merge_files(self.list_of_consolidated_affiliation_files, self.global_consolidated_affiliation_file_path, is_compressed=False)
         # Merge detailed files
         logger.debug(f"merging detailed_affiliation_files: {self.list_of_detailed_affiliation_files}")
         _merge_files(self.list_of_detailed_affiliation_files, self.global_detailed_affiliation_file_path)
