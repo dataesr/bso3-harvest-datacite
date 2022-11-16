@@ -46,19 +46,30 @@ def listify(obj):
         return []
 
 
-def get_matched_affiliations(merged_affiliations_df, aff_str):
+def get_matched_affiliations(merged_affiliations_df: pd.DataFrame, aff_str: str, aff_ror: str, aff_name: str) -> [Dict,
+                                                                                                                  str]:
     """Get the matched affiliations in the dataframe corresponding to the affiliation string"""
     countries = next(
         iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['countries'].values), [])
     ror = next(iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['ror'].values), [])
     grid = next(iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['grid'].values), [])
     rnsr = next(iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['rnsr'].values), [])
+    creator_or_contributor = next(iter(
+        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['creator_contributor'].values), [])
+    is_publisher_fr = next(iter(
+        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_publisher_fr'].values), [])
+    is_clientId_fr = next(iter(
+        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_clientId_fr'].values), [])
+    is_countries_fr = next(iter(
+        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_countries_fr'].values), [])
     return {
-        "countries": listify(countries),
-        "ror": listify(ror),
-        "grid": listify(grid),
-        "rnsr": listify(rnsr),
-    }
+               "name": aff_name,
+               "ror": aff_ror,
+               "detected_countries": listify(countries),
+               "detected_ror": listify(ror),
+               "detected_grid": listify(grid),
+               "detected_rnsr": listify(rnsr),
+           }, creator_or_contributor, is_publisher_fr, is_clientId_fr, is_countries_fr
 
 
 def enrich_doi(doi, merged_affiliations_df):
@@ -69,15 +80,73 @@ def enrich_doi(doi, merged_affiliations_df):
     CONTRIBUTORS = "contributors"
     this_doi = merged_affiliations_df["doi"] == doi["id"]
     matched_affiliations_list = []
+    enriched_creators_or_contributors = []
+    creators = []
+    contributors = []
+    is_publisher = []
+    is_clientId = []
+    is_countries = []
+    creator_or_contributor = ""
+
     for obj in doi["attributes"][CREATORS] + doi["attributes"][CONTRIBUTORS]:
         for affiliation in obj.get("affiliation"):
             if affiliation:
                 aff_str = _concat_affiliation_of_creator_or_contributor(affiliation,
                                                                         exclude_list=["affiliationIdentifierScheme"])
-                matched_affiliations = get_matched_affiliations(merged_affiliations_df[this_doi], aff_str)
-                obj['matched_affiliations'] = matched_affiliations
+
+                aff_ror = get_ror_or_orcid(affiliation, "affiliationIdentifierScheme", "ROR", "affiliationIdentifier")
+                aff_name = affiliation.get('name')
+                matched_affiliations, creator_or_contributor, is_publisher_fr, is_clientId_fr, is_countries_fr = get_matched_affiliations(
+                    merged_affiliations_df[this_doi], aff_str, aff_ror, aff_name)
+
                 matched_affiliations_list.append(matched_affiliations)
-    return matched_affiliations_list
+                obj['affiliations'] = matched_affiliations_list
+
+                is_publisher.append("publisher" if is_publisher_fr else "")
+                is_clientId.append("clientid" if is_clientId_fr else "")
+                is_countries.append("creators" if (is_countries_fr and creator_or_contributor == "creators")
+                                    else "contributors")
+
+        obj['orcid'] = next(iter([get_ror_or_orcid(name_identifier, "nameIdentifierScheme", "ORCID", "nameIdentifier")
+                                  for name_identifier in obj.get("nameIdentifiers") if name_identifier]), "")
+
+        if _safe_get("", obj, 'givenName') != "":
+            obj['first_name'] = obj.get('givenName')
+        if _safe_get("", obj, 'familyName') != "":
+            obj['last_name'] = obj.get('familyName')
+        if _safe_get("", obj, 'name') != "":
+            obj['full_name'] = obj.get('name')
+
+        for key in ['givenName', 'familyName', 'name', 'nameType', 'affiliation', 'matched_affiliations',
+                    'nameIdentifiers']:
+            if key in obj:
+                del obj[key]
+
+        if creator_or_contributor == "creators":
+            creators.append(obj)
+        elif creator_or_contributor == "contributors":
+            contributors.append(obj)
+
+        enriched_creators_or_contributors.append(obj)
+
+    fr_reasons = sorted(set(list(filter(None, is_publisher + is_clientId + is_countries))))
+    fr_reasons_concat = ";".join(fr_reasons)
+
+    return matched_affiliations_list, enriched_creators_or_contributors, creators, contributors, fr_reasons, fr_reasons_concat
+
+
+def get_orcid(name_identifier: Dict) -> str:
+    if str(_safe_get("", name_identifier, "nameIdentifierScheme")) == "ORCID":
+        return _parse_url_and_retrieve_last_part(name_identifier.get('nameIdentifier'))
+
+
+def get_ror_or_orcid(affiliation_or_name_identifier: Dict, schema: str, ror_or_orcid: str, identifier: str) -> str:
+    if str(_safe_get("", affiliation_or_name_identifier, schema)) == ror_or_orcid:
+        return _parse_url_and_retrieve_last_part(affiliation_or_name_identifier.get(identifier))
+
+
+def _parse_url_and_retrieve_last_part(uri: str) -> str:
+    return uri.split('/')[-1]
 
 
 def count_newlines(fname):
@@ -92,16 +161,113 @@ def count_newlines(fname):
     return count
 
 
-def append_to_es_index_sourcefile(doi, matched_affiliations_list):
+def append_to_es_index_sourcefile(doi, matched_affiliations_list, enriched_creators_or_contributors,
+                                  creators, contributors, fr_reasons, fr_reasons_concat):
+
+    creators = strip_creators_or_contributors(creators)
+    contributors = strip_creators_or_contributors(contributors)
+
+    enriched_doi = {
+        "doi": str(doi["id"]),
+        "creators": creators,
+        "contributors": contributors,
+        "client_id": str(_safe_get("", doi, "relationships", "client", "data", "id")),
+        "publisher": str(_safe_get("", doi, "attributes", "publisher")),
+        "update_date": str(_safe_get("", doi, "attributes", "updated")),
+        "fr_reasons": fr_reasons,
+        "fr_reasons_concat": fr_reasons_concat
+    }
+
+    # Get title
+    if str(_safe_get("", doi, "titles", "title")) != "":
+        enriched_doi["title"] = str(_safe_get("", doi, "titles", "title"))
+
+    # Get classification_subject
+    if str(_safe_get("", doi, "subjects")) != "" and isinstance(doi["subjects"], List):
+        enriched_doi["classification_subject"] = [str(_safe_get("", subject, "subject")) for subject in doi["subjects"]
+                                                  if subject and "subjectScheme" not in subject]
+    # Get classification FOS
+    if str(_safe_get("", doi, "subjects")) != "" and isinstance(doi["subjects"], List):
+        enriched_doi["classification_FOS"] = [str(_safe_get("", subject, "subject")).replace("FOS:", "") for subject in
+                                              doi["subjects"] if "subjects" in doi and subject and
+                                              str(_safe_get("", subject, "subject",
+                                                            "subjectScheme")) == "Fields of Science and Technology (FOS)"]
+    # Get publication year
+    enriched_doi["publicationYear"] = str(_safe_get("", doi, "publicationYear"))
+
+    # Get language
+    enriched_doi["language"] = str(_safe_get("", doi, "language"))
+
+    # Get resourceTypeGeneral
+    enriched_doi["resourceTypeGeneral"] = str(_safe_get("", doi, "resourceTypeGeneral")).lower()
+
+    # Get resourceType
+    enriched_doi["resourceType"] = str(_safe_get("", doi, "types", "resourceType")).lower()
+
+    # Get license
+    enriched_doi["license"] = str(_safe_get("", doi, "attributes", "license")).lower()
+
+    if str(_safe_get("", doi, "descriptions")) != "" and isinstance(doi["descriptions"], List):
+        # Get methods
+        enriched_doi["abstract"] = "".join([str(_safe_get("", description, "description"))
+                                            for description in doi["descriptions"]
+                                            if description is not None and str(
+                _safe_get("", doi, "descriptionType")) == "Abstract"])
+        # Get description
+        enriched_doi["description"] = "".join([str(_safe_get("", description, "description"))
+                                               for description in doi["descriptions"]
+                                               if description is not None and str(
+                _safe_get("", doi, "descriptionType")) == "Other"])
+        # Get abstract
+        enriched_doi["methods"] = "".join([str(_safe_get("", description, "description"))
+                                           for description in doi["descriptions"]
+                                           if description is not None and str(
+                _safe_get("", doi, "descriptionType")) == "Methods"])
+
+    if str(_safe_get("", doi, "fundingReferences")) != "" and isinstance(doi["fundingReferences"], List):
+        # Get grants
+        enriched_doi["grants"] = [{"name": str(_safe_get("", funding_reference, "funderName"))}
+                                  for funding_reference in doi["fundingReferences"]]
+    # Get created
+    enriched_doi["created"] = str(_safe_get("", doi, "created"))
+    # Get registered
+    enriched_doi["registered"] = str(_safe_get("", doi, "registered"))
+
+    if str(_safe_get("", doi, "relatedIdentifiers")) != "" and isinstance(doi["relatedIdentifiers"], List):
+        # Get "doi_supplement_to
+        enriched_doi["doi_supplement_to"] = [related_identifier["relatedIdentifier"] for related_identifier in
+                                             doi["relatedIdentifiers"]
+                                             if related_identifier is not None
+                                             and str(
+                _safe_get("", related_identifier, "relationType")) == "IsSupplementTo"
+                                             and str(
+                _safe_get("", related_identifier, "relatedIdentifierType")) == "DOI"]
+        # Get doi_version_of
+        enriched_doi["doi_version_of"] = [related_identifier["relatedIdentifier"] for related_identifier in
+                                          doi["relatedIdentifiers"]
+                                          if related_identifier is not None
+                                          and str(_safe_get("", related_identifier, "relationType")) == "IsVersionOf"
+                                          and str(_safe_get("", related_identifier, "relatedIdentifierType")) == "DOI"]
+
+    stripped_enriched_doi = stripper(enriched_doi)
+
     append_to_file(
         file=config_harvester["es_index_sourcefile"],
-        _str=json.dumps({
-        "doi": str(doi["id"]),
-        "matched_affiliations_list": matched_affiliations_list,
-        "clientId": str(safe_get("", doi, "relationships", "client", "data", "id")),
-        "publisher": str(safe_get("", doi, "attributes", "publisher")),
-        "update_date": str(safe_get("", doi, "attributes", "updated")),
-    }))
+        _str=json.dumps(stripped_enriched_doi))
+
+
+def strip_creators_or_contributors(creators_or_contributors: List) -> List:
+    stripped_creators = []
+
+    for creator_or_contributor in creators_or_contributors:
+        if creator_or_contributor not in ('', {}) and isinstance(creator_or_contributor, Dict) \
+                and "affiliations" in creator_or_contributor.keys():
+            stripped_affiliations = [stripper(affiliation) for affiliation in creator_or_contributor["affiliations"]]
+            stripped_creator = stripper(creator_or_contributor)
+            stripped_creator["affiliations"] = stripped_affiliations
+            stripped_creators.append(stripped_creator)
+
+    return stripped_creators
 
 
 def append_to_file(file, _str):
@@ -118,6 +284,7 @@ def write_doi_files(merged_affiliations_df: pd.DataFrame,
     """Writes a json file for each doi, as is, if not contained in the mask,
     otherwise with the matched affiliation to each creator or contributor object in the doi
     """
+    creators = []
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
     for json_obj in tqdm(json_line_generator(dump_file), total=count_newlines(str(dump_file))):
@@ -125,9 +292,14 @@ def write_doi_files(merged_affiliations_df: pd.DataFrame,
             doi_contains_selected_affiliations = not (
                 merged_affiliations_df[mask][merged_affiliations_df[mask]["doi"] == doi["id"]]
             ).empty
+
             if doi_contains_selected_affiliations:
-                matched_affiliations_list = enrich_doi(doi, merged_affiliations_df)
-                append_to_es_index_sourcefile(doi, matched_affiliations_list)
+                matched_affiliations_list, enriched_creators_or_contributors, creators, contributors, fr_reasons, \
+                fr_reasons_concat = enrich_doi(doi, merged_affiliations_df)
+
+                append_to_es_index_sourcefile(doi, matched_affiliations_list, enriched_creators_or_contributors,
+                                              creators, contributors, fr_reasons, fr_reasons_concat)
+
             with open(f"{output_dir}/{_format_string(doi['id'])}.json", 'w') as f:
                 json.dump(doi, f, indent=None)
 
@@ -193,15 +365,6 @@ def _create_affiliation_file(target_directory: Union[Path, str],
 def _append_affiliation_file(affiliation: pd.DataFrame, target_file: Union[str, Path], append_header=False):
     if affiliation.shape[0] > 0:
         affiliation.to_csv(target_file, mode="a", index=False, header=append_header, encoding="utf-8")
-
-
-def safe_get(default_value, _dict, *keys):
-    for key in keys:
-        try:
-            _dict = _dict[key]
-        except (TypeError, KeyError):
-            return default_value
-    return _dict
 
 
 def _concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str):
@@ -342,3 +505,28 @@ def _load_csv_file_and_drop_duplicates(global_affiliations_file_path: Union[Path
     if global_affiliation.shape[0] > 0:
         global_affiliation.drop_duplicates(inplace=True)
         global_affiliation.to_csv(global_affiliations_file_path, index=False, header=False, encoding="utf-8")
+
+
+def stripper(data):
+    new_data = {}
+    for k, v in data.items():
+        if isinstance(v, dict):
+            v = stripper(v)
+        if not v in (u'', None, {}, []):
+            new_data[k] = v
+    return new_data
+
+
+if __name__ == "__main__":
+    PROJECT_DIRNAME = os.path.dirname(os.path.dirname(__file__))
+    fixture_path = Path(Path(PROJECT_DIRNAME) / "tests/unit_test/fixtures")
+    sample_affiliations = pd.read_csv(fixture_path / "sample_affiliations.csv")
+    is_fr = (
+            sample_affiliations.is_publisher_fr | sample_affiliations.is_clientId_fr | sample_affiliations.is_countries_fr)
+
+    output_dir = Path("./processed_dois")
+    write_doi_files(
+        sample_affiliations, is_fr, fixture_path / "sample.ndjson", output_dir=str(output_dir)
+    )
+    # Then
+    output_files = [file.name for file in output_dir.glob("*.json")]

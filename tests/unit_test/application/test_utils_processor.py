@@ -22,7 +22,8 @@ class TestProcessor(TestCase):
         expected_fr_doi_file = fixture_path / "expected_fr_doi.json"
         with expected_fr_doi_file.open("r", encoding="utf-8") as f:
             expected_content = json.load(f)
-        is_fr = (sample_affiliations.is_publisher_fr | sample_affiliations.is_clientId_fr | sample_affiliations.is_countries_fr)
+        is_fr = (
+                    sample_affiliations.is_publisher_fr | sample_affiliations.is_clientId_fr | sample_affiliations.is_countries_fr)
         # When
         write_doi_files(
             sample_affiliations, is_fr, fixture_path / "sample.ndjson", output_dir=str(output_dir)
@@ -35,6 +36,9 @@ class TestProcessor(TestCase):
         self.assertEqual(sorted(expected_output_files), sorted(output_files))
         with fr_doi_file.open("r", encoding="utf-8") as f:
             content = json.load(f)
-        mock_append.assert_called_with(content, expected_mongo_obj)
+
+        mock_append.assert_called_with(content, expected_matched_affiliations_list,
+                                       expected_creators + expected_contributors, expected_creators,
+                                       expected_contributors, expected_fr_reasons, expected_fr_reasons_concat)
         self.assertEqual(content, expected_content)
         shutil.rmtree(output_dir)

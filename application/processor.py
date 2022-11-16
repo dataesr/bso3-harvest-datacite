@@ -128,6 +128,7 @@ class Processor(AbstractProcessor):
         :return: the number of total processed dois and the list of files and their associated status
         """
 
+        # TODO Modify state to False if needed
         processed_files_and_status = []
 
         global_number_of_processed_dois = 0
