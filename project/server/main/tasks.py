@@ -159,8 +159,7 @@ def run_task_consolidate_results(file_prefix):
 def get_merged_affiliations() -> dd.DataFrame:
     """Read consolidated and detailled csv files and returns the merged DataFrame"""
     consolidated_affiliations_file = next(Path(config_harvester["affiliation_folder_name"]).glob('*consolidated_affiliations.csv'))
-    consolidated_affiliations = pd.read_csv(consolidated_affiliations_file, dtype=str, header=1, compression="zip")
-    consolidated_affiliations = consolidated_affiliations.query('is_publisher_fr!="is_publisher_fr"')
+    consolidated_affiliations = pd.read_csv(consolidated_affiliations_file, dtype=str, compression="zip")
     consolidated_affiliations.is_publisher_fr = consolidated_affiliations.is_publisher_fr.apply(eval)
     consolidated_affiliations.is_clientId_fr = consolidated_affiliations.is_clientId_fr.apply(eval)
     consolidated_affiliations.is_countries_fr = consolidated_affiliations.is_countries_fr.apply(eval)
@@ -170,7 +169,7 @@ def get_merged_affiliations() -> dd.DataFrame:
                                              "doi", "doi_file_name",
                                              "creator_contributor",
                                              "name", "doi_publisher",
-                                             "doi_client_id", "affiliation_str"
+                                             "doi_client_id", "affiliation_str", "origin_file"
                                          ], header=None, dtype=str)
     # merge en merged_affiliation
     return dd.merge(consolidated_affiliations, detailed_affiliations, 'left',
@@ -194,6 +193,7 @@ def upload_doi_files(files, prefix):
 
 def run_task_enrich_dois(partition_files):
     merged_affiliations = get_merged_affiliations()
+    merged_affiliations = merged_affiliations[merged_affiliations["origin_file"].isin(partition_files)]
     is_fr = (merged_affiliations.is_publisher_fr | merged_affiliations.is_clientId_fr | merged_affiliations.is_countries_fr)
     fr_affiliated_dois_df = merged_affiliations[is_fr]
     output_dir = './dois/'
