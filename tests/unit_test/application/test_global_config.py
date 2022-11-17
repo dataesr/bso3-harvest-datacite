@@ -27,7 +27,7 @@ PROCESSED_DUMP_FOLDER_NAME = "test_dois"
 PROCESSED_TMP_FOLDER_NAME = "tmp"
 GLOBAL_AFFILIATION_FILE_NAME = "global_affiliations.csv"
 DETAILED_AFFILIATION_FILE_NAME = "detailed_affiliations.csv"
-FILES_EXTENSION = "*.ndjson"
+FILES_EXTENSION = ".ndjson"
 
 def get_harvester_config() -> dict:
     load_environment_variables()
@@ -58,7 +58,7 @@ def get_harvester_config() -> dict:
     test_config_harvester['detailed_affiliation_file_name'] = os.path.join(
         test_config_harvester['processed_dump_folder_name'],
         DETAILED_AFFILIATION_FILE_NAME)
-    test_config_harvester['files_extenxion'] = FILES_EXTENSION
+    test_config_harvester['datacite_file_extension'] = FILES_EXTENSION
     test_config_harvester['processed_tmp_folder_path'] = os.path.join(PROJECT_DIRNAME, PROCESSED_TMP_FOLDER_NAME)
     test_config_harvester['processed_tmp_folder_name'] = PROCESSED_TMP_FOLDER_NAME
 

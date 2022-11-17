@@ -17,14 +17,15 @@ logger = get_logger(__name__, level=LOGGER_LEVEL)
 
 def _list_dump_files_in_directory():
     dump_folder_path = _get_path(config_harvester['raw_dump_folder_name'])
-    return list(dump_folder_path.glob(config_harvester["files_extenxion"]))
+    return list(dump_folder_path.glob("*"+config_harvester["datacite_file_extension"]))
 
 
-def _merge_files(list_of_files: List[Union[str, Path]], target_file_path: Path, is_compressed=True):
+def _merge_files(list_of_files: List[Union[str, Path]], target_file_path: Path, header=None, is_compressed=True):
+    """Concat csv files and zip it by default"""
     if is_compressed:
-        pd.concat([pd.read_csv(file, header=None, dtype='str') for file in list_of_files if file.stat().st_size > 0]).to_csv(target_file_path, compression='zip', index=False)
+        pd.concat([pd.read_csv(file, header=header, dtype='str') for file in list_of_files if file.stat().st_size > 0]).to_csv(target_file_path, compression='zip', index=False)
     else:
-        pd.concat([pd.read_csv(file, header=None, dtype='str') for file in list_of_files if file.stat().st_size > 0]).to_csv(target_file_path, index=False)
+        pd.concat([pd.read_csv(file, header=header, dtype='str') for file in list_of_files if file.stat().st_size > 0]).to_csv(target_file_path, index=False)
 
 
 def json_line_generator(ndjson_file):
@@ -292,9 +293,9 @@ def write_doi_files(merged_affiliations_df: pd.DataFrame,
         os.makedirs(output_dir)
     for json_obj in tqdm(json_line_generator(dump_file), total=count_newlines(str(dump_file))):
         for doi in json_obj.get('data'):
-            doi_contains_selected_affiliations = not (
-                merged_affiliations_df[mask][merged_affiliations_df[mask]["doi"] == doi["id"]]
-            ).empty
+            doi_contains_selected_affiliations = (
+                len(merged_affiliations_df[mask][merged_affiliations_df[mask]["doi"] == doi["id"]].index) != 0
+            )
 
             if doi_contains_selected_affiliations:
                 matched_affiliations_list, enriched_creators_or_contributors, creators, contributors, fr_reasons, \
@@ -318,8 +319,8 @@ def get_list_creators_or_contributors_and_affiliations(path_file):
             doi["mapped_id"] = _format_string(doi["id"])
             current_size = len(list_creators_or_contributors_and_affiliations)
             try:
-                list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "creators")
-                list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "contributors")
+                list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "creators", path_file)
+                list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "contributors", path_file)
             except BaseException as e:
                 logger.exception(f'Error while creating concat for {doi["id"]}. \n Details of the error {e}')
 
@@ -345,7 +346,7 @@ def _list_files_in_directory(folder: Union[str, Path], regex: str):
 
 def _is_files_list_splittable_into_mutiple_partitions(total_number_of_partitions) -> bool:
     list_of_files_in_dump_folder = _list_files_in_directory(config_harvester['raw_dump_folder_name'],
-                                                            config_harvester['files_extenxion'])
+                                                            "*" + config_harvester['datacite_file_extension'])
     return len(list_of_files_in_dump_folder) > total_number_of_partitions
 
 
@@ -370,7 +371,7 @@ def _append_affiliation_file(affiliation: pd.DataFrame, target_file: Union[str, 
         affiliation.to_csv(target_file, mode="a", index=False, header=append_header, encoding="utf-8")
 
 
-def _concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str):
+def _concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str, origin_file: str):
     list_creators_or_contributors_and_affiliations = []
 
     for object_to_use_for_concatenation in doi["attributes"][objects_to_use_for_concatenation]:
@@ -398,6 +399,7 @@ def _concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str):
                     "doi_publisher": doi_publisher,
                     "doi_client_id": doi_client_id,
                     "affiliation": affiliation,
+                    "origin_file": origin_file
                 }
                 for affiliation in list_of_affiliation
             ]
@@ -412,6 +414,7 @@ def _concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str):
                     "doi_publisher": doi_publisher,
                     "doi_client_id": doi_client_id,
                     "affiliation": "",
+                    "origin_file": origin_file
                 }
             ]
             list_creators_or_contributors_and_affiliations += list_affiliation_of_object

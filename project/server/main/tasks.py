@@ -22,6 +22,8 @@ from project.server.main.logger import get_logger
 from project.server.main.utils_swift import (download_container,
                                              download_object, upload_object)
 from tqdm import tqdm
+import dask.dataframe as dd
+
 
 logger = get_logger(__name__)
 
@@ -142,7 +144,7 @@ def run_task_consolidate_results(file_prefix):
     consolidated_affiliations_filepath = f"{config_harvester['affiliation_folder_name']}/{file_prefix}_"
     consolidated_affiliations_filepath += f"{affiliation_matcher_version}_" if affiliation_matcher_version else ""
     consolidated_affiliations_filepath += "consolidated_affiliations.csv"
-    _merge_files(glob(f"{config_harvester['affiliation_folder_name']}/*"), consolidated_affiliations_filepath)
+    _merge_files(Path(config_harvester['affiliation_folder_name']).glob('*'), Path(consolidated_affiliations_filepath), header=0)
     # upload the resulting file
     upload_object(
         config_harvester["datacite_container"],
@@ -154,20 +156,24 @@ def run_task_consolidate_results(file_prefix):
         os.remove(f)
 
 
-def get_merged_affiliations() -> pd.DataFrame:
+def get_merged_affiliations() -> dd.DataFrame:
     """Read consolidated and detailled csv files and returns the merged DataFrame"""
-    consolidated_affiliations_file = os.path.join(config_harvester["processed_dump_folder_name"], config_harvester["global_affiliation_file_name"])
-    consolidated_affiliations = pd.read_csv(consolidated_affiliations_file)
-    detailed_affiliations_file = os.path.join(config_harvester["processed_dump_folder_name"], config_harvester["detailed_affiliation_file_name"])
-    detailed_affiliations = pd.read_csv(detailed_affiliations_file,
+    consolidated_affiliations_file = next(Path(config_harvester["affiliation_folder_name"]).glob('*consolidated_affiliations.csv'))
+    consolidated_affiliations = pd.read_csv(consolidated_affiliations_file, dtype=str, header=1, compression="zip")
+    consolidated_affiliations = consolidated_affiliations.query('is_publisher_fr!="is_publisher_fr"')
+    consolidated_affiliations.is_publisher_fr = consolidated_affiliations.is_publisher_fr.apply(eval)
+    consolidated_affiliations.is_clientId_fr = consolidated_affiliations.is_clientId_fr.apply(eval)
+    consolidated_affiliations.is_countries_fr = consolidated_affiliations.is_countries_fr.apply(eval)
+    detailed_affiliations_file = next(Path(config_harvester["processed_dump_folder_name"]).glob('*detailed_affiliations.csv'))
+    detailed_affiliations = dd.read_csv(detailed_affiliations_file,
                                          names=[
                                              "doi", "doi_file_name",
                                              "creator_contributor",
                                              "name", "doi_publisher",
                                              "doi_client_id", "affiliation_str"
-                                         ], header=None)
+                                         ], header=None, dtype=str)
     # merge en merged_affiliation
-    return pd.merge(consolidated_affiliations, detailed_affiliations, 'left',
+    return dd.merge(consolidated_affiliations, detailed_affiliations, 'left',
                     on=["doi_publisher", "doi_client_id", "affiliation_str"])
 
 

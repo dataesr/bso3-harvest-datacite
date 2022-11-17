@@ -106,8 +106,8 @@ class Processor(AbstractProcessor):
                         doi["mapped_id"] = _format_string(doi["id"])
                         current_size = len(list_creators_or_contributors_and_affiliations)
                         try:
-                            list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "creators")
-                            list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "contributors")
+                            list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "creators", path_file)
+                            list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "contributors", path_file)
                         except BaseException as e:
                             logger.exception(f'Error while creating concat for {doi["id"]}. \n Detailed error {e}')
 

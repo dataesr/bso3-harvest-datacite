@@ -31,7 +31,7 @@ GLOBAL_AFFILIATION_FILE_NAME = "global_affiliations.csv"
 DETAILED_AFFILIATION_FILE_NAME = "detailed_affiliations.csv"
 
 # Datacite configuration
-FILES_EXTENSION = "*.ndjson"
+DATACITE_FILE_EXTENSION = ".ndjson"
 DEFAULT_START_DATE = "2018-01-01"
 
 # Elastic Searh configurations
@@ -88,7 +88,7 @@ def get_harvester_config() -> dict:
     config_harvester['dump_default_start_date'] = DEFAULT_START_DATE
     config_harvester['es_index_sourcefile'] = os.path.join(MOUNTED_VOLUME_PATH, "datacite_fr.jsonl")
     # Datacite configuration
-    config_harvester['files_extenxion'] = FILES_EXTENSION
+    config_harvester['datacite_file_extension'] = DATACITE_FILE_EXTENSION
 
     # Elastic Search configuration
     config_harvester['ES_LOGIN_BSO3_BACK'] = ES_LOGIN_BSO3_BACK

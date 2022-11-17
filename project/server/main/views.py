@@ -88,7 +88,7 @@ def process_dois():
     response_objects = []
     total_number_of_partitions = args.get("total_number_of_partitions", 100)
     file_prefix = args.get("file_prefix")
-    dump_files = _list_files_in_directory(config_harvester["raw_dump_folder_name"], config_harvester["files_extenxion"])
+    dump_files = _list_files_in_directory(config_harvester["raw_dump_folder_name"], "*" + config_harvester["datacite_file_extension"])
     partition_size = len(dump_files) // total_number_of_partitions
     partitions = get_partitions(dump_files, partition_size)
     tasks_list = []
@@ -156,7 +156,7 @@ def create_task_enrich_doi():
     partition_size = args.get("partition_size", 90)
     datacite_dump_files = glob(os.path.join(
         config_harvester['raw_dump_folder_name'],
-        '*' + config_harvester['files_extension'])
+        '*' + config_harvester['datacite_file_extension'])
     )
     partitions = get_partitions(datacite_dump_files, partition_size)
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
@@ -199,7 +199,7 @@ def start_full_process_pipeline():
         "processed_files_prefix",
         f"processed_files_prefix_{datetime.datetime.now().strftime('%Y-%m-%d')}",
     )
-    dump_files = _list_files_in_directory(config_harvester["raw_dump_folder_name"], config_harvester["files_extenxion"])
+    dump_files = _list_files_in_directory(config_harvester["raw_dump_folder_name"], "*" + config_harvester["datacite_file_extension"])
     partition_size = len(dump_files) // total_number_of_partitions
     partitions = get_partitions(dump_files, partition_size)
     # affiliation arguments

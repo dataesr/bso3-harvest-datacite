@@ -5,6 +5,7 @@
 __pycache__
 *.zip
 tmp
+temp
 dois
 processed
 dcdump
