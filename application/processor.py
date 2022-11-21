@@ -17,7 +17,7 @@ from domain.ovh_path import OvhPath
 from application.utils_processor import (
     _create_file, _load_csv_file_and_drop_duplicates,
     _append_file, _format_string, _concat_affiliation, _list_files_in_directory, _merge_files,
-    _get_path,
+    _get_path, compress,
 )
 from config.global_config import config_harvester
 from project.server.main.logger import get_logger
@@ -259,7 +259,7 @@ class ProcessorController:
     def process_files(self):
         # Merge consolidated files
         logger.debug(f"merging consolidated_affiliation_files: {self.list_of_consolidated_affiliation_files}")
-        _merge_files(self.list_of_consolidated_affiliation_files, self.global_consolidated_affiliation_file_path, is_compressed=False)
+        _merge_files(self.list_of_consolidated_affiliation_files, self.global_consolidated_affiliation_file_path)
         # Merge detailed files
         logger.debug(f"merging detailed_affiliation_files: {self.list_of_detailed_affiliation_files}")
         _merge_files(self.list_of_detailed_affiliation_files, self.global_detailed_affiliation_file_path)
@@ -270,17 +270,19 @@ class ProcessorController:
                _list_files_in_directory(self.target_folder_name, self.partition_detailed_affiliation_file_name_pattern)
 
     def push_to_ovh(self):
+        compressed_global_file = compress(str(self.global_consolidated_affiliation_file_path))
         upload_object(
             self.config["datacite_container"],
-            source=str(self.global_consolidated_affiliation_file_path),
+            source=compressed_global_file,
             target=OvhPath(self.config['processed_datacite_container'],
-                           path.basename(self.global_consolidated_affiliation_file_path)).__str__(),
+                           path.basename(compressed_global_file)).__str__(),
         )
+        compressed_detailed_file = compress(str(self.global_detailed_affiliation_file_path))
         upload_object(
             self.config["datacite_container"],
-            source=str(self.global_detailed_affiliation_file_path),
+            source=compressed_detailed_file,
             target=OvhPath(self.config['processed_datacite_container'],
-                           path.basename(self.global_detailed_affiliation_file_path)).__str__(),
+                           path.basename(compressed_detailed_file)).__str__(),
         )
 
     def clear_local_directory(self):

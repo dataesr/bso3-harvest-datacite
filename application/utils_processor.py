@@ -20,12 +20,18 @@ def _list_dump_files_in_directory():
     return list(dump_folder_path.glob("*"+config_harvester["datacite_file_extension"]))
 
 
-def _merge_files(list_of_files: List[Union[str, Path]], target_file_path: Path, header=None, is_compressed=True):
-    """Concat csv files and zip it by default"""
-    if is_compressed:
-        pd.concat([pd.read_csv(file, header=header, dtype='str') for file in list_of_files if file.stat().st_size > 0]).to_csv(target_file_path, compression='zip', index=False)
-    else:
-        pd.concat([pd.read_csv(file, header=header, dtype='str') for file in list_of_files if file.stat().st_size > 0]).to_csv(target_file_path, index=False)
+def compress(file, keep=True):
+    os.system(f"gzip --force {'--keep' if keep else ''} {file}")
+    return f"{file}.gz"
+
+def decompress(file, keep=True):
+    os.system(f"gzip -d --force {'--keep' if keep else ''} {file}")
+    return os.path.splitext(file)[0]
+
+
+def _merge_files(list_of_files: List[Union[str, Path]], target_file_path: Path, header=None):
+    """Concat csv files and write it"""
+    pd.concat([pd.read_csv(file, header=header, dtype='str') for file in list_of_files if file.stat().st_size > 0]).to_csv(target_file_path, index=False)
 
 
 def json_line_generator(ndjson_file):
@@ -150,7 +156,9 @@ def get_ror_or_orcid(affiliation_or_name_identifier: Dict, schema: str, ror_or_o
 
 
 def _parse_url_and_retrieve_last_part(uri: str) -> str:
-    return uri.split('/')[-1]
+    if uri:
+        return uri.split("/")[-1]
+    return ""
 
 
 def count_newlines(fname):

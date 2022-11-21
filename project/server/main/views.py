@@ -164,7 +164,7 @@ def create_task_enrich_doi():
         for partition in partitions:
             task_kwargs = {
                 "partition_files": partition,
-                "job_timeout": 2 * 3600,
+                "job_timeout": 10 * 3600,
             }
             task = q.enqueue(run_task_enrich_dois, **task_kwargs)
             response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})

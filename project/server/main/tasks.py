@@ -4,6 +4,7 @@ from glob import glob
 from os.path import exists
 from pathlib import Path
 import re
+from time import time
 from urllib import parse
 
 import pandas as pd
@@ -156,10 +157,13 @@ def run_task_consolidate_results(file_prefix):
         os.remove(f)
 
 
-def get_merged_affiliations() -> dd.DataFrame:
+def get_merged_affiliations(partition_files) -> dd.DataFrame:
     """Read consolidated and detailled csv files and returns the merged DataFrame"""
     consolidated_affiliations_file = next(Path(config_harvester["affiliation_folder_name"]).glob('*consolidated_affiliations.csv'))
-    consolidated_affiliations = pd.read_csv(consolidated_affiliations_file, dtype=str, compression="zip")
+    # remove header param when consolidated_affiliations_file is formed correctly
+    consolidated_affiliations = pd.read_csv(consolidated_affiliations_file, dtype=str, header=1, compression="zip")
+    # remove this line when consolidated_affiliations_file is formed correctly
+    consolidated_affiliations = consolidated_affiliations.query('is_publisher_fr != "is_publisher_fr"')
     consolidated_affiliations.is_publisher_fr = consolidated_affiliations.is_publisher_fr.apply(eval)
     consolidated_affiliations.is_clientId_fr = consolidated_affiliations.is_clientId_fr.apply(eval)
     consolidated_affiliations.is_countries_fr = consolidated_affiliations.is_countries_fr.apply(eval)
@@ -171,8 +175,15 @@ def get_merged_affiliations() -> dd.DataFrame:
                                              "name", "doi_publisher",
                                              "doi_client_id", "affiliation_str", "origin_file"
                                          ], header=None, dtype=str)
-    # merge en merged_affiliation
-    return dd.merge(consolidated_affiliations, detailed_affiliations, 'left',
+    # filter on partition
+    logger.info("Filtering the detailed file on partition...")
+    start = time()
+    detailed_affiliations = detailed_affiliations[detailed_affiliations.origin_file.isin(partition_files)].compute()
+    stop = time()
+    logger.info(f"Filtering done in {stop - start:.2f}s")
+    logger.info(f"Memory usage {detailed_affiliations.memory_usage().sum() // 2**20:,}Mo")
+    # merge
+    return pd.merge(consolidated_affiliations, detailed_affiliations, 'left',
                     on=["doi_publisher", "doi_client_id", "affiliation_str"])
 
 
@@ -192,8 +203,7 @@ def upload_doi_files(files, prefix):
 
 
 def run_task_enrich_dois(partition_files):
-    merged_affiliations = get_merged_affiliations()
-    merged_affiliations = merged_affiliations[merged_affiliations["origin_file"].isin(partition_files)]
+    merged_affiliations = get_merged_affiliations(partition_files)
     is_fr = (merged_affiliations.is_publisher_fr | merged_affiliations.is_clientId_fr | merged_affiliations.is_countries_fr)
     fr_affiliated_dois_df = merged_affiliations[is_fr]
     output_dir = './dois/'
