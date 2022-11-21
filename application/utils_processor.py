@@ -114,8 +114,7 @@ def enrich_doi(doi, merged_affiliations_df):
 
                 is_publisher.append("publisher" if is_publisher_fr else "")
                 is_clientId.append("clientid" if is_clientId_fr else "")
-                is_countries.append("creators" if (is_countries_fr and creator_or_contributor == "creators")
-                                    else "contributors")
+                is_countries.append("countries" if is_countries_fr else "")
 
         obj['orcid'] = next(iter([get_ror_or_orcid(name_identifier, "nameIdentifierScheme", "ORCID", "nameIdentifier")
                                   for name_identifier in obj.get("nameIdentifiers") if name_identifier]), "")
