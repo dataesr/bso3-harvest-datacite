@@ -157,7 +157,7 @@ def run_task_consolidate_results(file_prefix):
         os.remove(f)
 
 
-def get_merged_affiliations(partition_files) -> dd.DataFrame:
+def get_merged_affiliations(partition_files) -> pd.DataFrame:
     """Read consolidated and detailled csv files and returns the merged DataFrame"""
     consolidated_affiliations_file = next(Path(config_harvester["affiliation_folder_name"]).glob('*consolidated_affiliations.csv'))
     # remove header param when consolidated_affiliations_file is formed correctly
@@ -175,16 +175,24 @@ def get_merged_affiliations(partition_files) -> dd.DataFrame:
                                              "name", "doi_publisher",
                                              "doi_client_id", "affiliation_str", "origin_file"
                                          ], header=None, dtype=str)
-    # filter on partition
+    partition_files_basename = list(map(os.path.basename, partition_files))
     logger.info("Filtering the detailed file on partition...")
     start = time()
-    detailed_affiliations = detailed_affiliations[detailed_affiliations.origin_file.isin(partition_files)].compute()
+    detailed_affiliations.origin_file = detailed_affiliations.origin_file.apply(os.path.basename)
+    detailed_affiliations = detailed_affiliations[detailed_affiliations.origin_file.isin(partition_files_basename)].compute()
     stop = time()
     logger.info(f"Filtering done in {stop - start:.2f}s")
-    logger.info(f"Memory usage {detailed_affiliations.memory_usage().sum() // 2**20:,}Mo")
-    # merge
-    return pd.merge(consolidated_affiliations, detailed_affiliations, 'left',
+    merged_affiliations = pd.merge(consolidated_affiliations, detailed_affiliations, 'left',
                     on=["doi_publisher", "doi_client_id", "affiliation_str"])
+    merged_affiliations = merged_affiliations[[
+                                                "doi", "affiliation_str",
+                                                "countries", "ror", "grid",
+                                                "rnsr", "creator_contributor",
+                                                "is_publisher_fr", "is_clientId_fr",
+                                                "is_countries_fr"
+                                              ]]
+    logger.info(f"Memory usage {merged_affiliations.memory_usage().sum() // 2**20:,} Mo")
+    return merged_affiliations
 
 
 def clean_up(output_dir):

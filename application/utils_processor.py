@@ -298,7 +298,7 @@ def write_doi_files(merged_affiliations_df: pd.DataFrame,
     creators = []
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
-    for json_obj in tqdm(json_line_generator(dump_file), total=count_newlines(str(dump_file))):
+    for json_obj in json_line_generator(dump_file):
         for doi in json_obj.get('data'):
             doi_contains_selected_affiliations = (
                 len(merged_affiliations_df[mask][merged_affiliations_df[mask]["doi"] == doi["id"]].index) != 0
@@ -406,7 +406,7 @@ def _concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str, origin
                     "doi_publisher": doi_publisher,
                     "doi_client_id": doi_client_id,
                     "affiliation": affiliation,
-                    "origin_file": origin_file
+                    "origin_file": os.path.basename(origin_file)
                 }
                 for affiliation in list_of_affiliation
             ]
@@ -421,7 +421,7 @@ def _concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str, origin
                     "doi_publisher": doi_publisher,
                     "doi_client_id": doi_client_id,
                     "affiliation": "",
-                    "origin_file": origin_file
+                    "origin_file": os.path.basename(origin_file)
                 }
             ]
             list_creators_or_contributors_and_affiliations += list_affiliation_of_object
