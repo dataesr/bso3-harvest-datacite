@@ -185,12 +185,12 @@ def get_merged_affiliations(partition_files) -> pd.DataFrame:
     merged_affiliations = pd.merge(consolidated_affiliations, detailed_affiliations, 'left',
                     on=["doi_publisher", "doi_client_id", "affiliation_str"])
     merged_affiliations = merged_affiliations[[
-                                                "doi", "affiliation_str",
+                                                "doi", "doi_file_name", "affiliation_str",
                                                 "countries", "ror", "grid",
                                                 "rnsr", "creator_contributor",
                                                 "is_publisher_fr", "is_clientId_fr",
                                                 "is_countries_fr"
-                                              ]]
+                                              ]].drop_duplicates()
     logger.info(f"Memory usage {merged_affiliations.memory_usage().sum() // 2**20:,} Mo")
     return merged_affiliations
 
@@ -213,9 +213,10 @@ def upload_doi_files(files, prefix):
 def run_task_enrich_dois(partition_files):
     merged_affiliations = get_merged_affiliations(partition_files)
     is_fr = (merged_affiliations.is_publisher_fr | merged_affiliations.is_clientId_fr | merged_affiliations.is_countries_fr)
-    fr_affiliated_dois_df = merged_affiliations[is_fr]
+    fr_doi_file_name = merged_affiliations[is_fr].doi_file_name.to_list()
     output_dir = './dois/'
-    for file in tqdm(partition_files):
+    for i, file in enumerate(partition_files):
+        logger.debug(f"Processing {i} / {len(partition_files)}")
         write_doi_files(merged_affiliations, is_fr, Path(file), output_dir)
 
     # Upload and clean up
@@ -223,7 +224,7 @@ def run_task_enrich_dois(partition_files):
     fr_files = [
         file
         for file in all_files
-        if os.path.splitext(os.path.basename(file))[0] in fr_affiliated_dois_df.doi_file_name.values
+        if os.path.splitext(os.path.basename(file))[0] in fr_doi_file_name
     ]
     upload_doi_files(fr_files, prefix=config_harvester["fr_doi_files_prefix"])
     upload_doi_files(all_files, prefix=config_harvester["doi_files_prefix"])

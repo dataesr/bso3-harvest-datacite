@@ -1,3 +1,4 @@
+from copy import deepcopy
 import json
 from json import JSONDecodeError
 from pathlib import Path
@@ -50,7 +51,7 @@ def listify(obj):
     Otherwise returns an empty list"""
     if isinstance(obj, list):
         return obj
-    elif isinstance(obj, str) and obj[0] == '[':
+    elif isinstance(obj, str) and obj.startswith('['):
         return eval(obj)
     else:
         return []
@@ -65,13 +66,13 @@ def get_matched_affiliations(merged_affiliations_df: pd.DataFrame, aff_str: str,
     grid = next(iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['grid'].values), [])
     rnsr = next(iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['rnsr'].values), [])
     creator_or_contributor = next(iter(
-        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['creator_contributor'].values), [])
+        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['creator_contributor'].values), "")
     is_publisher_fr = next(iter(
-        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_publisher_fr'].values), [])
+        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_publisher_fr'].values))
     is_clientId_fr = next(iter(
-        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_clientId_fr'].values), [])
+        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_clientId_fr'].values))
     is_countries_fr = next(iter(
-        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_countries_fr'].values), [])
+        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_countries_fr'].values))
     return {
                "name": aff_name,
                "ror": aff_ror,
@@ -89,8 +90,6 @@ def enrich_doi(doi, merged_affiliations_df):
     CREATORS = "creators"
     CONTRIBUTORS = "contributors"
     this_doi = merged_affiliations_df["doi"] == doi["id"]
-    matched_affiliations_list = []
-    enriched_creators_or_contributors = []
     creators = []
     contributors = []
     is_publisher = []
@@ -99,6 +98,7 @@ def enrich_doi(doi, merged_affiliations_df):
     creator_or_contributor = ""
 
     for obj in doi["attributes"][CREATORS] + doi["attributes"][CONTRIBUTORS]:
+        obj['affiliations'] = []
         for affiliation in obj.get("affiliation"):
             if affiliation:
                 aff_str = _concat_affiliation_of_creator_or_contributor(affiliation,
@@ -109,48 +109,40 @@ def enrich_doi(doi, merged_affiliations_df):
                 matched_affiliations, creator_or_contributor, is_publisher_fr, is_clientId_fr, is_countries_fr = get_matched_affiliations(
                     merged_affiliations_df[this_doi], aff_str, aff_ror, aff_name)
 
-                matched_affiliations_list.append(matched_affiliations)
-                obj['affiliations'] = matched_affiliations_list
+                obj['affiliations'].append(matched_affiliations)
 
                 is_publisher.append("publisher" if is_publisher_fr else "")
                 is_clientId.append("clientid" if is_clientId_fr else "")
                 is_countries.append("countries" if is_countries_fr else "")
-
-        obj['orcid'] = next(iter([get_ror_or_orcid(name_identifier, "nameIdentifierScheme", "ORCID", "nameIdentifier")
+        if obj['affiliations'] == []:
+            del obj['affiliations']
+        es_obj = deepcopy(obj)
+        es_obj['orcid'] = next(iter([get_ror_or_orcid(name_identifier, "nameIdentifierScheme", "ORCID", "nameIdentifier")
                                   for name_identifier in obj.get("nameIdentifiers") if name_identifier]), "")
 
-        if _safe_get("", obj, 'givenName') != "":
-            obj['first_name'] = obj.get('givenName')
-        if _safe_get("", obj, 'familyName') != "":
-            obj['last_name'] = obj.get('familyName')
-        if _safe_get("", obj, 'name') != "":
-            obj['full_name'] = obj.get('name')
+        es_obj['first_name'] = es_obj.get('givenName')
+        es_obj['last_name'] = es_obj.get('familyName')
+        es_obj['full_name'] = es_obj.get('name')
 
         for key in ['givenName', 'familyName', 'name', 'nameType', 'affiliation', 'matched_affiliations',
                     'nameIdentifiers']:
-            if key in obj:
-                del obj[key]
+            if key in es_obj:
+                del es_obj[key]
 
+        trim_null_values(es_obj)
         if creator_or_contributor == "creators":
-            creators.append(obj)
+            creators.append(es_obj)
         elif creator_or_contributor == "contributors":
-            contributors.append(obj)
+            contributors.append(es_obj)
 
-        enriched_creators_or_contributors.append(obj)
-
-    fr_reasons = sorted(set(list(filter(None, is_publisher + is_clientId + is_countries))))
+    fr_reasons = sorted(set(filter(None, is_publisher + is_clientId + is_countries)))
     fr_reasons_concat = ";".join(fr_reasons)
 
-    return matched_affiliations_list, enriched_creators_or_contributors, creators, contributors, fr_reasons, fr_reasons_concat
-
-
-def get_orcid(name_identifier: Dict) -> str:
-    if str(_safe_get("", name_identifier, "nameIdentifierScheme")) == "ORCID":
-        return _parse_url_and_retrieve_last_part(name_identifier.get('nameIdentifier'))
+    return creators, contributors, fr_reasons, fr_reasons_concat
 
 
 def get_ror_or_orcid(affiliation_or_name_identifier: Dict, schema: str, ror_or_orcid: str, identifier: str) -> str:
-    if str(_safe_get("", affiliation_or_name_identifier, schema)) == ror_or_orcid:
+    if affiliation_or_name_identifier.get(schema) == ror_or_orcid:
         return _parse_url_and_retrieve_last_part(affiliation_or_name_identifier.get(identifier))
 
 
@@ -172,96 +164,112 @@ def count_newlines(fname):
     return count
 
 
-def append_to_es_index_sourcefile(doi, matched_affiliations_list, enriched_creators_or_contributors,
-                                  creators, contributors, fr_reasons, fr_reasons_concat):
+def get_classification_subject(doi):
+    try:
+        return [
+            subject.get("subject", "")
+            for subject in doi["subjects"]
+            if subject and "subjectScheme" not in subject
+        ] if isinstance(doi["subjects"], List) else ""
+    except KeyError:
+        return ""
 
-    creators = strip_creators_or_contributors(creators)
-    contributors = strip_creators_or_contributors(contributors)
 
+
+def get_classification_FOS(doi):
+    try:
+        return [
+            str(subject.get("subject", "")).replace("FOS:", "")
+            for subject in doi["subjects"]
+            if "subjects" in doi and subject and str(_safe_get("", subject, "subject", "subjectScheme")) == "Fields of Science and Technology (FOS)"
+        ] if isinstance(doi["subjects"], List) else ""
+    except KeyError:
+        return ""
+
+
+def get_description_element(doi, element):
+    try:
+        return "".join([
+            description.get("description", "")
+            for description in doi["descriptions"]
+            if description is not None and doi.get("descriptionType", "") == element
+            ]) if isinstance(doi["descriptions"], List) else ""
+    except KeyError:
+        return ""
+
+
+def get_abstract(doi):
+    return  get_description_element(doi, "Abstract")
+
+
+def get_description(doi):
+    return  get_description_element(doi, "Other")
+
+
+def get_methods(doi):
+    return  get_description_element(doi, "Methods")
+
+
+def get_grants(doi):
+    try:
+        return [
+            {"name": str(funding_reference.get("funderName"))}
+            for funding_reference in doi["fundingReferences"]
+        ] if isinstance(doi["fundingReferences"], List) else ""
+    except KeyError:
+        return ""
+
+def get_doi_element(doi, element):
+    try:
+        return [
+            related_identifier["relatedIdentifier"]
+            for related_identifier in doi["relatedIdentifiers"]
+            if related_identifier is not None
+            and related_identifier.get("relationType", "") == element
+            and related_identifier.get("relatedIdentifierType", "") == "DOI"
+        ] if isinstance(doi["relatedIdentifiers"], List) else ""
+    except KeyError:
+        return ""
+
+
+def get_doi_supplement_to(doi):
+    return get_doi_element(doi,"IsSupplementTo")
+
+
+def get_doi_version_of(doi):
+    return get_doi_element(doi,"IsVersionOf")
+
+
+def append_to_es_index_sourcefile(doi, creators, contributors, fr_reasons, fr_reasons_concat):
     enriched_doi = {
         "doi": str(doi["id"]),
-        "creators": creators,
-        "contributors": contributors,
+        "creators": strip_creators_or_contributors(creators),
+        "contributors": strip_creators_or_contributors(contributors),
         "client_id": str(_safe_get("", doi, "relationships", "client", "data", "id")),
         "publisher": str(_safe_get("", doi, "attributes", "publisher")),
         "update_date": str(_safe_get("", doi, "attributes", "updated")),
         "fr_reasons": fr_reasons,
-        "fr_reasons_concat": fr_reasons_concat
+        "fr_reasons_concat": fr_reasons_concat,
+        "publicationYear": doi.get("publicationYear", ""),
+        "language": doi.get("language", ""),
+        "resourceTypeGeneral": doi.get("resourceTypeGeneral", "").lower(),
+        "resourceType": str(_safe_get("", doi, "types", "resourceType")).lower(),
+        "license": str(_safe_get("", doi, "attributes", "license")).lower(),
+        "created": doi.get("created", ""),
+        "registered": doi.get("registered", ""),
+        "title": str(_safe_get("", doi, "titles", "title")),
+        "classification_subject": get_classification_subject(doi),
+        "classification_FOS": get_classification_FOS(doi),
+        "abstract": get_abstract(doi),
+        "description": get_description(doi),
+        "methods": get_methods(doi),
+        "grants": get_grants(doi),
+        "doi_supplement_to": get_doi_supplement_to(doi),
+        "doi_version_of": get_doi_version_of(doi),
     }
 
-    # Get title
-    if str(_safe_get("", doi, "titles", "title")) != "":
-        enriched_doi["title"] = str(_safe_get("", doi, "titles", "title"))
-
-    # Get classification_subject
-    if str(_safe_get("", doi, "subjects")) != "" and isinstance(doi["subjects"], List):
-        enriched_doi["classification_subject"] = [str(_safe_get("", subject, "subject")) for subject in doi["subjects"]
-                                                  if subject and "subjectScheme" not in subject]
-    # Get classification FOS
-    if str(_safe_get("", doi, "subjects")) != "" and isinstance(doi["subjects"], List):
-        enriched_doi["classification_FOS"] = [str(_safe_get("", subject, "subject")).replace("FOS:", "") for subject in
-                                              doi["subjects"] if "subjects" in doi and subject and
-                                              str(_safe_get("", subject, "subject",
-                                                            "subjectScheme")) == "Fields of Science and Technology (FOS)"]
-    # Get publication year
-    enriched_doi["publicationYear"] = str(_safe_get("", doi, "publicationYear"))
-
-    # Get language
-    enriched_doi["language"] = str(_safe_get("", doi, "language"))
-
-    # Get resourceTypeGeneral
-    enriched_doi["resourceTypeGeneral"] = str(_safe_get("", doi, "resourceTypeGeneral")).lower()
-
-    # Get resourceType
-    enriched_doi["resourceType"] = str(_safe_get("", doi, "types", "resourceType")).lower()
-
-    # Get license
-    enriched_doi["license"] = str(_safe_get("", doi, "attributes", "license")).lower()
-
-    if str(_safe_get("", doi, "descriptions")) != "" and isinstance(doi["descriptions"], List):
-        # Get methods
-        enriched_doi["abstract"] = "".join([str(_safe_get("", description, "description"))
-                                            for description in doi["descriptions"]
-                                            if description is not None and str(
-                _safe_get("", doi, "descriptionType")) == "Abstract"])
-        # Get description
-        enriched_doi["description"] = "".join([str(_safe_get("", description, "description"))
-                                               for description in doi["descriptions"]
-                                               if description is not None and str(
-                _safe_get("", doi, "descriptionType")) == "Other"])
-        # Get abstract
-        enriched_doi["methods"] = "".join([str(_safe_get("", description, "description"))
-                                           for description in doi["descriptions"]
-                                           if description is not None and str(
-                _safe_get("", doi, "descriptionType")) == "Methods"])
-
-    if str(_safe_get("", doi, "fundingReferences")) != "" and isinstance(doi["fundingReferences"], List):
-        # Get grants
-        enriched_doi["grants"] = [{"name": str(_safe_get("", funding_reference, "funderName"))}
-                                  for funding_reference in doi["fundingReferences"]]
-    # Get created
-    enriched_doi["created"] = str(_safe_get("", doi, "created"))
-    # Get registered
-    enriched_doi["registered"] = str(_safe_get("", doi, "registered"))
-
-    if str(_safe_get("", doi, "relatedIdentifiers")) != "" and isinstance(doi["relatedIdentifiers"], List):
-        # Get "doi_supplement_to
-        enriched_doi["doi_supplement_to"] = [related_identifier["relatedIdentifier"] for related_identifier in
-                                             doi["relatedIdentifiers"]
-                                             if related_identifier is not None
-                                             and str(
-                _safe_get("", related_identifier, "relationType")) == "IsSupplementTo"
-                                             and str(
-                _safe_get("", related_identifier, "relatedIdentifierType")) == "DOI"]
-        # Get doi_version_of
-        enriched_doi["doi_version_of"] = [related_identifier["relatedIdentifier"] for related_identifier in
-                                          doi["relatedIdentifiers"]
-                                          if related_identifier is not None
-                                          and str(_safe_get("", related_identifier, "relationType")) == "IsVersionOf"
-                                          and str(_safe_get("", related_identifier, "relatedIdentifierType")) == "DOI"]
-
-    stripped_enriched_doi = stripper(enriched_doi)
-
+    # Keep only non-null values
+    stripped_enriched_doi = trim_null_values(enriched_doi)
     append_to_file(
         file=config_harvester["es_index_sourcefile"],
         _str=json.dumps(stripped_enriched_doi))
@@ -273,8 +281,8 @@ def strip_creators_or_contributors(creators_or_contributors: List) -> List:
     for creator_or_contributor in creators_or_contributors:
         if creator_or_contributor not in ('', {}) and isinstance(creator_or_contributor, Dict) \
                 and "affiliations" in creator_or_contributor.keys():
-            stripped_affiliations = [stripper(affiliation) for affiliation in creator_or_contributor["affiliations"]]
-            stripped_creator = stripper(creator_or_contributor)
+            stripped_affiliations = [trim_null_values(affiliation) for affiliation in creator_or_contributor["affiliations"]]
+            stripped_creator = trim_null_values(creator_or_contributor)
             stripped_creator["affiliations"] = stripped_affiliations
             stripped_creators.append(stripped_creator)
 
@@ -305,11 +313,9 @@ def write_doi_files(merged_affiliations_df: pd.DataFrame,
             )
 
             if doi_contains_selected_affiliations:
-                matched_affiliations_list, enriched_creators_or_contributors, creators, contributors, fr_reasons, \
-                fr_reasons_concat = enrich_doi(doi, merged_affiliations_df)
+                creators, contributors, fr_reasons, fr_reasons_concat = enrich_doi(doi, merged_affiliations_df)
 
-                append_to_es_index_sourcefile(doi, matched_affiliations_list, enriched_creators_or_contributors,
-                                              creators, contributors, fr_reasons, fr_reasons_concat)
+                append_to_es_index_sourcefile(doi, creators, contributors, fr_reasons, fr_reasons_concat)
 
             with open(f"{output_dir}/{_format_string(doi['id'])}.json", 'w') as f:
                 json.dump(doi, f, indent=None)
@@ -529,11 +535,11 @@ def _load_csv_file_and_drop_duplicates(global_affiliations_file_path: Union[Path
         global_affiliation.to_csv(global_affiliations_file_path, index=False, header=False, encoding="utf-8")
 
 
-def stripper(data):
+def trim_null_values(data):
     new_data = {}
     for k, v in data.items():
         if isinstance(v, dict):
-            v = stripper(v)
+            v = trim_null_values(v)
         if not v in (u'', None, {}, []):
             new_data[k] = v
     return new_data
