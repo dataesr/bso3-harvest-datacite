@@ -33,7 +33,7 @@ class TestProcessor(TestCase):
         self.process_state_repository = ProcessStateRepository(self.mock_postgres_session)
         
         self.processor = Processor(test_config_harvester, 0,
-                                    _list_files_in_directory(test_config_harvester['raw_dump_folder_name'], test_config_harvester['datacite_file_extension']),
+                                    _list_files_in_directory(test_config_harvester['raw_dump_folder_name'], "*" + test_config_harvester['datacite_file_extension']),
                                   self.process_state_repository)
 
     def tearDown(self):
@@ -43,7 +43,7 @@ class TestProcessor(TestCase):
     def test_init_processor_return_list_of_files_and_target_directory(self):
         expected_number_of_files = 1
 
-        expected_number_of_files = len(_list_files_in_directory(test_config_harvester['raw_dump_folder_name'], test_config_harvester['datacite_file_extension']))
+        expected_number_of_files = len(_list_files_in_directory(test_config_harvester['raw_dump_folder_name'], "*" + test_config_harvester['datacite_file_extension']))
         # Given processor in SetUpClass
 
         # expect

@@ -168,32 +168,32 @@ def get_classification_subject(doi):
     try:
         return [
             subject.get("subject", "")
-            for subject in doi["subjects"]
+            for subject in doi["attributes"]["subjects"]
             if subject and "subjectScheme" not in subject
-        ] if isinstance(doi["subjects"], List) else ""
+        ]
     except KeyError:
-        return ""
+        return []
 
 
 
 def get_classification_FOS(doi):
     try:
         return [
-            str(subject.get("subject", "")).replace("FOS:", "")
-            for subject in doi["subjects"]
-            if "subjects" in doi and subject and str(_safe_get("", subject, "subject", "subjectScheme")) == "Fields of Science and Technology (FOS)"
-        ] if isinstance(doi["subjects"], List) else ""
+            str(subject.get("subject", "")).lstrip("FOS: ")
+            for subject in doi["attributes"]["subjects"]
+            if subject.get("subjectScheme", "") == "Fields of Science and Technology (FOS)"
+        ]
     except KeyError:
-        return ""
+        return []
 
 
 def get_description_element(doi, element):
     try:
-        return "".join([
+        return " ".join([
             description.get("description", "")
-            for description in doi["descriptions"]
-            if description is not None and doi.get("descriptionType", "") == element
-            ]) if isinstance(doi["descriptions"], List) else ""
+            for description in doi["attributes"]["descriptions"]
+            if description.get("descriptionType", "") == element
+            ])
     except KeyError:
         return ""
 
@@ -213,23 +213,22 @@ def get_methods(doi):
 def get_grants(doi):
     try:
         return [
-            {"name": str(funding_reference.get("funderName"))}
-            for funding_reference in doi["fundingReferences"]
-        ] if isinstance(doi["fundingReferences"], List) else ""
+            {"name": funding_reference.get("funderName")}
+            for funding_reference in doi["attributes"]["fundingReferences"]
+        ]
     except KeyError:
-        return ""
+        return []
 
 def get_doi_element(doi, element):
     try:
         return [
-            related_identifier["relatedIdentifier"]
-            for related_identifier in doi["relatedIdentifiers"]
-            if related_identifier is not None
-            and related_identifier.get("relationType", "") == element
+            related_identifier.get("relatedIdentifier")
+            for related_identifier in doi["attributes"]["relatedIdentifiers"]
+            if related_identifier.get("relationType", "") == element
             and related_identifier.get("relatedIdentifierType", "") == "DOI"
-        ] if isinstance(doi["relatedIdentifiers"], List) else ""
+        ]
     except KeyError:
-        return ""
+        return []
 
 
 def get_doi_supplement_to(doi):
@@ -240,32 +239,112 @@ def get_doi_version_of(doi):
     return get_doi_element(doi,"IsVersionOf")
 
 
+def get_title(doi):
+    try:
+        return " ".join([
+            title["title"]
+            for title in doi["attributes"]["titles"]
+        ])
+    except KeyError:
+        return ""
+
+
+def get_registered(doi):
+    try:
+        return doi["attributes"]["registered"]
+    except KeyError:
+        return ""
+
+
+def get_created(doi):
+    try:
+        return doi["attributes"]["created"]
+    except KeyError:
+        return ""
+
+
+def get_license(doi):
+    try:
+        return doi["attributes"]["license"].lower()
+    except KeyError:
+        return ""
+
+
+def get_resourceType(doi):
+    try:
+        return doi["attributes"]["types"]["resourceType"].lower()
+    except KeyError:
+        return ""
+
+
+def get_resourceTypeGeneral(doi):
+    try:
+        return doi["attributes"]["types"]["resourceTypeGeneral"].lower()
+    except KeyError:
+        return ""
+
+
+def get_language(doi):
+    try:
+        return doi["attributes"]["language"] if doi["attributes"]["language"] else ""
+    except KeyError:
+        return ""
+
+
+def get_publicationYear(doi):
+    try:
+        return str(doi["attributes"]["publicationYear"])
+    except KeyError:
+        return ""
+
+
+def get_updated(doi):
+    try:
+        return doi["attributes"]["updated"]
+    except KeyError:
+        return ""
+
+
+def get_publisher(doi):
+    try:
+        return doi["attributes"]["publisher"]
+    except KeyError:
+        return ""
+
+
+def get_client_id(doi):
+    try:
+        return doi["relationships"]["client"]["data"]["id"]
+    except KeyError:
+        return ""
+
+
 def append_to_es_index_sourcefile(doi, creators, contributors, fr_reasons, fr_reasons_concat):
     enriched_doi = {
-        "doi": str(doi["id"]),
+        "doi": doi.get("id", ""),
         "creators": strip_creators_or_contributors(creators),
         "contributors": strip_creators_or_contributors(contributors),
-        "client_id": str(_safe_get("", doi, "relationships", "client", "data", "id")),
-        "publisher": str(_safe_get("", doi, "attributes", "publisher")),
-        "update_date": str(_safe_get("", doi, "attributes", "updated")),
-        "fr_reasons": fr_reasons,
-        "fr_reasons_concat": fr_reasons_concat,
-        "publicationYear": doi.get("publicationYear", ""),
-        "language": doi.get("language", ""),
-        "resourceTypeGeneral": doi.get("resourceTypeGeneral", "").lower(),
-        "resourceType": str(_safe_get("", doi, "types", "resourceType")).lower(),
-        "license": str(_safe_get("", doi, "attributes", "license")).lower(),
-        "created": doi.get("created", ""),
-        "registered": doi.get("registered", ""),
-        "title": str(_safe_get("", doi, "titles", "title")),
+        "title": get_title(doi),
+        "publisher": get_publisher(doi),
         "classification_subject": get_classification_subject(doi),
         "classification_FOS": get_classification_FOS(doi),
+        "publicationYear": get_publicationYear(doi),
+        "language": get_language(doi),
+        "resourceTypeGeneral": get_resourceTypeGeneral(doi),
+        "resourceType": get_resourceType(doi),
+        "license": get_license(doi),
         "abstract": get_abstract(doi),
-        "description": get_description(doi),
         "methods": get_methods(doi),
+        "description": get_description(doi),
         "grants": get_grants(doi),
+        "created": get_created(doi),
+        "registered": get_registered(doi),
         "doi_supplement_to": get_doi_supplement_to(doi),
         "doi_version_of": get_doi_version_of(doi),
+        "client_id": get_client_id(doi),
+        "fr_reasons": fr_reasons,
+        "fr_reasons_concat": fr_reasons_concat,
+        "update_date": get_updated(doi),
     }
 
     # Keep only non-null values

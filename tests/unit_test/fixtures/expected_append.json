@@ -1,0 +1,96 @@
+{
+  "doi":"10.5281/zenodo.6612534",
+  "creators":[
+    {
+      "affiliations":[
+        {
+          "name":"semanticly Ltd"
+        }
+      ],
+      "first_name":"Nico",
+      "last_name":"Matentzoglu",
+      "full_name":"Matentzoglu, Nico"
+    },
+    {
+      "affiliations":[
+        {
+          "name":"Lawrence Berkeley National Laboratory",
+          "detected_countries":[
+            "us"
+          ]
+        }
+      ],
+      "full_name":"Harshad"
+    },
+    {
+      "affiliations":[
+        {
+          "name":"@actions"
+        }
+      ],
+      "full_name":"Actions-User"
+    },
+    {
+      "affiliations":[
+        {
+          "name":"Lawrence Berkeley National Laboratory",
+          "detected_countries":[
+            "us"
+          ]
+        }
+      ],
+      "first_name":"Chris",
+      "last_name":"Mungall",
+      "full_name":"Mungall, Chris"
+    },
+    {
+      "affiliations":[
+        {
+          "name":"Harvard Medical School"
+        }
+      ],
+      "first_name":"Charles Tapley",
+      "last_name":"Hoyt",
+      "full_name":"Hoyt, Charles Tapley"
+    },
+    {
+      "affiliations":[
+        {
+          "name":"Nationwide Children's Hospital"
+        }
+      ],
+      "first_name":"PhD",
+      "last_name":"Alex H. Wagner",
+      "full_name":"Alex H. Wagner, PhD"
+    },
+    {
+      "affiliations":[
+        {
+          "name":"EMBL-EBI",
+          "detected_countries":[
+            "fr"
+          ]
+        }
+      ],
+      "first_name":"James",
+      "last_name":"McLaughlin",
+      "full_name":"McLaughlin, James"
+    }
+  ],
+  "title":"mapping-commons/sssom: v0.9.1",
+  "publisher":"Zenodo",
+  "publicationYear":"2022",
+  "resourceTypeGeneral":"software",
+  "abstract":"What's Changed Issue 155 and 116 by @hrshdhgd in https://github.com/mapping-commons/sssom/pull/118 issue 115+116 - II by @hrshdhgd in https://github.com/mapping-commons/sssom/pull/120 Revert \"issue 115+116 - II\" by @hrshdhgd in https://github.com/mapping-commons/sssom/pull/121 Add arXiv citation to README by @cthoyt in https://github.com/mapping-commons/sssom/pull/128 Add some background on mappings to documentation by @matentzn in https://github.com/mapping-commons/sssom/pull/130 metadatdata typo by @ahwagner in https://github.com/mapping-commons/sssom/pull/133 Adding mapping_source to SSSOM by @matentzn in https://github.com/mapping-commons/sssom/pull/135 Include OWL files. Possibly fixes #102 by @cmungall in https://github.com/mapping-commons/sssom/pull/140 Replacing <code>match_term_type</code> by <code>subject</code> and <code>object_type</code> by @matentzn in https://github.com/mapping-commons/sssom/pull/153 Breaking change: Replacing <code>match_type</code> with <code>mapping_justification</code> by @matentzn in https://github.com/mapping-commons/sssom/pull/154 Migrate to new LinkML repo template by @matentzn in https://github.com/mapping-commons/sssom/pull/162 Changing model location by @matentzn in https://github.com/mapping-commons/sssom/pull/163 Create tutorials.md by @matentzn in https://github.com/mapping-commons/sssom/pull/97 Documentation Deploy by @hrshdhgd in https://github.com/mapping-commons/sssom/pull/173 Docs contribution by @hrshdhgd in https://github.com/mapping-commons/sssom/pull/174 Change w3id.org to https by @matentzn in https://github.com/mapping-commons/sssom/pull/171 Removes some legacy elements that are not part of the model by @matentzn in https://github.com/mapping-commons/sssom/pull/158 Make project ready for PyPI release by @hrshdhgd in https://github.com/mapping-commons/sssom/pull/182 minor change by @hrshdhgd in https://github.com/mapping-commons/sssom/pull/183 updated linkml-runtime by @hrshdhgd in https://github.com/mapping-commons/sssom/pull/184 Adding mapping_set_source by @matentzn in https://github.com/mapping-commons/sssom/pull/179 Change subject and object source references to be CURIEs in table format by @matentzn in https://github.com/mapping-commons/sssom/pull/177 Changing preprocessing fields to controlled vocabulary by @matentzn in https://github.com/mapping-commons/sssom/pull/178 Restrict justifications to specific set by @matentzn in https://github.com/mapping-commons/sssom/pull/164 Adding slots for mapping commons work by @matentzn in https://github.com/mapping-commons/sssom/pull/159 Create contribution instructions by @matentzn in https://github.com/mapping-commons/sssom/pull/175 Fixes Edit links in documentations dont work #190 by @hrshdhgd in https://github.com/mapping-commons/sssom/pull/191 deploy using gh action by @hrshdhgd in https://github.com/mapping-commons/sssom/pull/192 Edit for packaging by @hrshdhgd in https://github.com/mapping-commons/sssom/pull/194 Update sssom_schema.yaml by @matentzn in https://github.com/mapping-commons/sssom/pull/195 Edit for packaging by @hrshdhgd in https://github.com/mapping-commons/sssom/pull/196 New Contributors @ahwagner made their first contribution in https://github.com/mapping-commons/sssom/pull/133 <strong>Full Changelog</strong>: https://github.com/mapping-commons/sssom/compare/0.9.0...0.9.1",
+  "created":"2022-06-03T22:03:53Z",
+  "registered":"2022-06-03T22:03:54Z",
+  "doi_version_of":[
+    "10.5281/zenodo.6611513"
+  ],
+  "client_id":"cern.zenodo",
+  "fr_reasons":[
+    "countries"
+  ],
+  "fr_reasons_concat":"countries",
+  "update_date":"2022-06-03T22:03:54Z"
+}
