@@ -188,7 +188,7 @@ class TestProcessor(TestCase):
     def test_get_license(self):
         # TODO Find an example with license
         # Given
-        expected_license = ""
+        expected_license = "cc-by-nc-4.0"
         # When
         license = get_license(TestProcessor.standard_doi)
         # Then

@@ -68,11 +68,11 @@ def get_matched_affiliations(merged_affiliations_df: pd.DataFrame, aff_str: str,
     creator_or_contributor = next(iter(
         merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['creator_contributor'].values), "")
     is_publisher_fr = next(iter(
-        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_publisher_fr'].values))
+        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_publisher_fr'].values), False)
     is_clientId_fr = next(iter(
-        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_clientId_fr'].values))
+        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_clientId_fr'].values), False)
     is_countries_fr = next(iter(
-        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_countries_fr'].values))
+        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_countries_fr'].values), False)
     return {
                "name": aff_name,
                "ror": aff_ror,
@@ -265,7 +265,10 @@ def get_created(doi):
 
 def get_license(doi):
     try:
-        return doi["attributes"]["license"].lower()
+        return " ".join([
+            right["rightsIdentifier"]
+            for right in doi["attributes"]["rightsList"]
+        ])
     except KeyError:
         return ""
 
