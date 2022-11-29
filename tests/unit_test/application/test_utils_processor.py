@@ -6,14 +6,15 @@ from unittest.mock import Mock, patch
 
 import pandas as pd
 
-from application.utils_processor import (_concat_affiliation_of_creator_or_contributor, _format_string, get_client_id, get_created, get_language, get_license, get_matched_affiliations, get_publicationYear, get_publisher, get_registered, get_resourceType, get_resourceTypeGeneral, get_ror_or_orcid, get_title, get_abstract,
-                                         get_classification_FOS,
-                                         get_classification_subject,
-                                         get_description,
-                                         get_doi_supplement_to,
-                                         get_doi_version_of, get_grants,
-                                         get_methods, get_updated, json_line_generator,
-                                         write_doi_files)
+from application.utils_processor import (
+    _create_affiliation_string, _format_string,
+    get_abstract, get_classification_FOS, get_classification_subject,
+    get_client_id, get_created, get_description, get_doi_supplement_to,
+    get_doi_version_of, get_grants, get_language, get_license,
+    get_matched_affiliations, get_methods, get_publicationYear, get_publisher,
+    get_registered, get_resourceType, get_resourceTypeGeneral,
+    get_ror_or_orcid, get_title, get_updated, json_line_generator,
+    write_doi_files)
 from config.global_config import config_harvester
 from tests.unit_test.fixtures.utils_processor import *
 
@@ -26,20 +27,33 @@ class TestProcessor(TestCase):
         input_file_path = fixture_path / "sample.ndjson"
         cls.standard_doi = next(json_line_generator(input_file_path)).get('data')[0]
 
-    # def test_get_matched_affiliations(self):
-    #     # Given
-    #     sample_affiliations = pd.read_csv(fixture_path / "sample_affiliations.csv")
-    #     is_fr = (sample_affiliations.is_publisher_fr | sample_affiliations.is_clientId_fr | sample_affiliations.is_countries_fr)
-    #     doi = TestProcessor.standard_doi
-    #     affiliation = next(next(doi["attributes"]["creators"] + doi["attributes"]["contributors"]).get("affiliation"))
-    #     aff_str = _concat_affiliation_of_creator_or_contributor(affiliation, exclude_list=["affiliationIdentifierScheme"])
-    #     aff_ror = get_ror_or_orcid(affiliation, "affiliationIdentifierScheme", "ROR", "affiliationIdentifier")
-    #     aff_name = affiliation.get('name')
-    #     this_doi = sample_affiliations["doi"] == doi["id"]
-    #     # When
-    #     (matched_affiliations, creator_or_contributor, is_publisher_fr, is_clientId_fr, is_countries_fr)\
-    #      = get_matched_affiliations(sample_affiliations[this_doi], aff_str, aff_ror, aff_name)
-    #     # Then
+    def test_get_matched_affiliations(self):
+        # Given
+        input_file_path = fixture_path / "sample.ndjson"
+        doi = next(json_line_generator(input_file_path)).get('data')[48]
+        sample_affiliations = pd.read_csv(fixture_path / "sample_affiliations.csv")
+        this_doi_df = sample_affiliations[sample_affiliations["doi"] == doi["id"]]
+        affiliation = (doi["attributes"]["creators"] + doi["attributes"]["contributors"])[1]["affiliation"][0]
+        aff_str = _create_affiliation_string(affiliation, exclude_list=["affiliationIdentifierScheme"])
+        aff_ror = get_ror_or_orcid(affiliation, "affiliationIdentifierScheme", "ROR", "affiliationIdentifier")
+        aff_name = affiliation.get('name')
+        expected_matched_affiliations = {
+            'name': 'Lawrence Berkeley National Laboratory',
+            'ror': None,
+            'detected_countries': ['us'],
+            'detected_ror': [],
+            'detected_grid': [],
+            'detected_rnsr': []
+        }
+        # When
+        (matched_affiliations, creator_or_contributor, is_publisher_fr, is_clientId_fr, is_countries_fr)\
+         = get_matched_affiliations(this_doi_df[this_doi_df['affiliation_str'] == aff_str], aff_ror, aff_name)
+        # Then
+        self.assertEqual(matched_affiliations, expected_matched_affiliations)
+        self.assertEqual(creator_or_contributor, 'creators')
+        self.assertEqual(is_publisher_fr, False)
+        self.assertEqual(is_clientId_fr, False)
+        self.assertEqual(is_countries_fr, False)
 
     
     @patch(f"{TESTED_MODULE}.append_to_es_index_sourcefile")

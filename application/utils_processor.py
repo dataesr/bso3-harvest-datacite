@@ -25,6 +25,7 @@ def compress(file, keep=True):
     os.system(f"gzip --force {'--keep' if keep else ''} {file}")
     return f"{file}.gz"
 
+
 def decompress(file, keep=True):
     os.system(f"gzip -d --force {'--keep' if keep else ''} {file}")
     return os.path.splitext(file)[0]
@@ -57,22 +58,16 @@ def listify(obj):
         return []
 
 
-def get_matched_affiliations(merged_affiliations_df: pd.DataFrame, aff_str: str, aff_ror: str, aff_name: str) -> [Dict,
-                                                                                                                  str]:
+def get_matched_affiliations(aff_str_df: pd.DataFrame, aff_ror: str, aff_name: str) -> dict:
     """Get the matched affiliations in the dataframe corresponding to the affiliation string"""
-    countries = next(
-        iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['countries'].values), [])
-    ror = next(iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['ror'].values), [])
-    grid = next(iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['grid'].values), [])
-    rnsr = next(iter(merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['rnsr'].values), [])
-    creator_or_contributor = next(iter(
-        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['creator_contributor'].values), "")
-    is_publisher_fr = next(iter(
-        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_publisher_fr'].values), False)
-    is_clientId_fr = next(iter(
-        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_clientId_fr'].values), False)
-    is_countries_fr = next(iter(
-        merged_affiliations_df[merged_affiliations_df["affiliation_str"] == aff_str]['is_countries_fr'].values), False)
+    countries = next(iter(aff_str_df['countries'].values), [])
+    ror = next(iter(aff_str_df['ror'].values), [])
+    grid = next(iter(aff_str_df['grid'].values), [])
+    rnsr = next(iter(aff_str_df['rnsr'].values), [])
+    creator_or_contributor = next(iter(aff_str_df['creator_contributor'].values), "")
+    is_publisher_fr = next(iter(aff_str_df['is_publisher_fr'].values), False)
+    is_clientId_fr = next(iter(aff_str_df['is_clientId_fr'].values), False)
+    is_countries_fr = next(iter(aff_str_df['is_countries_fr'].values), False)
     return {
                "name": aff_name,
                "ror": aff_ror,
@@ -89,7 +84,7 @@ def enrich_doi(doi, merged_affiliations_df):
     Returns a list of matched_affiliations objects added for the doi"""
     CREATORS = "creators"
     CONTRIBUTORS = "contributors"
-    this_doi = merged_affiliations_df["doi"] == doi["id"]
+    this_doi_df = merged_affiliations_df[merged_affiliations_df["doi"] == doi["id"]]
     creators = []
     contributors = []
     is_publisher = []
@@ -101,13 +96,13 @@ def enrich_doi(doi, merged_affiliations_df):
         obj['affiliations'] = []
         for affiliation in obj.get("affiliation"):
             if affiliation:
-                aff_str = _concat_affiliation_of_creator_or_contributor(affiliation,
-                                                                        exclude_list=["affiliationIdentifierScheme"])
+                aff_str = _create_affiliation_string(affiliation, exclude_list=["affiliationIdentifierScheme"])
 
                 aff_ror = get_ror_or_orcid(affiliation, "affiliationIdentifierScheme", "ROR", "affiliationIdentifier")
                 aff_name = affiliation.get('name')
-                matched_affiliations, creator_or_contributor, is_publisher_fr, is_clientId_fr, is_countries_fr = get_matched_affiliations(
-                    merged_affiliations_df[this_doi], aff_str, aff_ror, aff_name)
+                aff_str_df = this_doi_df[this_doi_df["affiliation_str"] == aff_str]
+                matched_affiliations, creator_or_contributor, is_publisher_fr, is_clientId_fr, is_countries_fr\
+                    = get_matched_affiliations(aff_str_df, aff_ror, aff_name)
 
                 obj['affiliations'].append(matched_affiliations)
 
@@ -175,7 +170,6 @@ def get_classification_subject(doi):
         return []
 
 
-
 def get_classification_FOS(doi):
     try:
         return [
@@ -218,6 +212,7 @@ def get_grants(doi):
         ]
     except KeyError:
         return []
+
 
 def get_doi_element(doi, element):
     try:
@@ -479,7 +474,7 @@ def _concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str, origin
 
         if len(object_to_use_for_concatenation) > 0 and len(object_to_use_for_concatenation["affiliation"]) > 0:
             list_of_affiliation = [
-                _concat_affiliation_of_creator_or_contributor(affiliation, exclude_list=["affiliationIdentifierScheme"])
+                _create_affiliation_string(affiliation, exclude_list=["affiliationIdentifierScheme"])
                 if len(affiliation) > 0
                 else ""
                 for affiliation in object_to_use_for_concatenation["affiliation"]
@@ -532,7 +527,8 @@ def _retrieve_object_name_or_given_name(creator_or_contributor: Dict):
         return ""
 
 
-def _concat_affiliation_of_creator_or_contributor(affiliation: Dict, exclude_list: List):
+def _create_affiliation_string(affiliation: Dict, exclude_list: List):
+    """Creates an affiliation string by concatenating all the values from an affiliation dict"""
     processed_affiliation = {
         key: value
         for (key, value) in affiliation.items()
@@ -594,6 +590,7 @@ def _append_file(affiliation: pd.DataFrame, target_file: Union[str, Path], appen
         except:
             logger.exception(f"Error when adding {affiliation} to {target_file}", exc_info=True)
             checkpoint_target_df.to_csv(target_file, index=False, header=False, encoding="utf-8")
+
 
 def _load_csv_file_and_drop_duplicates(global_affiliations_file_path: Union[Path, str],
                                        names=None,

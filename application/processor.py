@@ -17,7 +17,7 @@ from domain.ovh_path import OvhPath
 from application.utils_processor import (
     _create_file, _load_csv_file_and_drop_duplicates,
     _append_file, _format_string, _concat_affiliation, _list_files_in_directory, _merge_files,
-    _get_path, compress,
+    _get_path, compress, json_line_generator,
 )
 from config.global_config import config_harvester
 from project.server.main.logger import get_logger
@@ -88,40 +88,33 @@ class Processor(AbstractProcessor):
             self.swift = SwiftSession(self.config['swift'])
 
     @staticmethod
-    def get_list_creators_or_contributors_and_affiliations(path_file: Path, partition_index: int):
-        json_obj: Dict
-        list_creators_or_contributors_and_affiliations = []
-        number_of_non_null_dois = 0
-        number_of_null_dois = 0
-        number_of_processed_dois_per_file = 0
+    def get_affiliations(path_file: Path, partition_index: int):
+        affiliations = []
+        non_null_dois = 0
+        null_dois = 0
+        processed_dois_per_file = 0
 
-        for jsonstring in path_file.open("r", encoding="utf-8"):
-            if jsonstring.strip() != "":
+        for json_obj in json_line_generator(path_file):
+            for doi in json_obj.get('data'):
+                doi["mapped_id"] = _format_string(doi["id"])
+                current_size = len(affiliations)
                 try:
-                    json_obj: dict = json.loads(jsonstring)
-                except (TypeError, JSONDecodeError) as e:
-                    logger.error(f"error  reading line in file {str(path_file)}. Detailed error {e}")
-                if json_obj["data"]:
-                    for idx, doi in enumerate(json_obj["data"]):
-                        doi["mapped_id"] = _format_string(doi["id"])
-                        current_size = len(list_creators_or_contributors_and_affiliations)
-                        try:
-                            list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "creators", path_file)
-                            list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "contributors", path_file)
-                        except BaseException as e:
-                            logger.exception(f'Error while creating concat for {doi["id"]}. \n Detailed error {e}')
+                    affiliations += _concat_affiliation(doi, "creators", path_file)
+                    affiliations += _concat_affiliation(doi, "contributors", path_file)
+                except BaseException as e:
+                    logger.exception(f'Error while creating concat for {doi["id"]}. \n Detailed error {e}')
 
-                        if len(list_creators_or_contributors_and_affiliations) > current_size:
-                            number_of_non_null_dois += 1
-                        else:
-                            number_of_null_dois += 1
+                if len(affiliations) > current_size:
+                    non_null_dois += 1
+                else:
+                    null_dois += 1
 
-                    number_of_processed_dois_per_file = number_of_processed_dois_per_file + len(json_obj["data"])
+            processed_dois_per_file += len(json_obj["data"])
 
         logger.info(
-            f'partition_index : {partition_index} {path_file} number of dois {number_of_processed_dois_per_file} number of non null dois {number_of_non_null_dois} and null dois {number_of_null_dois}')
+            f'partition_index : {partition_index} {path_file} number of dois {processed_dois_per_file} number of non null dois {non_null_dois} and null dois {null_dois}')
 
-        return number_of_processed_dois_per_file, number_of_non_null_dois, number_of_null_dois, list_creators_or_contributors_and_affiliations
+        return processed_dois_per_file, non_null_dois, null_dois, affiliations
 
     def process_list_of_files_in_partition(self) -> Tuple[int, List[Dict]]:
         """
@@ -132,35 +125,34 @@ class Processor(AbstractProcessor):
 
         # TODO Modify state to False if needed
         processed_files_and_status = []
+        # counter variables
+        global_processed_dois = 0
+        global_non_null_dois = 0
+        global_null_dois = 0
 
-        global_number_of_processed_dois = 0
-        global_number_of_non_null_dois = 0
-        global_number_of_null_dois = 0
+        for index, path_file in enumerate(self.list_of_files_in_partition):
+            logger.info(f"Processing {index} / {len(self.list_of_files_in_partition)}")
+            (processed_dois_per_file, non_null_dois, null_dois, affiliations_list)\
+                = self.get_affiliations(path_file, self.partition_index)
 
-        for index, path_file in enumerate(tqdm(self.list_of_files_in_partition)):
+            global_processed_dois += processed_dois_per_file
+            global_non_null_dois += non_null_dois
+            global_null_dois += null_dois
 
-            number_of_processed_dois_per_file, number_of_non_null_dois, \
-            number_of_null_dois, list_creators_or_contributors_and_affiliations = \
-                self.get_list_creators_or_contributors_and_affiliations(path_file, self.partition_index)
+            affiliations_df = pd.DataFrame(affiliations_list)
 
-            global_number_of_processed_dois = global_number_of_processed_dois + number_of_processed_dois_per_file
-            global_number_of_non_null_dois = global_number_of_non_null_dois + number_of_non_null_dois
-            global_number_of_null_dois = global_number_of_null_dois + number_of_null_dois
+            if affiliations_df.shape[0] > 0:
+                global_affiliations = affiliations_df[["doi_publisher", "doi_client_id", "affiliation"]].drop_duplicates()
+                _append_file(global_affiliations, self.partition_consolidated_affiliation_file_path)
 
-            affiliation = pd.DataFrame.from_dict(list_creators_or_contributors_and_affiliations)
-
-            if affiliation.shape[0] > 0:
-                global_affiliation = affiliation[["doi_publisher", "doi_client_id", "affiliation"]].drop_duplicates()
-                _append_file(global_affiliation, self.partition_consolidated_affiliation_file_path)
-
-            _append_file(affiliation, self.partition_detailed_affiliation_file_path)
+            _append_file(affiliations_df, self.partition_detailed_affiliation_file_path)
             # Append list of path dictionary
             processed_status = {
                 "file_name": path_file.name,
                 "file_path": path_file,
-                "number_of_dois": number_of_processed_dois_per_file,
-                "number_of_dois_with_null_attributes": number_of_null_dois,
-                "number_of_non_null_dois": number_of_non_null_dois,
+                "number_of_dois": processed_dois_per_file,
+                "number_of_dois_with_null_attributes": null_dois,
+                "number_of_non_null_dois": non_null_dois,
                 "process_date": datetime.now(),
                 "processed": True,
             }
@@ -170,14 +162,14 @@ class Processor(AbstractProcessor):
             processed_files_and_status.append(processed_status)
 
         logger.info(
-            f' Partition index : {self.partition_index} Total number of processed dois {global_number_of_processed_dois}, total non null dois '
-            f'{global_number_of_non_null_dois} total null dois {global_number_of_null_dois}')
+            f' Partition index : {self.partition_index} Total number of processed dois {global_processed_dois}, total non null dois '
+            f'{global_non_null_dois} total null dois {global_null_dois}')
 
         # Filter out global affiliation files
         _load_csv_file_and_drop_duplicates(self.partition_consolidated_affiliation_file_path,
                                            ["doi_publisher", "doi_client_id", "affiliation"])
 
-        return global_number_of_processed_dois, processed_files_and_status
+        return global_processed_dois, processed_files_and_status
 
     def retrieve_files_status_in_db_and_filter_out_list_of_files_in_partition(self, files_list_in_partition):
         existing_list_of_files = [filepath['file_path'] for filepath in self.process_state_repository.get()]

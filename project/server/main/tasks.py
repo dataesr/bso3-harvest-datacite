@@ -1,3 +1,4 @@
+import sys
 import os
 from datetime import datetime
 from glob import glob
@@ -168,6 +169,8 @@ def get_merged_affiliations(partition_files) -> pd.DataFrame:
     consolidated_affiliations.is_clientId_fr = consolidated_affiliations.is_clientId_fr.apply(eval)
     consolidated_affiliations.is_countries_fr = consolidated_affiliations.is_countries_fr.apply(eval)
     detailed_affiliations_file = next(Path(config_harvester["processed_dump_folder_name"]).glob('*detailed_affiliations.csv'))
+    # Can't use pandas because detailed_affiliations is ~30Go and don't fit in RAM
+    # Use dask to filter down on partition_files then use pandas
     detailed_affiliations = dd.read_csv(detailed_affiliations_file,
                                          names=[
                                              "doi", "doi_file_name",
@@ -191,7 +194,12 @@ def get_merged_affiliations(partition_files) -> pd.DataFrame:
                                                 "is_publisher_fr", "is_clientId_fr",
                                                 "is_countries_fr"
                                               ]].drop_duplicates()
-    logger.info(f"Memory usage {merged_affiliations.memory_usage().sum() // 2**20:,} Mo")
+
+    logger.debug(
+        f"Memory Usage: "
+        f"merged_affiliations (sys) {sys.getsizeof(locals()['merged_affiliations']) / 2**20 :.2f} Mo"
+        f"merged_affiliations (pd) {merged_affiliations.memory_usage().sum() / 2**20 :.2f} Mo"
+    )
     return merged_affiliations
 
 
