@@ -153,7 +153,7 @@ def create_task_affiliations():
 def create_task_enrich_doi():
     args = request.get_json(force=True)
     response_objects = []
-    partition_size = args.get("partition_size", 90)
+    partition_size = args.get("partition_size", 10)
     datacite_dump_files = glob(os.path.join(
         config_harvester['raw_dump_folder_name'],
         '*' + config_harvester['datacite_file_extension'])

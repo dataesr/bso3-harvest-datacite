@@ -1,8 +1,6 @@
-import sys
 import os
 from datetime import datetime
 from glob import glob
-from os.path import exists
 from pathlib import Path
 import re
 from time import time
@@ -14,6 +12,7 @@ from adapters.api.affiliation_matcher import AffiliationMatcher
 from adapters.databases.harvest_state_repository import HarvestStateRepository
 from adapters.databases.postgres_session import PostgresSession
 from adapters.databases.process_state_repository import ProcessStateRepository
+from adapters.storages.swift_session import SwiftSession
 from application.elastic import reset_index
 from application.harvester import Harvester
 from application.processor import Processor, ProcessorController
@@ -23,7 +22,6 @@ from domain.ovh_path import OvhPath
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import (download_container,
                                              download_object, upload_object)
-from tqdm import tqdm
 import dask.dataframe as dd
 
 
@@ -196,9 +194,7 @@ def get_merged_affiliations(partition_files) -> pd.DataFrame:
                                               ]].drop_duplicates()
 
     logger.debug(
-        f"Memory Usage: "
-        f"merged_affiliations (sys) {sys.getsizeof(locals()['merged_affiliations']) / 2**20 :.2f} Mo"
-        f"merged_affiliations (pd) {merged_affiliations.memory_usage().sum() / 2**20 :.2f} Mo"
+        f"Memory Usage: merged_affiliations {merged_affiliations.memory_usage(deep=True).sum() / 2**20 :.2f} Mo"
     )
     return merged_affiliations
 
@@ -210,12 +206,9 @@ def clean_up(output_dir):
 
 def upload_doi_files(files, prefix):
     """Upload doi files to processed container"""
-    for file in files:
-        upload_object(
-            config_harvester["datacite_container"],
-            source=file,
-            target=OvhPath(prefix, os.path.basename(file)),
-        )
+    swift = SwiftSession(config_harvester['swift'])
+    file_path_dest_path_tuples = [(file, OvhPath(prefix, os.path.basename(file))) for file in files]
+    swift.upload_files_to_swift(config_harvester["datacite_container"], file_path_dest_path_tuples)
 
 
 def run_task_enrich_dois(partition_files):
