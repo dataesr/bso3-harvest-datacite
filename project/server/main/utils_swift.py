@@ -5,7 +5,7 @@ import swiftclient
 
 from retry import retry
 
-from domain.ovh_path import OvhPath
+from domain.model.ovh_path import OvhPath
 from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)

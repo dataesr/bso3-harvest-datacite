@@ -18,7 +18,7 @@ from application.harvester import Harvester
 from application.processor import Processor, ProcessorController
 from application.utils_processor import _merge_files, write_doi_files
 from config.global_config import config_harvester
-from domain.ovh_path import OvhPath
+from domain.model.ovh_path import OvhPath
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import (download_container,
                                              download_object, upload_object)

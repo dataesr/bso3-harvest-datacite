@@ -3,7 +3,7 @@ from typing import List
 from swiftclient.service import SwiftService, SwiftError, SwiftUploadObject
 
 from config.global_config import config_harvester
-from domain.ovh_path import OvhPath
+from domain.model.ovh_path import OvhPath
 from domain.storages.abstract_swift_session import AbstractSwiftSession
 from config.logger_config import LOGGER_LEVEL
 from project.server.main.logger import get_logger
@@ -70,40 +70,3 @@ class SwiftSession(AbstractSwiftSession):
                             f'Result upload : {result["object"]} succesfully uploaded on {result["container"]} (from {result["path"]})')
         except SwiftError as e:
             logger.exception("error uploading file to SWIFT container", exc_info=True)
-
-    def download_files(self, container, file_path, dest_path):
-        """
-        Download a file given a path and returns the download destination file path.
-        """
-        if type(file_path) == str:
-            objs = [file_path]
-        elif type(file_path) == list:
-            objs = file_path
-        try:
-            for down_res in self._session.download(container=container, objects=objs):
-                if down_res['success']:
-                    local_path = down_res['path']
-                    shutil.move(local_path, dest_path)
-                else:
-                    logger.error("'%s' download failed" % down_res['object'])
-        except SwiftError:
-            logger.exception("error downloading file from SWIFT container")
-
-    def get_swift_list(self, container, dir_name=None):
-        """
-        Return all contents of a given dir in SWIFT object storage.
-        Goes through the pagination to obtain all file names.
-        """
-        result = []
-        try:
-            options = {"prefix": dir_name} if dir_name else None
-            list_parts_gen = self._session.list(container=container, options=options)
-            for page in list_parts_gen:
-                if page["success"]:
-                    for item in page["listing"]:
-                        result.append(item["name"])
-                else:
-                    logger.error(page["error"])
-        except SwiftError as e:
-            logger.error(e.value)
-        return result

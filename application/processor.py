@@ -13,7 +13,7 @@ from adapters.databases.process_state_repository import ProcessStateRepository
 from adapters.databases.process_state_table import ProcessStateTable
 from adapters.storages.swift_session import SwiftSession
 from domain.api.abstract_processor import AbstractProcessor
-from domain.ovh_path import OvhPath
+from domain.model.ovh_path import OvhPath
 from application.utils_processor import (
     _create_file, _load_csv_file_and_drop_duplicates,
     _append_file, _format_string, _concat_affiliation, _list_files_in_directory, _merge_files,
