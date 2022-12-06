@@ -168,8 +168,8 @@ def get_description_element(doi, element):
         return " ".join([
             description.get("description", "")
             for description in doi["attributes"]["descriptions"]
-            if description.get("descriptionType", "") == element
-            ])
+            if description.get("descriptionType", "") == element and description.get("description", "")
+            ]).strip()
     except KeyError:
         return ""
 
@@ -221,7 +221,8 @@ def get_title(doi):
         return " ".join([
             title["title"]
             for title in doi["attributes"]["titles"]
-        ])
+            if title["title"]
+        ]).strip()
     except KeyError:
         return ""
 
