@@ -11,10 +11,6 @@ DEBUG_LEVEL = 1
 
 # Output file suffixes
 COMPRESSION_SUFFIX = '.gz'
-METADATA_SUFFIX = '.json'
-PUBLICATION_SUFFIX = '.pdf'
-SOFTCITE_SUFFIX = '.software.json'
-GROBID_SUFFIX = '.tei.xml'
 
 # folder in OVH
 DATACITE_DUMP = 'datacite'
@@ -96,16 +92,6 @@ def get_harvester_config() -> dict:
     config_harvester['ES_URL'] = ES_URL
 
     return config_harvester
-
-
-def get_mongo_config() -> dict:
-    return {
-        "host": f"{os.getenv('DB_MONGO_HOST')}:{os.getenv('DB_MONGO_PORT')}",
-        "username": os.getenv('DB_MONGO_USER'),
-        "password": os.getenv('DB_MONGO_PASSWORD'),
-        "database_name": os.getenv('DB_MONGO_NAME'),
-        "authMechanism": os.getenv('DB_MONGO_AUTH_MECH')
-    }
 
 
 def load_environment_variables() -> None:

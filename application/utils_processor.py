@@ -1,34 +1,28 @@
-from copy import deepcopy
 import json
+import os
+from copy import deepcopy
 from json import JSONDecodeError
-from pathlib import Path
 from os import PathLike
-from typing import Union, Dict, List, Tuple
+from pathlib import Path
+from typing import Dict, List, Tuple, Union
+
 import pandas as pd
 
 from config.exceptions import FileLoadingException
-from config.global_config import config_harvester
-from project.server.main.logger import get_logger
+from config.global_config import config_harvester, COMPRESSION_SUFFIX
 from config.logger_config import LOGGER_LEVEL
-from tqdm import tqdm
-import os
+from project.server.main.logger import get_logger
 
 logger = get_logger(__name__, level=LOGGER_LEVEL)
 
 
-def _list_dump_files_in_directory():
-    dump_folder_path = _get_path(config_harvester['raw_dump_folder_name'])
-    return list(dump_folder_path.glob("*"+config_harvester["datacite_file_extension"]))
-
-
-def compress(file, keep=True):
-    os.system(f"gzip --force {'--keep' if keep else ''} {file}")
-    return f"{file}.gz"
-
-
-def decompress(file, keep=True):
-    os.system(f"gzip -d --force {'--keep' if keep else ''} {file}")
-    return os.path.splitext(file)[0]
+def gzip_cli(file, keep=True, decompress=False):
+    if decompress:
+        os.system(f"gzip -d --force {'--keep' if keep else ''} {file}")
+        return os.path.splitext(file)[0]
+    else:
+        os.system(f"gzip --force {'--keep' if keep else ''} {file}")
+        return f"{file}.{COMPRESSION_SUFFIX}"
 
 
 def _merge_files(list_of_files: List[Union[str, Path]], target_file_path: Path, header=None):
@@ -145,18 +139,6 @@ def _parse_url_and_retrieve_last_part(uri: str) -> str:
     if uri:
         return uri.split("/")[-1]
     return ""
-
-
-def count_newlines(fname):
-    def _make_gen(reader):
-        while True:
-            b = reader(2 ** 16)
-            if not b: break
-            yield b
-
-    with open(fname, "rb") as f:
-        count = sum(buf.count(b"\n") for buf in _make_gen(f.raw.read))
-    return count
 
 
 def get_classification_subject(doi):
@@ -398,67 +380,9 @@ def write_doi_files(merged_affiliations_df: pd.DataFrame,
                 json.dump(doi, f, indent=None)
 
 
-def get_list_creators_or_contributors_and_affiliations(path_file):
-    list_creators_or_contributors_and_affiliations = []
-    number_of_non_null_dois = 0
-    number_of_null_dois = 0
-    number_of_processed_dois_per_file = 0
-
-    for json_obj in json_line_generator(path_file):
-        for doi in json_obj.get('data'):
-            doi["mapped_id"] = _format_string(doi["id"])
-            current_size = len(list_creators_or_contributors_and_affiliations)
-            try:
-                list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "creators", path_file)
-                list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "contributors", path_file)
-            except BaseException as e:
-                logger.exception(f'Error while creating concat for {doi["id"]}. \n Details of the error {e}')
-
-            if len(list_creators_or_contributors_and_affiliations) > current_size:
-                number_of_non_null_dois += 1
-            else:
-                number_of_null_dois += 1
-
-        number_of_processed_dois_per_file = number_of_processed_dois_per_file + len(json_obj["data"])
-
-    logger.info(
-        f'{path_file} number of dois {number_of_processed_dois_per_file} number of non null dois '
-        f'{number_of_non_null_dois} and null dois {number_of_null_dois}')
-
-    return number_of_processed_dois_per_file, number_of_non_null_dois, number_of_null_dois, \
-           list_creators_or_contributors_and_affiliations
-
-
 def _list_files_in_directory(folder: Union[str, Path], regex: str):
     folder_path = _get_path(folder)
     return list(folder_path.glob(regex))
-
-
-def _is_files_list_splittable_into_mutiple_partitions(total_number_of_partitions) -> bool:
-    list_of_files_in_dump_folder = _list_files_in_directory(config_harvester['raw_dump_folder_name'],
-                                                            "*" + config_harvester['datacite_file_extension'])
-    return len(list_of_files_in_dump_folder) > total_number_of_partitions
-
-
-def _create_affiliation_file(target_directory: Union[Path, str],
-                             file_name: str = "global_affiliation.csv"
-                             ) -> Tuple[bool, Path]:
-    """
-    :type target_directory: Path or str
-    """
-    file_path = Path(target_directory) / file_name
-    already_exist = True
-
-    if not file_path.is_file():
-        already_exist = False
-        file_path.touch()
-
-    return already_exist, file_path
-
-
-def _append_affiliation_file(affiliation: pd.DataFrame, target_file: Union[str, Path], append_header=False):
-    if affiliation.shape[0] > 0:
-        affiliation.to_csv(target_file, mode="a", index=False, header=append_header, encoding="utf-8")
 
 
 def _concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str, origin_file: str):

@@ -2,7 +2,6 @@ from abc import ABCMeta, abstractmethod
 
 
 class AbstractProcessor(metaclass=ABCMeta):
-    source_folder: str
 
     @abstractmethod
     def __init__(self):

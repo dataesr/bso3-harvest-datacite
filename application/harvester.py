@@ -1,5 +1,3 @@
-import os
-import subprocess
 from typing import Tuple
 from project.server.main.logger import get_logger
 from config.logger_config import LOGGER_LEVEL
@@ -14,7 +12,7 @@ from datetime import datetime
 
 from pathlib import Path
 
-from subprocess import run, PIPE, STDOUT, Popen, CalledProcessError
+from subprocess import run, PIPE, STDOUT
 
 logger = get_logger(__name__, level=LOGGER_LEVEL)
 

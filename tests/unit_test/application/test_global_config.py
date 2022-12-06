@@ -11,10 +11,6 @@ DEBUG_LEVEL = 1
 
 # Output file suffixes
 COMPRESSION_SUFFIX = '.gz'
-METADATA_SUFFIX = '.json'
-PUBLICATION_SUFFIX = '.pdf'
-SOFTCITE_SUFFIX = '.software.json'
-GROBID_SUFFIX = '.tei.xml'
 
 # folder in OVH
 DATACITE_DUMP = 'datacite'

@@ -1,9 +1,6 @@
 from glob import glob
-import json
 import os
-import shutil
 from datetime import datetime
-from json import JSONDecodeError
 from os import path
 from pathlib import Path
 from typing import Union, Dict, List, Generator, Any, Tuple
@@ -17,12 +14,11 @@ from domain.model.ovh_path import OvhPath
 from application.utils_processor import (
     _create_file, _load_csv_file_and_drop_duplicates,
     _append_file, _format_string, _concat_affiliation, _list_files_in_directory, _merge_files,
-    _get_path, compress, json_line_generator,
+    _get_path, gzip_cli, json_line_generator,
 )
 from config.global_config import config_harvester
 from project.server.main.logger import get_logger
 from config.logger_config import LOGGER_LEVEL
-from tqdm import tqdm
 
 from project.server.main.utils_swift import upload_object
 
@@ -38,16 +34,10 @@ class Processor(AbstractProcessor):
     Attributes:
 
     """
-    source_folder: str = ""
     target_folder_name: str = ""
     target_directory: str = ""
-    tmp_directory_name: str = ""
-    tmp_directory_path: str = ""
 
     list_of_files_in_partition: List = [Union[str, Path]]
-
-    detailed_affiliation_file_path: str = ""
-    global_affiliation_file_path: str = ""
 
     partition_detailed_affiliation_file_name: str = ""
     partition_consolidated_affiliation_file_name: str = ""
@@ -64,11 +54,8 @@ class Processor(AbstractProcessor):
     def __init__(self, config, index_of_partition: int, files_in_partition: List[Union[str, Path]],
                  repository: ProcessStateRepository):
         self.config = config
-        self.source_folder = config['raw_dump_folder_name']
         self.target_folder_name = config['processed_dump_folder_name']
         self.target_directory = _get_path(config['processed_dump_folder_name'])
-        self.tmp_directory_name = config['processed_tmp_folder_name']
-        self.tmp_directory_path = _get_path(config['processed_tmp_folder_name'])
 
         self.swift = None
         self.process_state = None
@@ -216,7 +203,6 @@ class ProcessorController:
         """
 
     target_folder_name: str = ""
-    ovh_directory: str = ""
     list_of_files: List = []
 
     global_detailed_affiliation_file_path: Path
@@ -228,8 +214,6 @@ class ProcessorController:
         self.config = config
 
         self.target_folder_name = config['processed_dump_folder_name']
-        self.tmp_directory_name = config['processed_tmp_folder_name']
-        self.tmp_directory_path = config['processed_tmp_folder_path']
 
         self.partition_consolidated_affiliation_file_name_pattern = f"partition_consolidated_affiliations_*.csv"
         self.partition_detailed_affiliation_file_name_pattern = f"partition_detailed_affiliations_*.csv"
@@ -262,14 +246,14 @@ class ProcessorController:
                _list_files_in_directory(self.target_folder_name, self.partition_detailed_affiliation_file_name_pattern)
 
     def push_to_ovh(self):
-        compressed_global_file = compress(str(self.global_consolidated_affiliation_file_path))
+        compressed_global_file = gzip_cli(str(self.global_consolidated_affiliation_file_path))
         upload_object(
             self.config["datacite_container"],
             source=compressed_global_file,
             target=OvhPath(self.config['processed_datacite_container'],
                            path.basename(compressed_global_file)).__str__(),
         )
-        compressed_detailed_file = compress(str(self.global_detailed_affiliation_file_path))
+        compressed_detailed_file = gzip_cli(str(self.global_detailed_affiliation_file_path))
         upload_object(
             self.config["datacite_container"],
             source=compressed_detailed_file,

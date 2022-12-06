@@ -1,4 +1,4 @@
-from elasticsearch import Elasticsearch, helpers
+from elasticsearch import Elasticsearch
 from config.global_config import config_harvester
 from project.server.main.logger import get_logger
 
