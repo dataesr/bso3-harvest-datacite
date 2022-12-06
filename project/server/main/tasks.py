@@ -15,7 +15,7 @@ from adapters.databases.process_state_repository import ProcessStateRepository
 from adapters.storages.swift_session import SwiftSession
 from application.elastic import reset_index
 from application.harvester import Harvester
-from application.processor import Processor, ProcessorController
+from application.processor import Processor, PartitionsController
 from application.utils_processor import _merge_files, write_doi_files
 from config.global_config import config_harvester
 from domain.model.ovh_path import OvhPath
@@ -28,6 +28,7 @@ logger = get_logger(__name__)
 
 
 def run_task_import_elastic_search(index_name):
+    """Create an ES index from a file using elasticdump, deleting it if it already exists."""
     # elastic.py
     es_url_without_http = config_harvester["ES_URL"].replace("https://", "").replace("http://", "")
     es_host = f"https://{config_harvester['ES_LOGIN_BSO3_BACK']}:{parse.quote(config_harvester['ES_PASSWORD_BSO3_BACK'])}@{es_url_without_http}"
@@ -54,7 +55,8 @@ def get_partition_size(source_metadata_file, total_partition_number):
 
 
 def run_task_match_affiliations_partition(file_prefix, partition_index, total_partition_number):
-    # Download csv file from ovh storage
+    """Run Affiliation Matcher on a partition of global affiliation file and write the result in a CSV file"""
+    # Read csv file from volume
     local_affiliation_file = os.path.join(config_harvester['processed_dump_folder_name'], f"{file_prefix}_{config_harvester['global_affiliation_file_name']}")
     # read partition
     partition_size = get_partition_size(local_affiliation_file, total_partition_number)
@@ -101,6 +103,8 @@ def get_affiliation_matcher_version():
 
 
 def run_task_consolidate_results(file_prefix):
+    """Concatenate all the partitions files into one consolidated affiliation
+    file. Upload it to OVH. Remove partition files."""
     # aggregate results in one file
     affiliation_matcher_version = get_affiliation_matcher_version()
     consolidated_affiliations_filepath = f"{config_harvester['affiliation_folder_name']}/{file_prefix}_"
@@ -119,7 +123,8 @@ def run_task_consolidate_results(file_prefix):
 
 
 def get_merged_affiliations(partition_files) -> pd.DataFrame:
-    """Read consolidated and detailled csv files and returns the merged DataFrame"""
+    """Read consolidated and detailled csv files.
+    Return the filtered and merged DataFrame"""
     # TODO clean this mess (and test it maybe)
     consolidated_affiliations_file = next(Path(config_harvester["affiliation_folder_name"]).glob('*consolidated_affiliations.csv'))
     # remove header param when consolidated_affiliations_file is formed correctly
@@ -163,13 +168,18 @@ def get_merged_affiliations(partition_files) -> pd.DataFrame:
 
 
 def upload_doi_files(files, prefix):
-    """Upload doi files to processed container"""
+    """Upload doi files to datacite container"""
     swift = SwiftSession(config_harvester['swift'])
     file_path_dest_path_tuples = [(file, OvhPath(prefix, os.path.basename(file))) for file in files]
     swift.upload_files_to_swift(config_harvester["datacite_container"], file_path_dest_path_tuples)
 
 
 def run_task_enrich_dois(partition_files):
+    """Read downloaded datacite files and :
+        - write a file for each doi. If the doi contains a french affiliation,
+        it is enriched with informations from Affiliation Matcher
+        - write a file for creating an ES index with french affiliation containing dois infos
+    """
     merged_affiliations = get_merged_affiliations(partition_files)
     is_fr = (merged_affiliations.is_publisher_fr | merged_affiliations.is_clientId_fr | merged_affiliations.is_countries_fr)
     fr_doi_file_name = merged_affiliations[is_fr].doi_file_name.to_list()
@@ -192,6 +202,9 @@ def run_task_enrich_dois(partition_files):
 
 
 def run_task_process_dois(partition_index, files_in_partition):
+    """Read downloaded datacite files and extracts affiliations infos from
+    downloaded datacite files. Write it in CSV files to be optimally processed
+    by Affiliation Matcher. Track the progress with a Postgres Session"""
     postgres_session = PostgresSession(host=config_harvester['db']['db_host'],
                                        port=config_harvester['db']['db_port'],
                                        database_name=config_harvester['db']['db_name'],
@@ -203,10 +216,11 @@ def run_task_process_dois(partition_index, files_in_partition):
     processor = Processor(config=config_harvester, index_of_partition=partition_index,
                           files_in_partition=files_in_partition,
                           repository=process_state_repository)
-    processor.process_list_of_files_in_partition()
+    processor.process_partition()
 
 
 def run_task_harvest_dois(target_directory, start_date, end_date, interval, use_thread=False, force=True):
+    """Run dcdump go script. Track the progress with a Postgres Session"""
     postgres_session = PostgresSession(host=config_harvester['db']['db_host'],
                                        port=config_harvester['db']['db_port'],
                                        database_name=config_harvester['db']['db_name'],
@@ -224,9 +238,12 @@ def run_task_harvest_dois(target_directory, start_date, end_date, interval, use_
     )
 
 
-def run_task_consolidate_processed_files(total_number_of_partitions, file_prefix):
+def run_task_consolidate_processed_files(file_prefix):
+    """Concatenate all the partitions files into one detailed affiliation file
+    and one consolidated affiliation file. Upload the files to OVH.
+    Remove partition files."""
     logger.info("Consolidating of processed files")
-    processor_controller = ProcessorController(config_harvester, total_number_of_partitions, file_prefix)
-    processor_controller.process_files()
-    processor_controller.push_to_ovh()
-    processor_controller.clear_local_directory()
+    partitions_controller = PartitionsController(config_harvester, file_prefix)
+    partitions_controller.concat_files()
+    partitions_controller.push_to_ovh()
+    partitions_controller.clear_local_directory()

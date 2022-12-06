@@ -1,4 +1,3 @@
-import shutil
 from typing import List
 from swiftclient.service import SwiftService, SwiftError, SwiftUploadObject
 
@@ -32,17 +31,15 @@ class SwiftSession(AbstractSwiftSession):
         except SwiftError as e:
             logger.exception(f"error listing containers: {str(e)}")
 
-        # TODO change to only datacite folder
-        for container_name in [config_harvester['raw_datacite_container'], config_harvester['processed_datacite_container']]:
-            if container_name not in container_names:
-                # create the container
-                try:
-                    self._session.post(container=container_name)
-                except SwiftError:
-                    logger.exception(
-                        "error creating SWIFT object storage container " + container_name)
-            else:
-                logger.debug("container already exists on SWIFT object storage: " + container_name)
+        if config_harvester['datacite_container'] not in container_names:
+            # create the container
+            try:
+                self._session.post(container=config_harvester['datacite_container'])
+            except SwiftError:
+                logger.exception(
+                    "error creating SWIFT object storage container " + config_harvester['datacite_container'])
+        else:
+            logger.debug("container already exists on SWIFT object storage: " + config_harvester['datacite_container'])
 
     def getSession(self) -> SwiftService:
         return self._session

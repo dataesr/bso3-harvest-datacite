@@ -38,7 +38,7 @@ def home():
 @main_blueprint.route("/tasks/<task_id>", methods=["GET"])
 def get_status(task_id):
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
-        q = Queue("harvest-hal")
+        q = Queue("harvest-datacite")
         task = q.fetch_job(task_id)
     if task:
         response_object = {
@@ -100,7 +100,6 @@ def create_task_process_dois():
             tasks_list.append(task)
         # consolidate files
         consolidate_task_kwargs = {
-            "total_number_of_partitions": total_number_of_partitions,
             "file_prefix": file_prefix,
         }
         task_consolidate_processed_files = q.enqueue(run_task_consolidate_processed_files,

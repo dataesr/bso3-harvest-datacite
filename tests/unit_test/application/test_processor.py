@@ -9,7 +9,7 @@ from adapters.databases.process_state_repository import ProcessStateRepository
 from application.utils_processor import _list_files_in_directory
 from tests.unit_test.application.test_global_config import test_config_harvester
 from application.processor import Processor
-from adapters.databases.mock_postgres_session import MockPostgresSession
+from tests.unit_test.adapters.databases.mock_postgres_session import MockPostgresSession
 
 TESTED_MODULE = "application.processor"
 
@@ -47,7 +47,7 @@ class TestProcessor(TestCase):
         # Given processor in SetUpClass
 
         # expect
-        self.assertEqual(len(self.processor.list_of_files_in_partition), expected_number_of_files)
+        self.assertEqual(len(self.processor.files_to_process), expected_number_of_files)
 
     def test_init_processor_given_one_dump_file_containing_four_dois_when_call_process_files_expect_four_dois(
             self,
@@ -55,7 +55,7 @@ class TestProcessor(TestCase):
         expected_number_of_dois_processed = 4
 
         # expect
-        global_number_of_processed_dois, processed_files_and_status = self.processor.process_list_of_files_in_partition()
+        global_number_of_processed_dois, processed_files_and_status = self.processor.process_partition()
 
         self.assertEqual(global_number_of_processed_dois, expected_number_of_dois_processed)
 
@@ -74,7 +74,7 @@ class TestProcessor(TestCase):
         # Given processor in SetUpClass
         expected_number_global_affiliation = 2
 
-        self.processor.process_list_of_files_in_partition()
+        self.processor.process_partition()
 
         global_affiliation = pd.read_csv(self.processor.partition_consolidated_affiliation_file_path,
                                          sep=",",
@@ -89,7 +89,7 @@ class TestProcessor(TestCase):
         # Given processor in SetUpClass
         expected_number_detailed_affiliation = 4
 
-        self.processor.process_list_of_files_in_partition()
+        self.processor.process_partition()
         detailed_affiliation = pd.read_csv(self.processor.partition_detailed_affiliation_file_path,
                                          sep=",",
                                          names=['doi_publisher', 'doi_client_id', 'affiliation'],

@@ -5,3 +5,11 @@ expected_contributors = []
 expected_fr_reasons = ['countries']
 expected_fr_reasons_concat = 'countries'
 expected_creators = [{'affiliations': [{'name': 'semanticly Ltd', 'ror': None, 'detected_countries': [], 'detected_ror': [], 'detected_grid': [], 'detected_rnsr': []}], 'orcid': '', 'first_name': 'Nico', 'last_name': 'Matentzoglu', 'full_name': 'Matentzoglu, Nico'}, {'affiliations': [{'name': 'Lawrence Berkeley National Laboratory', 'ror': None, 'detected_countries': ['us'], 'detected_ror': [], 'detected_grid': [], 'detected_rnsr': []}], 'orcid': '', 'first_name': None, 'last_name': None, 'full_name': 'Harshad'}, {'affiliations': [{'name': '@actions', 'ror': None, 'detected_countries': [], 'detected_ror': [], 'detected_grid': [], 'detected_rnsr': []}], 'orcid': '', 'first_name': None, 'last_name': None, 'full_name': 'Actions-User'}, {'affiliations': [{'name': 'Lawrence Berkeley National Laboratory', 'ror': None, 'detected_countries': ['us'], 'detected_ror': [], 'detected_grid': [], 'detected_rnsr': []}], 'orcid': '', 'first_name': 'Chris', 'last_name': 'Mungall', 'full_name': 'Mungall, Chris'}, {'affiliations': [{'name': 'Harvard Medical School', 'ror': None, 'detected_countries': [], 'detected_ror': [], 'detected_grid': [], 'detected_rnsr': []}], 'orcid': '', 'first_name': 'Charles Tapley', 'last_name': 'Hoyt', 'full_name': 'Hoyt, Charles Tapley'}, {'affiliations': [{'name': "Nationwide Children's Hospital", 'ror': None, 'detected_countries': [], 'detected_ror': [], 'detected_grid': [], 'detected_rnsr': []}], 'orcid': '', 'first_name': 'PhD', 'last_name': 'Alex H. Wagner', 'full_name': 'Alex H. Wagner, PhD'}, {'affiliations': [{'name': 'EMBL-EBI', 'ror': None, 'detected_countries': ['fr'], 'detected_ror': [], 'detected_grid': [], 'detected_rnsr': []}], 'orcid': '', 'first_name': 'James', 'last_name': 'McLaughlin', 'full_name': 'McLaughlin, James'}]
+creator = {
+    'name': 'Occdownload Gbif.Org',
+    'givenName': 'Jeremie',
+    'familyName': 'Mouginot',
+    'nameType': 'Organizational',
+    'affiliation': [],
+    'nameIdentifiers': []
+}

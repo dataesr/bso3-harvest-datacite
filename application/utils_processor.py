@@ -26,7 +26,7 @@ def gzip_cli(file, keep=True, decompress=False):
 
 
 def _merge_files(list_of_files: List[Union[str, Path]], target_file_path: Path, header=None):
-    """Concat csv files and write it"""
+    """Write the concatenation of multiple csv files in a csv file"""
     pd.concat([pd.read_csv(file, header=header, dtype='str') for file in list_of_files if file.stat().st_size > 0]).to_csv(target_file_path, index=False)
 
 
@@ -73,9 +73,9 @@ def get_matched_affiliations(aff_str_df: pd.DataFrame, aff_ror: str, aff_name: s
 
 
 def enrich_doi(doi, merged_affiliations_df):
-    """Adds a matched_affiliations field at the level of the affiliation containing
+    """Add a matched_affiliations field at the level of the affiliation containing
     the countries, ror, grid, rnsr detected by the affiliation matcher
-    Returns a list of matched_affiliations objects added for the doi"""
+    Return a list of matched_affiliations objects added for the doi"""
     CREATORS = "creators"
     CONTRIBUTORS = "contributors"
     this_doi_df = merged_affiliations_df[merged_affiliations_df["doi"] == doi["id"]]
@@ -359,8 +359,11 @@ def write_doi_files(merged_affiliations_df: pd.DataFrame,
                     dump_file: PathLike,
                     output_dir: str
                     ):
-    """Writes a json file for each doi, as is, if not contained in the mask,
-    otherwise with the matched affiliation to each creator or contributor object in the doi
+    """Write a json file for each doi, as is, if not contained in the mask,
+    otherwise with the matched affiliation to each creator or contributor
+    object in the doi.
+    Add a line with the matched affiliation and doi infos in the ES index
+    source file for each doi contained in the mask.
     """
     creators = []
     if not os.path.isdir(output_dir):
@@ -381,11 +384,13 @@ def write_doi_files(merged_affiliations_df: pd.DataFrame,
 
 
 def _list_files_in_directory(folder: Union[str, Path], regex: str):
+    """List files in the directory matching the regex pattern"""
     folder_path = _get_path(folder)
     return list(folder_path.glob(regex))
 
 
 def _concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str, origin_file: str):
+    """Create a list of affiliation objects for a doi"""
     list_creators_or_contributors_and_affiliations = []
 
     for object_to_use_for_concatenation in doi["attributes"][objects_to_use_for_concatenation]:
@@ -409,7 +414,7 @@ def _concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str, origin
                     "doi_id": doi_id,
                     "doi_file_name": doi_file_name,
                     "type": objects_to_use_for_concatenation,
-                    "name": _retrieve_object_name_or_given_name(object_to_use_for_concatenation),
+                    "name": _retrieve_object_name(object_to_use_for_concatenation),
                     "doi_publisher": doi_publisher,
                     "doi_client_id": doi_client_id,
                     "affiliation": affiliation,
@@ -424,7 +429,7 @@ def _concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str, origin
                     "doi_id": doi_id,
                     "doi_file_name": doi_file_name,
                     "type": objects_to_use_for_concatenation,
-                    "name": _retrieve_object_name_or_given_name(object_to_use_for_concatenation),
+                    "name": _retrieve_object_name(object_to_use_for_concatenation),
                     "doi_publisher": doi_publisher,
                     "doi_client_id": doi_client_id,
                     "affiliation": "",
@@ -435,20 +440,15 @@ def _concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str, origin
     return list_creators_or_contributors_and_affiliations
 
 
-def _retrieve_object_name_or_given_name(creator_or_contributor: Dict):
-    if "name" in creator_or_contributor.keys():
-        return str(creator_or_contributor["name"])
-    elif (
-            "givenName" in creator_or_contributor.keys()
-            and "familyName" in creator_or_contributor.keys()
-    ):
-        return str(creator_or_contributor["givenName"]) + " " + str(creator_or_contributor["familyName"])
-    elif "givenName" in creator_or_contributor.keys():
-        return str(creator_or_contributor["givenName"])
-    elif "familyName" in creator_or_contributor.keys():
-        return str(creator_or_contributor["familyName"])
-    else:
-        return ""
+def _retrieve_object_name(creator_or_contributor: Dict):
+    name = creator_or_contributor.get("name", "")
+    if not name:
+        name = (
+            creator_or_contributor.get("givenName", "")
+            + " "
+            + creator_or_contributor.get("familyName", "")
+        )
+    return name.strip()
 
 
 def _create_affiliation_string(affiliation: Dict, exclude_list: List):
@@ -478,18 +478,13 @@ def _format_string(string):
     return string.replace("/", "_").replace(":", "-").replace("*", "")
 
 
-def _create_file(target_directory: Union[Path, str], file_name: str = "global_affiliation.csv") -> Tuple[bool, Path]:
+def _create_file(target_directory: Union[Path, str], file_name: str) -> Path:
     """
-    :type target_directory: Path or str
+    Create file if it doesn't exist.
     """
     file_path = Path(target_directory) / file_name
-    already_exist = True
-
-    if not file_path.is_file():
-        already_exist = False
-        file_path.touch()
-
-    return already_exist, file_path
+    file_path.touch()
+    return file_path
 
 
 def _safe_get(default_value, _dict, *keys):

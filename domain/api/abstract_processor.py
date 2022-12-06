@@ -8,5 +8,5 @@ class AbstractProcessor(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def process_list_of_files_in_partition(self):
+    def process_partition(self):
         raise NotImplementedError

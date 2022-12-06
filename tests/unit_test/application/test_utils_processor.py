@@ -1,3 +1,4 @@
+from copy import deepcopy
 import json
 import shutil
 from pathlib import Path
@@ -7,7 +8,7 @@ from unittest.mock import Mock, patch
 import pandas as pd
 
 from application.utils_processor import (
-    _create_affiliation_string, _format_string,
+    _retrieve_object_name, _create_affiliation_string, _format_string,
     get_abstract, get_classification_FOS, get_classification_subject,
     get_client_id, get_created, get_description, get_doi_supplement_to,
     get_doi_version_of, get_grants, get_language, get_license,
@@ -54,8 +55,7 @@ class TestProcessor(TestCase):
         self.assertEqual(is_publisher_fr, False)
         self.assertEqual(is_clientId_fr, False)
         self.assertEqual(is_countries_fr, False)
-
-    
+  
     @patch(f"{TESTED_MODULE}.append_to_es_index_sourcefile")
     def test_write_doi_files_and_enrich_doi(self, mock_append):
         # Given
@@ -98,6 +98,58 @@ class TestProcessor(TestCase):
         # Then
         mock_append.assert_called_with(_str=json.dumps(expected_append), file=config_harvester["es_index_sourcefile"])
         shutil.rmtree(output_dir)
+
+    def test_retrieve_object_name(self):
+        # Given
+        expected_name = "Occdownload Gbif.Org"
+        # When
+        name = _retrieve_object_name(creator)
+        # Then
+        self.assertEqual(name, expected_name)
+
+    def test_retrieve_object_name_wo_name(self):
+        # Given
+        creator_no_name = deepcopy(creator)
+        del creator_no_name['name']
+        expected_name = "Jeremie Mouginot"
+        # When
+        name = _retrieve_object_name(creator_no_name)
+        # Then
+        self.assertEqual(name, expected_name)
+
+    def test_retrieve_object_name_w_only_givenName(self):
+        # Given
+        creator_w_only_givenName = deepcopy(creator)
+        del creator_w_only_givenName['name']
+        del creator_w_only_givenName['familyName']
+        expected_name = "Jeremie"
+        # When
+        name = _retrieve_object_name(creator_w_only_givenName)
+        # Then
+        self.assertEqual(name, expected_name)
+
+    def test_retrieve_object_name_w_only_familyName(self):
+        # Given
+        creator_w_only_familyName = deepcopy(creator)
+        del creator_w_only_familyName['name']
+        del creator_w_only_familyName['givenName']
+        expected_name = "Mouginot"
+        # When
+        name = _retrieve_object_name(creator_w_only_familyName)
+        # Then
+        self.assertEqual(name, expected_name)
+
+    def test_retrieve_object_name_default(self):
+        # Given
+        creator_w_nothing = deepcopy(creator)
+        del creator_w_nothing['name']
+        del creator_w_nothing['givenName']
+        del creator_w_nothing['familyName']
+        expected_name = ""
+        # When
+        name = _retrieve_object_name(creator_w_nothing)
+        # Then
+        self.assertEqual(name, expected_name)
 
     def test_get_classification_subject(self):
         # Given
