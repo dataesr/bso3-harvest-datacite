@@ -23,11 +23,20 @@ main_blueprint = Blueprint(
 logger = get_logger(__name__)
 
 
-def get_partitions(files: List[str], partition_size: int) -> List[List[str]]:
-    """Return a list of partitions of files. If partition_size > len(files), returns one partition"""
-    if len(files) > partition_size:
-        return [files[i : i + partition_size] for i in range(0, len(files), partition_size)]
-    return [files]
+def get_partitions(files: List[str], number_of_partitions: int = None, partition_size: int = None) -> List[List[str]]:
+    """Return a list of partitions of files.
+    If partition_size > len(files), returns one partition
+    If number_of_partitions > len(files), returns as many partitions as there are files
+    If len(files) % number_of_partitions != 0, returns (number_of_partitions + 1) partitions
+    """
+    if len(files) == 0:
+        return []
+    if partition_size is None:
+        number_of_partitions = min(max(1, number_of_partitions), len(files))
+        partition_size = len(files) // number_of_partitions
+    else:
+        partition_size = min(max(1, partition_size), len(files))
+    return [files[i : i + partition_size] for i in range(0, len(files), partition_size)]
 
 
 @main_blueprint.route("/", methods=["GET"])
@@ -85,15 +94,14 @@ def create_task_process_dois():
     total_number_of_partitions = args.get("total_number_of_partitions", 100)
     file_prefix = args.get("file_prefix")
     dump_files = _list_files_in_directory(config_harvester["raw_dump_folder_name"], "*" + config_harvester["datacite_file_extension"])
-    partition_size = len(dump_files) // total_number_of_partitions
-    partitions = get_partitions(dump_files, partition_size)
+    partitions = get_partitions(dump_files, number_of_partitions=total_number_of_partitions)
     tasks_list = []
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue("harvest-datacite", default_timeout=150 * 3600)
-        for index_of_partition in range(total_number_of_partitions):
+        for i, partition in enumerate(partitions):
             task_kwargs = {
-                "partition_index": index_of_partition,
-                "files_in_partition": partitions[index_of_partition],
+                "partition_index": i,
+                "files_in_partition": partition,
             }
             task = q.enqueue(run_task_process_dois, **task_kwargs)
             response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
@@ -153,7 +161,7 @@ def create_task_enrich_doi():
         config_harvester['raw_dump_folder_name'],
         '*' + config_harvester['datacite_file_extension'])
     )
-    partitions = get_partitions(datacite_dump_files, partition_size)
+    partitions = get_partitions(datacite_dump_files, partition_size=partition_size)
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue(name="harvest-datacite", default_timeout=150 * 3600)
         for partition in partitions:
