@@ -41,7 +41,7 @@ def get_partitions(files: List[str], number_of_partitions: int = None, partition
 
 @main_blueprint.route("/", methods=["GET"])
 def home():
-    return render_template("main/home.html")
+    return render_template("main/index.html")
 
 
 @main_blueprint.route("/tasks/<task_id>", methods=["GET"])
