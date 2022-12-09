@@ -13,3 +13,6 @@ creator = {
     'affiliation': [],
     'nameIdentifiers': []
 }
+
+file_to_compress = str(fixture_path / "file_gzip_cli.csv")
+file_to_decompress = str(fixture_path / "file_gzip_cli.csv.gz")

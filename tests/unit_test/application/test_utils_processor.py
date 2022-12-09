@@ -1,9 +1,10 @@
 from copy import deepcopy
+import gzip
 import json
+import os
 import shutil
-from pathlib import Path
 from unittest import TestCase
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -15,14 +16,14 @@ from application.utils_processor import (
     get_matched_affiliations, get_methods, get_publicationYear, get_publisher,
     get_registered, get_resourceType, get_resourceTypeGeneral,
     get_ror_or_orcid, get_title, get_updated, json_line_generator,
-    write_doi_files)
+    write_doi_files, gzip_cli)
 from config.global_config import config_harvester
 from tests.unit_test.fixtures.utils_processor import *
 
 TESTED_MODULE = "application.utils_processor"
 
 
-class TestProcessor(TestCase):
+class TestUtilsProcessor(TestCase):
     @classmethod
     def setUpClass(cls):
         input_file_path = fixture_path / "sample.ndjson"
@@ -99,6 +100,39 @@ class TestProcessor(TestCase):
         mock_append.assert_called_with(_str=json.dumps(expected_append), file=config_harvester["es_index_sourcefile"])
         shutil.rmtree(output_dir)
 
+    def test_gzip_cli_compress(self):
+        # Given
+        expected_file_compressed = file_to_compress + ".gz"
+        with open(file_to_compress, "rb") as f:
+            expected_file_content = f.read()
+        # When
+        gzip_cli(file_to_compress)
+        # Then
+        self.assertTrue(os.path.exists(expected_file_compressed))
+        with gzip.open(expected_file_compressed, "rb") as f:
+            actual_file_content = f.read()
+        self.assertEqual(expected_file_content, actual_file_content)
+
+    def test_gzip_cli_decompress(self):
+        # Given
+        expected_file = os.path.splitext(file_to_decompress)[0]
+        with gzip.open(file_to_decompress, "rb") as f:
+            expected_file_content = f.read()
+        # When
+        gzip_cli(file_to_decompress, decompress=True)
+        # Then
+        self.assertTrue(os.path.exists(expected_file))
+        with open(expected_file, "rb") as f:
+            actual_file_content = f.read()
+        self.assertEqual(expected_file_content, actual_file_content)
+
+    
+class TestGetters(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        input_file_path = fixture_path / "sample.ndjson"
+        cls.standard_doi = next(json_line_generator(input_file_path)).get('data')[0]
+
     def test_retrieve_object_name(self):
         # Given
         expected_name = "Occdownload Gbif.Org"
@@ -155,7 +189,7 @@ class TestProcessor(TestCase):
         # Given
         expected_classification_subject = ['GBIF', 'biodiversity', 'species occurrences']
         # When
-        classification_subject = get_classification_subject(TestProcessor.standard_doi)
+        classification_subject = get_classification_subject(TestGetters.standard_doi)
         # Then
         self.assertEqual(classification_subject, expected_classification_subject)
 
@@ -173,7 +207,7 @@ class TestProcessor(TestCase):
         # Given
         expected_abstract = 'A dataset containing 46 species occurrences available in GBIF matching the query: { "TaxonKey" : [ "is Leuciscus danilewskii (Kessler, 1877)" ] } The dataset includes 46 records from 10 constituent datasets: 2 records from iNaturalist Research-grade Observations. 20 records from Fish occurrence in middle Volga and upper Don regions (Russia). 1 records from CAS Ichthyology (ICH). 1 records from INSDC Sequences. 1 records from Field Museum of Natural History (Zoology) Fish Collection. 1 records from NMNH Extant Specimen Records (USNM, US). 9 records from Records of protected animals species in Ukraine. 1 records from Fishbase. 8 records from ZFMK Ichthyology collection. 2 records from Museo Nacional de Ciencias Naturales, Madrid: MNCN_ICTIO. Data from some individual datasets included in this download may be licensed under less restrictive terms.'
         # When
-        abstract = get_abstract(TestProcessor.standard_doi)
+        abstract = get_abstract(TestGetters.standard_doi)
         # Then
         self.assertEqual(abstract, expected_abstract)
 
@@ -231,7 +265,7 @@ class TestProcessor(TestCase):
         # Given
         expected_title = "Occurrence Download"
         # When
-        title = get_title(TestProcessor.standard_doi)
+        title = get_title(TestGetters.standard_doi)
         # Then
         self.assertEqual(title, expected_title)
 
@@ -239,7 +273,7 @@ class TestProcessor(TestCase):
         # Given
         expected_registered = "2022-06-03T21:43:46Z"
         # When
-        registered = get_registered(TestProcessor.standard_doi)
+        registered = get_registered(TestGetters.standard_doi)
         # Then
         self.assertEqual(registered, expected_registered)
 
@@ -247,7 +281,7 @@ class TestProcessor(TestCase):
         # Given
         expected_created = "2022-06-03T21:43:46Z"
         # When
-        created = get_created(TestProcessor.standard_doi)
+        created = get_created(TestGetters.standard_doi)
         # Then
         self.assertEqual(created, expected_created)
 
@@ -256,7 +290,7 @@ class TestProcessor(TestCase):
         # Given
         expected_license = "cc-by-nc-4.0"
         # When
-        license = get_license(TestProcessor.standard_doi)
+        license = get_license(TestGetters.standard_doi)
         # Then
         self.assertEqual(license, expected_license)
 
@@ -274,7 +308,7 @@ class TestProcessor(TestCase):
         # Given
         expected_resourceTypeGeneral = "dataset"
         # When
-        resourceTypeGeneral = get_resourceTypeGeneral(TestProcessor.standard_doi)
+        resourceTypeGeneral = get_resourceTypeGeneral(TestGetters.standard_doi)
         # Then
         self.assertEqual(resourceTypeGeneral, expected_resourceTypeGeneral)
 
@@ -292,7 +326,7 @@ class TestProcessor(TestCase):
         # Given
         expected_publicationYear = "2022"
         # When
-        publicationYear = get_publicationYear(TestProcessor.standard_doi)
+        publicationYear = get_publicationYear(TestGetters.standard_doi)
         # Then
         self.assertEqual(publicationYear, expected_publicationYear)
 
@@ -300,7 +334,7 @@ class TestProcessor(TestCase):
         # Given
         expected_updated = "2022-06-03T21:43:46Z"
         # When
-        updated = get_updated(TestProcessor.standard_doi)
+        updated = get_updated(TestGetters.standard_doi)
         # Then
         self.assertEqual(updated, expected_updated)
 
@@ -308,7 +342,7 @@ class TestProcessor(TestCase):
         # Given
         expected_publisher = "The Global Biodiversity Information Facility"
         # When
-        publisher = get_publisher(TestProcessor.standard_doi)
+        publisher = get_publisher(TestGetters.standard_doi)
         # Then
         self.assertEqual(publisher, expected_publisher)
 
@@ -316,7 +350,7 @@ class TestProcessor(TestCase):
         # Given
         expected_client_id = "gbif.gbif"
         # When
-        client_id = get_client_id(TestProcessor.standard_doi)
+        client_id = get_client_id(TestGetters.standard_doi)
         # Then
         self.assertEqual(client_id, expected_client_id)
 
