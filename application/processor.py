@@ -245,10 +245,3 @@ class PartitionsController:
         """Remove partition files"""
         for f in glob(self.config['processed_dump_folder_name'] + "/partition_*"):
             os.remove(f)
-
-
-if __name__ == "__main__":
-    processor_controller = PartitionsController(config_harvester, "")
-    processor_controller.concat_files()
-    processor_controller.push_to_ovh()
-    processor_controller.clear_local_directory()

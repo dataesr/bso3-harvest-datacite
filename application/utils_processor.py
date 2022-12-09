@@ -4,7 +4,7 @@ from copy import deepcopy
 from json import JSONDecodeError
 from os import PathLike
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Union
 
 import pandas as pd
 
@@ -146,33 +146,37 @@ def _parse_url_and_retrieve_last_part(uri: str) -> str:
 
 def get_classification_subject(doi):
     try:
-        return [
+        return list(filter(None, (
             subject.get("subject", "")
             for subject in doi["attributes"]["subjects"]
             if subject and "subjectScheme" not in subject
-        ]
+        )))
     except KeyError:
         return []
 
 
 def get_classification_FOS(doi):
     try:
-        return [
-            str(subject.get("subject", "")).lstrip("FOS: ")
+        subjects_filtered = [
+            trim_null_values(subject)
             for subject in doi["attributes"]["subjects"]
-            if subject.get("subjectScheme", "") == "Fields of Science and Technology (FOS)"
+            if (subject is not None
+            and subject.get("subjectScheme", "") == "Fields of Science and Technology (FOS)")
         ]
+        return list(filter(None, (str(subject.get("subject", "")).lstrip("FOS: ") for subject in subjects_filtered)))
     except KeyError:
         return []
 
 
 def get_description_element(doi, element):
     try:
-        return " ".join([
-            description.get("description", "")
+        descriptions_filtered = [
+            trim_null_values(description)
             for description in doi["attributes"]["descriptions"]
-            if description.get("descriptionType", "") == element and description.get("description", "")
-        ]).strip()
+            if description
+            and description.get("descriptionType", "") == element
+            ]
+        return " ".join(filter(None, (description.get("description", "") for description in descriptions_filtered))).strip()
     except KeyError:
         return ""
 
@@ -191,22 +195,24 @@ def get_methods(doi):
 
 def get_grants(doi):
     try:
-        return [
-            {"name": funding_reference.get("funderName")}
+        return list(filter(None,
+            (trim_null_values({"name": funding_reference.get("funderName")})
             for funding_reference in doi["attributes"]["fundingReferences"]
-        ]
+            if funding_reference)
+        ))
     except KeyError:
         return []
 
 
 def get_doi_element(doi, element):
     try:
-        return [
+        return list(filter(None, (
             related_identifier.get("relatedIdentifier")
             for related_identifier in doi["attributes"]["relatedIdentifiers"]
-            if related_identifier.get("relationType", "") == element
-               and related_identifier.get("relatedIdentifierType", "") == "DOI"
-        ]
+            if related_identifier
+            and related_identifier.get("relationType", "") == element
+            and related_identifier.get("relatedIdentifierType", "") == "DOI"
+        )))
     except KeyError:
         return []
 
@@ -221,87 +227,62 @@ def get_doi_version_of(doi):
 
 def get_title(doi):
     try:
-        return " ".join([
+        title_filtered = filter(None, (
             title["title"]
             for title in doi["attributes"]["titles"]
-            if title["title"]
-        ]).strip()
+            if title
+        ))
+        return " ".join(title_filtered).strip()
     except KeyError:
         return ""
 
 
 def get_registered(doi):
-    try:
-        return doi["attributes"]["registered"]
-    except KeyError:
-        return ""
+    return _safe_get("", doi, "attributes", "registered")
 
 
 def get_created(doi):
-    try:
-        return doi["attributes"]["created"]
-    except KeyError:
-        return ""
+    return _safe_get("", doi, "attributes", "created")
 
 
 def get_license(doi):
     try:
-        return " ".join([
+        rights_filtered = filter(None, (
             right["rightsIdentifier"]
             for right in doi["attributes"]["rightsList"]
-            if right["rightsIdentifier"]
-        ]).strip()
+            if right
+        ))
+        return " ".join(rights_filtered).strip()
     except KeyError:
         return ""
 
 
 def get_resourceType(doi):
-    try:
-        return doi["attributes"]["types"]["resourceType"].lower()
-    except KeyError:
-        return ""
+    return str(_safe_get("", doi, "attributes", "types", "resourceType")).lower()
 
 
 def get_resourceTypeGeneral(doi):
-    try:
-        return doi["attributes"]["types"]["resourceTypeGeneral"].lower()
-    except KeyError:
-        return ""
+    return str(_safe_get("", doi, "attributes", "types", "resourceTypeGeneral")).lower()
 
 
 def get_language(doi):
-    try:
-        return doi["attributes"]["language"] if doi["attributes"]["language"] else ""
-    except KeyError:
-        return ""
+    return _safe_get("", doi, "attributes", "language")
 
 
 def get_publicationYear(doi):
-    try:
-        return str(doi["attributes"]["publicationYear"])
-    except KeyError:
-        return ""
+    return str(_safe_get("", doi, "attributes", "publicationYear"))
 
 
 def get_updated(doi):
-    try:
-        return doi["attributes"]["updated"]
-    except KeyError:
-        return ""
+    return _safe_get("", doi, "attributes", "updated")
 
 
 def get_publisher(doi):
-    try:
-        return doi["attributes"]["publisher"]
-    except KeyError:
-        return ""
+    return _safe_get("", doi, "attributes", "publisher")
 
 
 def get_client_id(doi):
-    try:
-        return doi["relationships"]["client"]["data"]["id"]
-    except KeyError:
-        return ""
+    return _safe_get("", doi, "relationships", "client", "data", "id")
 
 
 def append_to_es_index_sourcefile(doi, creators, contributors, fr_reasons, fr_reasons_concat):
@@ -499,7 +480,10 @@ def _safe_get(default_value, _dict, *keys):
             _dict = _dict[key]
         except (TypeError, KeyError):
             return default_value
-    return _dict
+    if _dict:
+        return _dict
+    else:
+        return default_value
 
 
 def _append_file(affiliation: pd.DataFrame, target_file: Union[str, Path], append_header=False):
@@ -539,7 +523,7 @@ def _load_csv_file_and_drop_duplicates(global_affiliations_file_path: Union[Path
         global_affiliation.to_csv(global_affiliations_file_path, index=False, header=False, encoding="utf-8")
 
 
-def trim_null_values(data):
+def trim_null_values(data: dict) -> dict:
     new_data = {}
     for k, v in data.items():
         if isinstance(v, dict):
@@ -547,18 +531,3 @@ def trim_null_values(data):
         if not v in (u'', None, {}, []):
             new_data[k] = v
     return new_data
-
-
-if __name__ == "__main__":
-    PROJECT_DIRNAME = os.path.dirname(os.path.dirname(__file__))
-    fixture_path = Path(Path(PROJECT_DIRNAME) / "tests/unit_test/fixtures")
-    sample_affiliations = pd.read_csv(fixture_path / "sample_affiliations.csv")
-    is_fr = (
-            sample_affiliations.is_publisher_fr | sample_affiliations.is_clientId_fr | sample_affiliations.is_countries_fr)
-
-    output_dir = Path("./processed_dois")
-    write_doi_files(
-        sample_affiliations, is_fr, fixture_path / "sample.ndjson", output_dir=str(output_dir)
-    )
-    # Then
-    output_files = [file.name for file in output_dir.glob("*.json")]
