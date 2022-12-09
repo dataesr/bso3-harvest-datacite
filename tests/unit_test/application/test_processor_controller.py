@@ -3,12 +3,12 @@ from unittest import TestCase
 from unittest.mock import patch, Mock
 from application.utils_processor import _list_files_in_directory, _create_file
 from tests.unit_test.application.test_global_config import test_config_harvester
-from application.processor import ProcessorController
+from application.processor import PartitionsController
 
 TESTED_MODULE = "application.processor"
 
 
-class TestProcessorController(TestCase):
+class TestPartitionsController(TestCase):
 
     @classmethod
     def setUp(self):
@@ -34,18 +34,16 @@ class TestProcessorController(TestCase):
                     file.write("zenodo,cern.zenodo,@actions,[],False,False,False,10.5281/zenodo.6612534,"
                                "10.5281_zenodo.6612534,creators,Actions-User,[],[],[]")
 
-        self.processor_controller = ProcessorController(
-            total_number_of_partitions=5, file_prefix="20220101", config=test_config_harvester,
-        )
+        self.processor_controller = PartitionsController(test_config_harvester, "20220101")
 
     def test_init_processor_controller_with_five_partitions_expect_five_files_in_folder(self):
         # expect
-        self.assertEqual(self.processor_controller.total_number_of_partitions,
+        self.assertEqual(5,
                          len(_list_files_in_directory(test_config_harvester['processed_dump_folder_name'],
-                                                      self.processor_controller.partition_consolidated_affiliation_file_name_pattern)))
-        self.assertEqual(self.processor_controller.total_number_of_partitions,
+                                                      "partition_consolidated_affiliations_*.csv")))
+        self.assertEqual(5,
                          len(_list_files_in_directory(test_config_harvester['processed_dump_folder_name'],
-                                                      self.processor_controller.partition_detailed_affiliation_file_name_pattern)))
+                                                      "partition_detailed_affiliations_*.csv")))
 
     def test_init_processor_controller_expect_detailed_file_and_consolidated_file_created(self):
         # Given five files created by processor
