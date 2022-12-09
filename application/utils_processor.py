@@ -16,9 +16,13 @@ import os
 logger = get_logger(__name__, level=LOGGER_LEVEL)
 
 
-def _list_dump_files_in_directory():
+def _list_dump_files_in_directory() -> List:
+    """
+    List file in the dump folder directory
+    :return:    List of filepath
+    """
     dump_folder_path = _get_path(config_harvester['raw_dump_folder_name'])
-    return list(dump_folder_path.glob("*"+config_harvester["datacite_file_extension"]))
+    return list(dump_folder_path.glob("*" + config_harvester["datacite_file_extension"]))
 
 
 def compress(file, keep=True):
@@ -32,8 +36,9 @@ def decompress(file, keep=True):
 
 
 def _merge_files(list_of_files: List[Union[str, Path]], target_file_path: Path, header=None):
-    """Concat csv files and write it"""
-    pd.concat([pd.read_csv(file, header=header, dtype='str') for file in list_of_files if file.stat().st_size > 0]).to_csv(target_file_path, index=False)
+    pd.concat(
+        [pd.read_csv(file, header=header, dtype='str') for file in list_of_files if file.stat().st_size > 0]).to_csv(
+        target_file_path, index=False)
 
 
 def json_line_generator(ndjson_file):
@@ -101,7 +106,7 @@ def enrich_doi(doi, merged_affiliations_df):
                 aff_ror = get_ror_or_orcid(affiliation, "affiliationIdentifierScheme", "ROR", "affiliationIdentifier")
                 aff_name = affiliation.get('name')
                 aff_str_df = this_doi_df[this_doi_df["affiliation_str"] == aff_str]
-                matched_affiliations, creator_or_contributor, is_publisher_fr, is_clientId_fr, is_countries_fr\
+                matched_affiliations, creator_or_contributor, is_publisher_fr, is_clientId_fr, is_countries_fr \
                     = get_matched_affiliations(aff_str_df, aff_ror, aff_name)
 
                 obj['affiliations'].append(matched_affiliations)
@@ -112,8 +117,9 @@ def enrich_doi(doi, merged_affiliations_df):
         if obj['affiliations'] == []:
             del obj['affiliations']
         es_obj = deepcopy(obj)
-        es_obj['orcid'] = next(iter([get_ror_or_orcid(name_identifier, "nameIdentifierScheme", "ORCID", "nameIdentifier")
-                                  for name_identifier in obj.get("nameIdentifiers") if name_identifier]), "")
+        es_obj['orcid'] = next(
+            iter([get_ror_or_orcid(name_identifier, "nameIdentifierScheme", "ORCID", "nameIdentifier")
+                  for name_identifier in obj.get("nameIdentifiers") if name_identifier]), "")
 
         es_obj['first_name'] = es_obj.get('givenName')
         es_obj['last_name'] = es_obj.get('familyName')
@@ -187,21 +193,21 @@ def get_description_element(doi, element):
             description.get("description", "")
             for description in doi["attributes"]["descriptions"]
             if description.get("descriptionType", "") == element
-            ])
+        ])
     except KeyError:
         return ""
 
 
 def get_abstract(doi):
-    return  get_description_element(doi, "Abstract")
+    return get_description_element(doi, "Abstract")
 
 
 def get_description(doi):
-    return  get_description_element(doi, "Other")
+    return get_description_element(doi, "Other")
 
 
 def get_methods(doi):
-    return  get_description_element(doi, "Methods")
+    return get_description_element(doi, "Methods")
 
 
 def get_grants(doi):
@@ -220,18 +226,18 @@ def get_doi_element(doi, element):
             related_identifier.get("relatedIdentifier")
             for related_identifier in doi["attributes"]["relatedIdentifiers"]
             if related_identifier.get("relationType", "") == element
-            and related_identifier.get("relatedIdentifierType", "") == "DOI"
+               and related_identifier.get("relatedIdentifierType", "") == "DOI"
         ]
     except KeyError:
         return []
 
 
 def get_doi_supplement_to(doi):
-    return get_doi_element(doi,"IsSupplementTo")
+    return get_doi_element(doi, "IsSupplementTo")
 
 
 def get_doi_version_of(doi):
-    return get_doi_element(doi,"IsVersionOf")
+    return get_doi_element(doi, "IsVersionOf")
 
 
 def get_title(doi):
@@ -358,7 +364,8 @@ def strip_creators_or_contributors(creators_or_contributors: List) -> List:
     for creator_or_contributor in creators_or_contributors:
         if creator_or_contributor not in ('', {}) and isinstance(creator_or_contributor, Dict) \
                 and "affiliations" in creator_or_contributor.keys():
-            stripped_affiliations = [trim_null_values(affiliation) for affiliation in creator_or_contributor["affiliations"]]
+            stripped_affiliations = [trim_null_values(affiliation) for affiliation in
+                                     creator_or_contributor["affiliations"]]
             stripped_creator = trim_null_values(creator_or_contributor)
             stripped_creator["affiliations"] = stripped_affiliations
             stripped_creators.append(stripped_creator)
@@ -386,7 +393,7 @@ def write_doi_files(merged_affiliations_df: pd.DataFrame,
     for json_obj in json_line_generator(dump_file):
         for doi in json_obj.get('data'):
             doi_contains_selected_affiliations = (
-                len(merged_affiliations_df[mask][merged_affiliations_df[mask]["doi"] == doi["id"]].index) != 0
+                    len(merged_affiliations_df[mask][merged_affiliations_df[mask]["doi"] == doi["id"]].index) != 0
             )
 
             if doi_contains_selected_affiliations:
@@ -398,62 +405,9 @@ def write_doi_files(merged_affiliations_df: pd.DataFrame,
                 json.dump(doi, f, indent=None)
 
 
-def get_list_creators_or_contributors_and_affiliations(path_file):
-    list_creators_or_contributors_and_affiliations = []
-    number_of_non_null_dois = 0
-    number_of_null_dois = 0
-    number_of_processed_dois_per_file = 0
-
-    for json_obj in json_line_generator(path_file):
-        for doi in json_obj.get('data'):
-            doi["mapped_id"] = _format_string(doi["id"])
-            current_size = len(list_creators_or_contributors_and_affiliations)
-            try:
-                list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "creators", path_file)
-                list_creators_or_contributors_and_affiliations += _concat_affiliation(doi, "contributors", path_file)
-            except BaseException as e:
-                logger.exception(f'Error while creating concat for {doi["id"]}. \n Details of the error {e}')
-
-            if len(list_creators_or_contributors_and_affiliations) > current_size:
-                number_of_non_null_dois += 1
-            else:
-                number_of_null_dois += 1
-
-        number_of_processed_dois_per_file = number_of_processed_dois_per_file + len(json_obj["data"])
-
-    logger.info(
-        f'{path_file} number of dois {number_of_processed_dois_per_file} number of non null dois '
-        f'{number_of_non_null_dois} and null dois {number_of_null_dois}')
-
-    return number_of_processed_dois_per_file, number_of_non_null_dois, number_of_null_dois, \
-           list_creators_or_contributors_and_affiliations
-
-
 def _list_files_in_directory(folder: Union[str, Path], regex: str):
     folder_path = _get_path(folder)
     return list(folder_path.glob(regex))
-
-
-def _is_files_list_splittable_into_mutiple_partitions(total_number_of_partitions) -> bool:
-    list_of_files_in_dump_folder = _list_files_in_directory(config_harvester['raw_dump_folder_name'],
-                                                            "*" + config_harvester['datacite_file_extension'])
-    return len(list_of_files_in_dump_folder) > total_number_of_partitions
-
-
-def _create_affiliation_file(target_directory: Union[Path, str],
-                             file_name: str = "global_affiliation.csv"
-                             ) -> Tuple[bool, Path]:
-    """
-    :type target_directory: Path or str
-    """
-    file_path = Path(target_directory) / file_name
-    already_exist = True
-
-    if not file_path.is_file():
-        already_exist = False
-        file_path.touch()
-
-    return already_exist, file_path
 
 
 def _append_affiliation_file(affiliation: pd.DataFrame, target_file: Union[str, Path], append_header=False):

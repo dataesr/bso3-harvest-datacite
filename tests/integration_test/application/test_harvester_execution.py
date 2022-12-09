@@ -15,6 +15,9 @@ from application.harvester import Harvester
 
 
 class TestHarvester(TestCase):
+    harvest_state_repository = None
+    postgres_session = None
+
     @classmethod
     def setUpClass(self):
         host: str = getenv("DB_POSTGRES_HOST")
@@ -52,14 +55,16 @@ class TestHarvester(TestCase):
         harvest_state_expected: HarvestStateTable = HarvestStateTable(start_date, end_date, "done", self.target_directory, 1, 0, 60, False, interval)
 
         # When
-        downloaded: bool = self.harvester.download(self.target_directory, start_date, end_date, interval, use_thread=True)
+        downloaded: bool = self.harvester.download(self.target_directory, start_date, end_date, interval, use_thread=True)[0]
 
         sleep(60)
 
         results = self.harvest_state_repository.get()
 
+        print(f"results {results}")
+
         # Then
-        self.assertIs(downloaded)
+        self.assertIs(downloaded, True)
         self.assertEqual(results[0], harvest_state_expected)
 
     def test_launching_download_without_thread(self):
@@ -71,9 +76,13 @@ class TestHarvester(TestCase):
         harvest_state_expected: HarvestStateTable = HarvestStateTable(start_date, end_date, "done", self.target_directory, 1, 0, 60, False, interval)
 
         # When
-        downloaded: bool = self.harvester.download(self.target_directory, start_date, end_date, interval, use_thread=False)
+        print(f" self target dir {self.target_directory}")
+
+        downloaded: bool = self.harvester.download(self.target_directory, start_date, end_date, interval, use_thread=False)[0]
         results = self.harvest_state_repository.get()
 
+        print(f"results {results}")
+
         # Then
-        self.assertIs(downloaded)
+        self.assertIs(downloaded, True)
         self.assertEqual(results[0], harvest_state_expected)
