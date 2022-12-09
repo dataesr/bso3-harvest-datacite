@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from adapters.databases.harvest_state_repository import HarvestStateRepository
-from adapters.databases.mock_postgres_session import MockPostgresSession
+from tests.unit_test.adapters.databases.mock_postgres_session import MockPostgresSession
 
 TESTED_MODULE = "adapters.databases.harvest_state_repository"
 

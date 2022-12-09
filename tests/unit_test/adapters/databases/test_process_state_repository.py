@@ -2,7 +2,7 @@ from unittest import TestCase
 from unittest.mock import patch, Mock
 
 from adapters.databases.process_state_repository import ProcessStateRepository
-from adapters.databases.mock_postgres_session import MockPostgresSession
+from tests.unit_test.adapters.databases.mock_postgres_session import MockPostgresSession
 
 TESTED_MODULE = "adapters.databases.process_state_repository"
 

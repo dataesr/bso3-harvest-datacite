@@ -12,6 +12,3 @@ class AbstractAffiliationMatcher(metaclass=ABCMeta):
     def get_affiliation(self, match_type: str, affiliation_string: str):
         raise NotImplementedError
 
-    @abstractmethod
-    def get_affiliations_list(self, match_types: List[str], affiliations_list: List[str]):
-        raise NotImplementedError

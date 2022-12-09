@@ -1,9 +1,6 @@
 from glob import glob
-import json
 import os
-import shutil
 from datetime import datetime
-from json import JSONDecodeError
 from os import path
 from pathlib import Path
 from typing import Union, Dict, List, Generator, Any, Tuple
@@ -13,16 +10,15 @@ from adapters.databases.process_state_repository import ProcessStateRepository
 from adapters.databases.process_state_table import ProcessStateTable
 from adapters.storages.swift_session import SwiftSession
 from domain.api.abstract_processor import AbstractProcessor
-from domain.ovh_path import OvhPath
+from domain.model.ovh_path import OvhPath
 from application.utils_processor import (
     _create_file, _load_csv_file_and_drop_duplicates,
     _append_file, _format_string, _concat_affiliation, _list_files_in_directory, _merge_files,
-    _get_path, compress, json_line_generator,
+    _get_path, gzip_cli, json_line_generator,
 )
 from config.global_config import config_harvester
 from project.server.main.logger import get_logger
 from config.logger_config import LOGGER_LEVEL
-from tqdm import tqdm
 
 from project.server.main.utils_swift import upload_object
 
@@ -31,32 +27,22 @@ logger = get_logger(__name__, level=LOGGER_LEVEL)
 
 class Processor(AbstractProcessor):
     """
-    The Processor object is able to process downloaded files, split into doi.json and save it to mongodb
+    Read downloaded datacite files, extract affiliations infos
 
     Args:
 
     Attributes:
 
     """
-    source_folder: str = ""
     target_folder_name: str = ""
     target_directory: str = ""
-    tmp_directory_name: str = ""
-    tmp_directory_path: str = ""
 
-    list_of_files_in_partition: List = [Union[str, Path]]
-
-    detailed_affiliation_file_path: str = ""
-    global_affiliation_file_path: str = ""
-
-    partition_detailed_affiliation_file_name: str = ""
-    partition_consolidated_affiliation_file_name: str = ""
+    files_to_process: List = [Union[str, Path]]
 
     partition_consolidated_affiliation_file_path: Union[str, Path] = None
     partition_detailed_affiliation_file_path: Union[str, Path] = None
 
     partition_index: int = 0
-    total_number_of_partitions: int = 1
     partitions: List[Generator[List, Any, None]] = None
 
     process_state_repository: ProcessStateRepository
@@ -64,31 +50,21 @@ class Processor(AbstractProcessor):
     def __init__(self, config, index_of_partition: int, files_in_partition: List[Union[str, Path]],
                  repository: ProcessStateRepository):
         self.config = config
-        self.source_folder = config['raw_dump_folder_name']
         self.target_folder_name = config['processed_dump_folder_name']
         self.target_directory = _get_path(config['processed_dump_folder_name'])
-        self.tmp_directory_name = config['processed_tmp_folder_name']
-        self.tmp_directory_path = _get_path(config['processed_tmp_folder_name'])
 
-        self.swift = None
         self.process_state = None
 
-        self.partition_consolidated_affiliation_file_name = f"partition_consolidated_affiliations_{index_of_partition}.csv"
-        self.partition_detailed_affiliation_file_name = f"partition_detailed_affiliations_{index_of_partition}.csv"
-        self._create_affiliation_files()
+        self._create_partition_affiliation_files(index_of_partition)
 
         self.partition_index = index_of_partition
         self.process_state_repository = repository
 
-        self.list_of_files_in_partition = self.retrieve_files_status_in_db_and_filter_out_list_of_files_in_partition(
-            files_in_partition)
-
-        is_swift_config = ("swift" in self.config) and len(self.config["swift"]) > 0
-        if is_swift_config:
-            self.swift = SwiftSession(self.config['swift'])
+        self.files_to_process = self.retrieve_files_to_process(files_in_partition)
 
     @staticmethod
     def get_affiliations(path_file: Path, partition_index: int):
+        """Parse a ndjson file and compile a list of affiliation objects"""
         affiliations = []
         non_null_dois = 0
         null_dois = 0
@@ -116,10 +92,11 @@ class Processor(AbstractProcessor):
 
         return processed_dois_per_file, non_null_dois, null_dois, affiliations
 
-    def process_list_of_files_in_partition(self) -> Tuple[int, List[Dict]]:
+    def process_partition(self) -> Tuple[int, List[Dict]]:
         """
             Process a partition of files, retrieve the affiliations per creator or contributors
             store the result in a detailed affiliation file and consolidated affiliation files
+            (keeping only unique affiliations)
         :return: the number of total processed dois and the list of files and their associated status
         """
 
@@ -130,8 +107,8 @@ class Processor(AbstractProcessor):
         global_non_null_dois = 0
         global_null_dois = 0
 
-        for index, path_file in enumerate(self.list_of_files_in_partition):
-            logger.info(f"Processing {index} / {len(self.list_of_files_in_partition)}")
+        for index, path_file in enumerate(self.files_to_process):
+            logger.info(f"Processing {index} / {len(self.files_to_process)}")
             (processed_dois_per_file, non_null_dois, null_dois, affiliations_list)\
                 = self.get_affiliations(path_file, self.partition_index)
 
@@ -171,20 +148,22 @@ class Processor(AbstractProcessor):
 
         return global_processed_dois, processed_files_and_status
 
-    def retrieve_files_status_in_db_and_filter_out_list_of_files_in_partition(self, files_list_in_partition):
-        existing_list_of_files = [filepath['file_path'] for filepath in self.process_state_repository.get()]
-        return list(set(files_list_in_partition) - set(existing_list_of_files))
+    def retrieve_files_to_process(self, files_in_partition):
+        files_already_processed = [filepath['file_path'] for filepath in self.process_state_repository.get()]
+        return list(set(files_in_partition) - set(files_already_processed))
 
-    def _create_affiliation_files(self):
-        logger.info(f'Creating files {self.partition_detailed_affiliation_file_name}'
-                    f' and {self.partition_consolidated_affiliation_file_name}')
-
-        already_exist, self.partition_consolidated_affiliation_file_path = \
+    def _create_partition_affiliation_files(self, index_of_partition):
+        """Create partition detailed and partition consolidated affiliation files"""
+        partition_consolidated_affiliation_file_name = f"partition_consolidated_affiliations_{index_of_partition}.csv"
+        partition_detailed_affiliation_file_name = f"partition_detailed_affiliations_{index_of_partition}.csv"
+        logger.info(f'Creating files {partition_detailed_affiliation_file_name}'
+                    f' and {partition_consolidated_affiliation_file_name}')
+        self.partition_consolidated_affiliation_file_path = \
             _create_file(target_directory=self.target_folder_name,
-                         file_name=self.partition_consolidated_affiliation_file_name)
-        already_exist, self.partition_detailed_affiliation_file_path = \
+                         file_name=partition_consolidated_affiliation_file_name)
+        self.partition_detailed_affiliation_file_path = \
             _create_file(target_directory=self.target_folder_name,
-                         file_name=self.partition_detailed_affiliation_file_name)
+                         file_name=partition_detailed_affiliation_file_name)
 
     def push_state_to_database(self, state: Dict):
 
@@ -199,91 +178,77 @@ class Processor(AbstractProcessor):
         )
         return self.process_state_repository.create(process_state)
 
-    def push_dois_to_ovh(self):
-        self.swift.upload_files_to_swift(self.config['datacite_container'],
-                                         [OvhPath(self.config['processed_datacite_container'],
-                                                  path.basename(self.partition_detailed_affiliation_file_path)),
-                                          OvhPath(self.config['processed_datacite_container'],
-                                                  path.basename(self.partition_consolidated_affiliation_file_path))])
 
-
-class ProcessorController:
-    """
-        The master controller that will enable the creation of multiple processor and the retrieval of their respective
-        status
-        Args: the number of partitions to create
-        Attributes:
-        """
+class PartitionsController:
+    """Concatenates all the partitions files"""
 
     target_folder_name: str = ""
-    ovh_directory: str = ""
     list_of_files: List = []
 
     global_detailed_affiliation_file_path: Path
     global_consolidated_affiliation_file_path: Path
-    total_number_of_partitions: int = 1
     partitions: List[Dict] = None
 
-    def __init__(self, config, total_number_of_partitions, file_prefix):
+    def __init__(self, config, file_prefix):
         self.config = config
-
         self.target_folder_name = config['processed_dump_folder_name']
-        self.tmp_directory_name = config['processed_tmp_folder_name']
-        self.tmp_directory_path = config['processed_tmp_folder_path']
+        self.consolidated_affiliation_files, self.detailed_affiliation_files = self._get_lists_of_files()
+        self._create_affiliation_files(file_prefix)
 
-        self.partition_consolidated_affiliation_file_name_pattern = f"partition_consolidated_affiliations_*.csv"
-        self.partition_detailed_affiliation_file_name_pattern = f"partition_detailed_affiliations_*.csv"
+    def _create_affiliation_files(self, file_prefix):
+        """Create detailed and consolidated affiliation files prefixed (usually by a date)"""
+        self.global_detailed_affiliation_file_path =\
+            _create_file(self.target_folder_name, f"{file_prefix}_{self.config['detailed_affiliation_file_name']}")
+        self.global_consolidated_affiliation_file_path =\
+            _create_file(self.target_folder_name, f"{file_prefix}_{self.config['global_affiliation_file_name']}")
 
-        self.list_of_consolidated_affiliation_files, self.list_of_detailed_affiliation_files = self._get_list_of_files()
-
-        _, self.global_detailed_affiliation_file_path = _create_file(self.target_folder_name,
-                                                                     f"{file_prefix}_{self.config['detailed_affiliation_file_name']}")
-        _, self.global_consolidated_affiliation_file_path = _create_file(self.target_folder_name,
-                                                                         f"{file_prefix}_{self.config['global_affiliation_file_name']}")
-
-        self.swift = None
-        is_swift_config = ("swift" in self.config) and len(self.config["swift"]) > 0
-        if is_swift_config:
-            self.swift = SwiftSession(self.config['swift'])
-
-        self.total_number_of_partitions = total_number_of_partitions
-
-    def process_files(self):
+    def concat_files(self):
+        """Concatenate consolidated_affiliation files and detailed_affiliation files"""
         # Merge consolidated files
-        logger.debug(f"merging consolidated_affiliation_files: {self.list_of_consolidated_affiliation_files}")
-        _merge_files(self.list_of_consolidated_affiliation_files, self.global_consolidated_affiliation_file_path)
+        logger.debug(f"merging consolidated_affiliation_files: {self.consolidated_affiliation_files}")
+        _merge_files(self.consolidated_affiliation_files, self.global_consolidated_affiliation_file_path)
         # Merge detailed files
-        logger.debug(f"merging detailed_affiliation_files: {self.list_of_detailed_affiliation_files}")
-        _merge_files(self.list_of_detailed_affiliation_files, self.global_detailed_affiliation_file_path)
+        logger.debug(f"merging detailed_affiliation_files: {self.detailed_affiliation_files}")
+        _merge_files(self.detailed_affiliation_files, self.global_detailed_affiliation_file_path)
 
-    def _get_list_of_files(self) -> Tuple[List[Union[str, Path]], List[Union[str, Path]]]:
-        return _list_files_in_directory(self.target_folder_name,
-                                        self.partition_consolidated_affiliation_file_name_pattern), \
-               _list_files_in_directory(self.target_folder_name, self.partition_detailed_affiliation_file_name_pattern)
+    def _get_lists_of_files(self) -> Tuple[List[Union[str, Path]], List[Union[str, Path]]]:
+        """Return consolidated files and detailed files"""
+        consolidated_files = _list_files_in_directory(
+            self.target_folder_name,
+            f"partition_consolidated_affiliations_*.csv"
+        )
+        detailed_files = _list_files_in_directory(
+            self.target_folder_name,
+            f"partition_detailed_affiliations_*.csv"
+        )
+        return consolidated_files, detailed_files
 
     def push_to_ovh(self):
-        compressed_global_file = compress(str(self.global_consolidated_affiliation_file_path))
+        """Compress (gzip) the consolidated and detailed affiliation file and
+        upload them to OVH """
+        compressed_global_file = gzip_cli(str(self.global_consolidated_affiliation_file_path))
         upload_object(
             self.config["datacite_container"],
             source=compressed_global_file,
-            target=OvhPath(self.config['processed_datacite_container'],
+            target=OvhPath(self.config['processed_affiliation_files_prefix'],
                            path.basename(compressed_global_file)).__str__(),
         )
-        compressed_detailed_file = compress(str(self.global_detailed_affiliation_file_path))
+        compressed_detailed_file = gzip_cli(str(self.global_detailed_affiliation_file_path))
         upload_object(
             self.config["datacite_container"],
             source=compressed_detailed_file,
-            target=OvhPath(self.config['processed_datacite_container'],
+            target=OvhPath(self.config['processed_affiliation_files_prefix'],
                            path.basename(compressed_detailed_file)).__str__(),
         )
 
     def clear_local_directory(self):
+        """Remove partition files"""
         for f in glob(self.config['processed_dump_folder_name'] + "/partition_*"):
             os.remove(f)
 
 
 if __name__ == "__main__":
-    processor_controller = ProcessorController(config_harvester, 100, "")
-    processor_controller.process_files()
+    processor_controller = PartitionsController(config_harvester, "")
+    processor_controller.concat_files()
     processor_controller.push_to_ovh()
     processor_controller.clear_local_directory()

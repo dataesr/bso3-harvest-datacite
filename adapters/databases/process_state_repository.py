@@ -7,6 +7,7 @@ from sqlalchemy import select, update, and_, asc
 
 
 class ProcessStateRepository(AbstractProcessStateRepository):
+    """Repository adapter for the ProcessState table"""
     session: PostgresSession
 
     def __init__(self, session: PostgresSession):

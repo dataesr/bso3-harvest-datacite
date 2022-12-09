@@ -1,5 +1,3 @@
-import os
-import subprocess
 from typing import Tuple
 from project.server.main.logger import get_logger
 from config.logger_config import LOGGER_LEVEL
@@ -14,14 +12,14 @@ from datetime import datetime
 
 from pathlib import Path
 
-from subprocess import run, PIPE, STDOUT, Popen, CalledProcessError
+from subprocess import run, PIPE, STDOUT
 
 logger = get_logger(__name__, level=LOGGER_LEVEL)
 
 
 class Harvester(AbstractHarvester):
     """
-    The Harvester object is able to harvest data from dcdump and communicate with harvest_state table.
+    Wrapper around the dcdump go script to harvest data from datacite and track the script executions with harvest_state table.
 
     Args:
         harvest_state_repository (adapters.databases.harvest_state_repository.HarvestStateRepository): The harvest_state_repository is used to communicate and make some operation with harvest_state table.
@@ -50,7 +48,7 @@ class Harvester(AbstractHarvester):
     ) -> Tuple[bool, HarvestStateTable]:
 
         """
-        The download function check if we can download. If we can, the function prepares and launch harvesting.
+        Check if we already ran this job (on HarvestState table). If not, record the job in Postgres and launch the harvest.
 
         Args:
             target_directory (str): Directory where we are going to store the data downloaded.
@@ -64,7 +62,7 @@ class Harvester(AbstractHarvester):
             use_thread (bool): If True, we launch harvesting in a thread and we return begin_harvesting. If False, we wait the end of harvesting to return begin_harvesting.
 
         Returns:
-            begin_harvesting, harvest_state  (bool, HarvestStateTable): For the first one, iff True the harvesting has begun and if False, no harvesting launched. For the last, it's the state of the harvesting (launched or not).
+            begin_harvesting, harvest_state  (bool, HarvestStateTable): For the first one, if True the harvesting has begun and if False, no harvesting launched. For the last, it's the state of the harvesting (launched or not).
         """
 
         harvest_state = HarvestStateTable(start_date, end_date, "in progress", target_directory, slice_type=interval)

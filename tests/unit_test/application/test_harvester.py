@@ -1,11 +1,11 @@
-from unittest import TestCase, skip
+from unittest import TestCase
 from unittest.mock import patch, Mock
 
 from types import SimpleNamespace
 
 from datetime import datetime
 
-from adapters.databases.mock_harvest_state_repository import MockHarvestStateRepository
+from tests.unit_test.adapters.databases.mock_harvest_state_repository import MockHarvestStateRepository
 from adapters.databases.harvest_state_table import HarvestStateTable
 
 from application.harvester import Harvester

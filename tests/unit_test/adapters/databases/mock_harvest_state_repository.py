@@ -1,5 +1,5 @@
 from adapters.databases.harvest_state_repository import HarvestStateRepository
-from adapters.databases.mock_postgres_session import MockPostgresSession
+from tests.unit_test.adapters.databases.mock_postgres_session import MockPostgresSession
 from adapters.databases.harvest_state_table import HarvestStateTable
 
 from adapters.databases.utils import check_conformity, check_conformity_and_get_where_clauses

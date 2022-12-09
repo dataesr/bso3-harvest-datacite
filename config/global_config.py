@@ -11,15 +11,6 @@ DEBUG_LEVEL = 1
 
 # Output file suffixes
 COMPRESSION_SUFFIX = '.gz'
-METADATA_SUFFIX = '.json'
-PUBLICATION_SUFFIX = '.pdf'
-SOFTCITE_SUFFIX = '.software.json'
-GROBID_SUFFIX = '.tei.xml'
-
-# folder in OVH
-DATACITE_DUMP = 'datacite'
-RAW_DATACITE_DUMP = 'raw'
-PROCESSED_DATACITE_DUMP = 'processed'
 
 # folder in project
 MOUNTED_VOLUME_PATH = os.getenv("MOUNTED_VOLUME_PATH", PROJECT_DIRNAME)
@@ -62,9 +53,8 @@ def get_harvester_config() -> dict:
     config_harvester["db"]["db_port"] = os.getenv("DB_PORT")
     config_harvester["db"]["db_name"] = os.getenv("DB_NAME")
     # ovh folder
-    config_harvester['datacite_container'] = DATACITE_DUMP
-    config_harvester['raw_datacite_container'] = RAW_DATACITE_DUMP
-    config_harvester['processed_datacite_container'] = PROCESSED_DATACITE_DUMP
+    config_harvester['datacite_container'] = "datacite"
+    config_harvester['processed_affiliation_files_prefix'] = 'processed'
     config_harvester['affiliations_prefix'] = "affiliations"
     config_harvester['doi_files_prefix'] = "country_matched"
     config_harvester['fr_doi_files_prefix'] = "fr"
@@ -78,10 +68,6 @@ def get_harvester_config() -> dict:
     config_harvester['affiliation_folder_name'] = os.path.join(MOUNTED_VOLUME_PATH, AFFILIATION_FOLDER_NAME)
     config_harvester['processed_tmp_folder_path'] = os.path.join(PROJECT_DIRNAME, PROCESSED_TMP_FOLDER_NAME)
     config_harvester['processed_tmp_folder_name'] = PROCESSED_TMP_FOLDER_NAME
-    # config_harvester['global_affiliation_file_name'] = os.path.join(config_harvester['processed_dump_folder_name'],
-    #                                                                GLOBAL_AFFILIATION_FILE_NAME)
-    # config_harvester['detailed_affiliation_file_name'] = os.path.join(config_harvester['processed_dump_folder_name'],
-    #                                                                   DETAILED_AFFILIATION_FILE_NAME)
     config_harvester['global_affiliation_file_name'] = GLOBAL_AFFILIATION_FILE_NAME
     config_harvester['detailed_affiliation_file_name'] = DETAILED_AFFILIATION_FILE_NAME
     config_harvester['affiliation_matcher_service'] = os.getenv("AFFILIATION_MATCHER_SERVICE")
@@ -96,16 +82,6 @@ def get_harvester_config() -> dict:
     config_harvester['ES_URL'] = ES_URL
 
     return config_harvester
-
-
-def get_mongo_config() -> dict:
-    return {
-        "host": f"{os.getenv('DB_MONGO_HOST')}:{os.getenv('DB_MONGO_PORT')}",
-        "username": os.getenv('DB_MONGO_USER'),
-        "password": os.getenv('DB_MONGO_PASSWORD'),
-        "database_name": os.getenv('DB_MONGO_NAME'),
-        "authMechanism": os.getenv('DB_MONGO_AUTH_MECH')
-    }
 
 
 def load_environment_variables() -> None:

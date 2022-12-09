@@ -8,6 +8,7 @@ from sqlalchemy import select, update, and_, asc
 
 
 class HarvestStateRepository(AbstractHarvestStateRepository):
+    """Repository adapter for the HarvestState table"""
     session: PostgresSession
 
     def __init__(self, session: PostgresSession):

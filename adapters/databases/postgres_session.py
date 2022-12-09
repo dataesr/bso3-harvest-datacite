@@ -8,6 +8,7 @@ from domain.databases.abstract_session import AbstractSession
 
 
 class PostgresSession(AbstractSession):
+    """Adapter (cf Hexagonal Architecture) for Postgres"""
     session: Session
     engine: Engine
 
