@@ -58,7 +58,7 @@ integration-tests:
 
 coverage-report:
 	@echo Calculating coverage
-	coverage run -m pytest --disable-warnings tests/
+	coverage run -m pytest --disable-warnings tests/unit_test
 	@echo Show report
 	coverage report -m
 
@@ -68,3 +68,14 @@ show-pydoc:
 
 show-pdoc3:
 	pdoc3 --http 0.0.0.0:46809 adapters application domain project
+
+
+generate-sphinx-documentation:
+	cd sphinx-documentation && make clean
+	@echo Generating sphinx documentation
+	sphinx-apidoc -o sphinx-documentation ./adapters
+	sphinx-apidoc -o sphinx-documentation ./application/
+	sphinx-apidoc -o sphinx-documentation ./config/
+	sphinx-apidoc -o sphinx-documentation ./domain/
+	sphinx-apidoc -o sphinx-documentation ./project/
+	cd sphinx-documentation && make html

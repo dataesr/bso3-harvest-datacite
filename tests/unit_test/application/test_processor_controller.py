@@ -7,7 +7,6 @@ from application.processor import PartitionsController
 
 TESTED_MODULE = "application.processor"
 
-
 class TestPartitionsController(TestCase):
 
     @classmethod

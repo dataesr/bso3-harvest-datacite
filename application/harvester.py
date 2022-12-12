@@ -1,3 +1,4 @@
+import subprocess
 from typing import Tuple
 from project.server.main.logger import get_logger
 from config.logger_config import LOGGER_LEVEL
@@ -71,10 +72,11 @@ class Harvester(AbstractHarvester):
 
         HarvestStateTable.createTable(self.harvest_state_repository.session.getEngine())
 
-        if not self.harvest_state_repository.create(harvest_state) and (not force):
+        if not (self.harvest_state_repository.create(harvest_state) or force):
             begin_harvesting = False
             harvest_state.status = "already exists"
 
+        print(f"begin harvesting {begin_harvesting}")
         if begin_harvesting:
             logger.info(f"Begin Harvesting")
             dcdump_interval: str = self.selectInterval(harvest_state.slice_type)
@@ -206,18 +208,22 @@ class Harvester(AbstractHarvester):
             Nothing (void)
         """
         # create directory if not exists
-        Path(target_directory).mkdir(exist_ok=True)
+        if not Path(target_directory).exists():
+            Path(target_directory).mkdir()
+
+        print(f"start date {start_date.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"end date {end_date.strftime('%Y-%m-%d %H:%M:%S')}")
 
         cmd = [
             "./dcdump/dcdump",
             "-d",
             target_directory,
-            "-s",
-            start_date.strftime("%Y-%m-%d %H:%M:%S"),
-            "-e",
-            end_date.strftime("%Y-%m-%d %H:%M:%S"),
             "-i",
             interval,
+            "-s",
+            start_date.strftime("%Y-%m-%dT%H:%M:%S"),
+            "-e",
+            end_date.strftime("%Y-%m-%dT%H:%M:%S"),
             "-l",
             str(max_requests),
             "-p",
@@ -227,10 +233,10 @@ class Harvester(AbstractHarvester):
             "-sleep",
             str(sleep_duration),
         ]
-        p = run(' '.join(cmd), text=True, capture_output=True)
+        p = run(cmd, text=True, capture_output=True)
 
         if p.returncode != 0:
-            raise Exception(p.stdout)
+             raise Exception(p.stdout)
 
         return str(p.stdout)
 
