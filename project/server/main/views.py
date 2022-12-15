@@ -122,7 +122,7 @@ def create_task_process_dois():
 def create_task_affiliations():
     args = request.get_json(force=True)
     response_objects = []
-    number_of_partitions = args.get("number_of_partitions", 1_000)
+    number_of_partitions = args.get("number_of_partitions", 100)
     file_prefix = args.get("file_prefix")
     tasks_list = []
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):

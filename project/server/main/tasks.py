@@ -125,17 +125,13 @@ def run_task_consolidate_results(file_prefix):
 def get_merged_affiliations(partition_files) -> pd.DataFrame:
     """Read consolidated and detailled csv files.
     Return the filtered and merged DataFrame"""
-    # TODO clean this mess (and test it maybe)
     consolidated_affiliations_file = next(Path(config_harvester["affiliation_folder_name"]).glob('*consolidated_affiliations.csv'))
-    # remove header param when consolidated_affiliations_file is formed correctly
-    consolidated_affiliations = pd.read_csv(consolidated_affiliations_file, dtype=str, header=1, compression="zip")
-    # remove this line when consolidated_affiliations_file is formed correctly
-    consolidated_affiliations = consolidated_affiliations.query('is_publisher_fr != "is_publisher_fr"')
+    consolidated_affiliations = pd.read_csv(consolidated_affiliations_file, dtype=str)
     consolidated_affiliations.is_publisher_fr = consolidated_affiliations.is_publisher_fr.apply(eval)
     consolidated_affiliations.is_clientId_fr = consolidated_affiliations.is_clientId_fr.apply(eval)
     consolidated_affiliations.is_countries_fr = consolidated_affiliations.is_countries_fr.apply(eval)
     detailed_affiliations_file = next(Path(config_harvester["processed_dump_folder_name"]).glob('*detailed_affiliations.csv'))
-    # Can't use pandas because detailed_affiliations is ~30Go and don't fit in RAM
+    # Can't use pandas because detailed_affiliations is ~30Go and doesn't fit in RAM
     # Use dask to filter down on partition_files then use pandas
     detailed_affiliations = dd.read_csv(detailed_affiliations_file,
                                          names=[
