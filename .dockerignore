@@ -1,0 +1,16 @@
+.env
+.coverage
+*.ndjson
+*.json
+__pycache__
+*.zip
+tmp
+temp
+dois
+processed
+dcdump
+sample-dump
+.git
+.pytest_cache
+.vscode
+.idea

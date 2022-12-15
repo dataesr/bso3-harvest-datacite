@@ -1,0 +1,15 @@
+# a normaliser (accent, casse)
+# si publisher CONTIENT un élément ci-dessous => on tag 'fr'
+champ publishers:
+
+Recherche Data Gouv (ex: https://api.datacite.org/dois/application/vnd.datacite.datacite+json/10.57745/gzqcoy)
+Université de Lorraine
+NAKALA (ex https://api.datacite.org/dois/application/vnd.datacite.datacite+json/10.34847/nkl.f8e855z4)
+CIRAD
+INRAE
+DataSuds
+
+champ clientId
+comment par inist. (ex https://api.datacite.org/dois/application/vnd.datacite.datacite+json/10.13143/1ntp-hb72)
+
+

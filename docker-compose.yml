@@ -1,0 +1,94 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: ./Dockerfiles/dev/Dockerfile
+    ports:
+      - ${HARVEST_PROCESS_PORT}:5000
+    volumes:
+      - ./:/src
+      - /src/dcdump
+      - ./dcdump:/data/dump
+    environment:
+      - APP_SETTINGS=project.server.config.DevelopmentConfig
+      - FLASK_ENV=${FLASK_ENV}
+      - DB_MONGO_HOST=${DB_MONGO_HOST}
+      - DB_MONGO_PORT=${DB_MONGO_PORT}
+      - DB_MONGO_USER=${DB_MONGO_USER}
+      - DB_MONGO_PASSWORD=${DB_MONGO_PASSWORD}
+      - DB_MONGO_NAME=${DB_MONGO_NAME}
+      - DB_MONGO_AUTH_MECH=${DB_MONGO_AUTH_MECH}
+      - DB_USER=${DB_POSTGRES_USER}
+      - DB_PASSWORD=${DB_POSTGRES_PASSWORD}
+      - DB_NAME=${DB_POSTGRES_NAME}
+      - DB_HOST=${DB_POSTGRES_HOST}
+      - DB_PORT=${DB_POSTGRES_PORT}
+    env_file:
+      - .env
+    command: bash -c "sleep 10 && python3.8 manage.py run -h 0.0.0.0"
+    depends_on:
+      - mongodb
+
+  worker:
+    build:
+      context: .
+      dockerfile: ./Dockerfiles/dev/Dockerfile
+    volumes:
+      - ./:/src
+      - /src/dcdump
+      - ./dcdump:/data/dump
+    environment:
+      - APP_SETTINGS=project.server.config.DevelopmentConfig
+      - FLASK_ENV=${FLASK_ENV}
+      - DB_MONGO_HOST=${DB_MONGO_HOST}
+      - DB_MONGO_PORT=${DB_MONGO_PORT}
+      - DB_MONGO_USER=${DB_MONGO_USER}
+      - DB_MONGO_PASSWORD=${DB_MONGO_PASSWORD}
+      - DB_MONGO_NAME=${DB_MONGO_NAME}
+      - DB_MONGO_AUTH_MECH=${DB_MONGO_AUTH_MECH}
+      - DB_USER=${DB_POSTGRES_USER}
+      - DB_PASSWORD=${DB_POSTGRES_PASSWORD}
+      - DB_NAME=${DB_POSTGRES_NAME}
+      - DB_HOST=${DB_POSTGRES_HOST}
+      - DB_PORT=${DB_POSTGRES_PORT}
+    env_file:
+      - .env
+    command: bash -c "sleep 10 && python3.8 manage.py run_worker"
+    depends_on:
+      - mongodb
+
+  mongodb:
+    image: mongo:5.0.9
+    ports:
+      - ${DB_MONGO_PORT}:${DB_MONGO_PORT}
+    volumes:
+      #- ./:/data/db
+      - ./mongod.conf:/etc/mongod.conf
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${DB_MONGO_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${DB_MONGO_PASSWORD}
+      - DB_MONGO_PORT=${DB_MONGO_PORT}
+      - MONGO_INITDB_DATABASE:${DB_MONGO_NAME}
+
+  postgres:
+    container_name: postgres
+    image: postgres:12.0-alpine
+    ports:
+      - ${DB_POSTGRES_PORT}:5432
+    environment:
+      - POSTGRES_USER=${DB_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${DB_POSTGRES_PASSWORD}
+      - POSTGRES_DB=${DB_POSTGRES_NAME}
+
+  redis:
+    image: redis:5.0.7-alpine
+    ports:
+      - "6379:6379"
+
+  dashboard:
+    image: dataesr/dashboard-crawler:1.0
+    ports:
+      - "9181:9181"
+    command: rq-dashboard -H redis
+    depends_on:
+      - redis

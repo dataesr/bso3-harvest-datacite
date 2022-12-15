@@ -1,0 +1,3 @@
+[run]
+source = .
+omit = test*.py,*mock*.py,*__init__.py, project/*, *abstract*.py, manage.py
