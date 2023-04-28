@@ -22,7 +22,7 @@ def gzip_cli(file, keep=True, decompress=False):
         return os.path.splitext(file)[0]
     else:
         os.system(f"gzip --force {'--keep' if keep else ''} {file}")
-        return f"{file}.{COMPRESSION_SUFFIX}"
+        return f"{file}{COMPRESSION_SUFFIX}"
 
 
 def _merge_files(list_of_files: List[Union[str, Path]], target_file_path: Path, header=None):
