@@ -187,13 +187,15 @@ def run_task_enrich_dois(partition_files):
 
     # Upload and clean up
     all_files = glob(output_dir + '*.json')
-    fr_files = [
-        file
-        for file in all_files
-        if os.path.splitext(os.path.basename(file))[0] in fr_doi_file_name
-    ]
-    upload_doi_files(fr_files, prefix=config_harvester["fr_doi_files_prefix"])
-    upload_doi_files(all_files, prefix=config_harvester["doi_files_prefix"])
+    upload_files = False
+    if upload_files:
+        fr_files = [
+            file
+            for file in all_files
+            if os.path.splitext(os.path.basename(file))[0] in fr_doi_file_name
+        ]
+        upload_doi_files(fr_files, prefix=config_harvester["fr_doi_files_prefix"])
+        upload_doi_files(all_files, prefix=config_harvester["doi_files_prefix"])
     for file in all_files:
         os.remove(file)
 
