@@ -9,7 +9,7 @@ from typing import Dict, List, Union
 import pandas as pd
 
 from config.exceptions import FileLoadingException
-from config.global_config import config_harvester, COMPRESSION_SUFFIX
+from config.global_config import config_harvester, COMPRESSION_SUFFIX, MOUNTED_VOLUME_PATH
 from config.logger_config import LOGGER_LEVEL
 from project.server.main.logger import get_logger
 
@@ -25,7 +25,7 @@ def gzip_cli(file, keep=True, decompress=False):
         return f"{file}{COMPRESSION_SUFFIX}"
 
 
-def _merge_files2(list_of_files: List[Union[str, Path]], target_file_path: Path, header=None):
+def _merge_files(list_of_files: List[Union[str, Path]], target_file_path: Path, header=None):
     """Write the concatenation of multiple csv files in a csv file"""
     tmp = []
     for file in list_of_files:
@@ -289,7 +289,7 @@ def get_client_id(doi):
     return _safe_get("", doi, "relationships", "client", "data", "id")
 
 
-def append_to_es_index_sourcefile(doi, creators, contributors, fr_reasons, fr_reasons_concat):
+def append_to_es_index_sourcefile(doi, creators, contributors, fr_reasons, fr_reasons_concat, index_name):
     enriched_doi = {
         "doi": doi.get("id", ""),
         "creators": strip_creators_or_contributors(creators),
@@ -320,7 +320,7 @@ def append_to_es_index_sourcefile(doi, creators, contributors, fr_reasons, fr_re
     # Keep only non-null values
     stripped_enriched_doi = trim_null_values(enriched_doi)
     append_to_file(
-        file=config_harvester["es_index_sourcefile"],
+        file=f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl',
         _str=json.dumps(stripped_enriched_doi))
 
 
@@ -348,7 +348,8 @@ def append_to_file(file, _str):
 def write_doi_files(merged_affiliations_df: pd.DataFrame,
                     mask: pd.Series,
                     dump_file: PathLike,
-                    output_dir: str
+                    output_dir: str,
+                    index_name: str
                     ):
     """Write a json file for each doi, as is, if not contained in the mask,
     otherwise with the matched affiliation to each creator or contributor
@@ -368,7 +369,7 @@ def write_doi_files(merged_affiliations_df: pd.DataFrame,
             if doi_contains_selected_affiliations:
                 creators, contributors, fr_reasons, fr_reasons_concat = enrich_doi(doi, merged_affiliations_df)
 
-                append_to_es_index_sourcefile(doi, creators, contributors, fr_reasons, fr_reasons_concat)
+                append_to_es_index_sourcefile(doi, creators, contributors, fr_reasons, fr_reasons_concat, index_name)
 
             with open(f"{output_dir}/{_format_string(doi['id'])}.json", 'w') as f:
                 json.dump(doi, f, indent=None)

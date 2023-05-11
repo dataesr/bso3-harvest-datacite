@@ -17,7 +17,7 @@ from application.elastic import reset_index
 from application.harvester import Harvester
 from application.processor import Processor, PartitionsController
 from application.utils_processor import _merge_files, write_doi_files
-from config.global_config import config_harvester
+from config.global_config import config_harvester, MOUNTED_VOLUME_PATH
 from domain.model.ovh_path import OvhPath
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import upload_object
@@ -35,7 +35,7 @@ def run_task_import_elastic_search(index_name):
     logger.debug("loading datacite index")
     reset_index(index=index_name)
     elasticimport = (
-            f"elasticdump --input={config_harvester['es_index_sourcefile']} --output={es_host}{index_name} --type=data --limit 50 "
+            f"elasticdump --input={MOUNTED_VOLUME_PATH}/{index_name}.json.jsonl --output={es_host}{index_name} --type=data --limit 50 "
             + "--transform='doc._source=Object.assign({},doc)'"
     )
     logger.debug(f"{elasticimport}")
@@ -171,7 +171,7 @@ def upload_doi_files(files, prefix):
     swift.upload_files_to_swift(config_harvester["datacite_container"], file_path_dest_path_tuples)
 
 
-def run_task_enrich_dois(partition_files):
+def run_task_enrich_dois(partition_files, index_name):
     """Read downloaded datacite files and :
         - write a file for each doi. If the doi contains a french affiliation,
         it is enriched with informations from Affiliation Matcher
@@ -183,7 +183,14 @@ def run_task_enrich_dois(partition_files):
     output_dir = './dois/'
     for i, file in enumerate(partition_files):
         logger.debug(f"Processing {i} / {len(partition_files)}")
-        write_doi_files(merged_affiliations, is_fr, Path(file), output_dir)
+        write_doi_files(merged_affiliations, is_fr, Path(file), output_dir, index_name)
+
+    # todo gz before upload
+    upload_object(
+        container='bso_dump'
+        source=f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl',
+        target=f'{index_name}.jsonl',
+    )
 
     # Upload and clean up
     all_files = glob(output_dir + '*.json')

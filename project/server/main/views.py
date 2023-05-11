@@ -157,6 +157,7 @@ def create_task_enrich_doi():
     args = request.get_json(force=True)
     response_objects = []
     partition_size = args.get("partition_size", 10)
+    index_name = args.get(index_name)
     datacite_dump_files = glob(os.path.join(
         config_harvester['raw_dump_folder_name'],
         '*' + config_harvester['datacite_file_extension'])
@@ -167,6 +168,7 @@ def create_task_enrich_doi():
         for partition in partitions:
             task_kwargs = {
                 "partition_files": partition,
+                "index_name": index_name,
                 "job_timeout": 72 * 3600,
             }
             task = q.enqueue(run_task_enrich_dois, **task_kwargs)
