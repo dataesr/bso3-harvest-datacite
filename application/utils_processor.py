@@ -25,11 +25,15 @@ def gzip_cli(file, keep=True, decompress=False):
         return f"{file}{COMPRESSION_SUFFIX}"
 
 
-def _merge_files(list_of_files: List[Union[str, Path]], target_file_path: Path, header=None):
+def _merge_files2(list_of_files: List[Union[str, Path]], target_file_path: Path, header=None):
     """Write the concatenation of multiple csv files in a csv file"""
-    pd.concat(
-        [pd.read_csv(file, header=header, dtype='str') for file in list_of_files if file.stat().st_size > 0]).to_csv(
-        target_file_path, index=False)
+    tmp = []
+    for file in list_of_files:
+        #logger.debug(file)
+        if file.stat().st_size > 0:
+            tmp.append(pd.read_csv(file, header=header, dtype='str'))
+    df = pd.concat(tmp)
+    df.to_csv(target_file_path, index=False)
 
 
 def json_line_generator(ndjson_file):

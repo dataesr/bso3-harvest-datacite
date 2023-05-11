@@ -73,6 +73,7 @@ def run_task_match_affiliations_partition(file_prefix, partition_index, total_pa
     # process partition
     affiliation_matcher = AffiliationMatcher(base_url=config_harvester["affiliation_matcher_service"])
     affiliation_matcher_version = affiliation_matcher.get_version()
+    logger.debug(f'start country matching with {affiliation_matcher_version} affiliation-matcher for {len(affiliations_df)} cases')
     affiliations_df["countries"] = affiliations_df["affiliation_str"].apply(
         lambda x: affiliation_matcher.get_affiliation("country", x))
     affiliations_df["is_publisher_fr"] = affiliations_df["doi_publisher"].apply(str).apply(
@@ -110,7 +111,7 @@ def run_task_consolidate_results(file_prefix):
     consolidated_affiliations_filepath = f"{config_harvester['affiliation_folder_name']}/{file_prefix}_"
     consolidated_affiliations_filepath += f"{affiliation_matcher_version}_" if affiliation_matcher_version else ""
     consolidated_affiliations_filepath += "consolidated_affiliations.csv"
-    _merge_files(Path(config_harvester['affiliation_folder_name']).glob('*'), Path(consolidated_affiliations_filepath), header=0)
+    _merge_files(Path(config_harvester['affiliation_folder_name']).glob(f'{affiliation_matcher_version}_partition*'), Path(consolidated_affiliations_filepath), header=0)
     # upload the resulting file
     upload_object(
         config_harvester["datacite_container"],
