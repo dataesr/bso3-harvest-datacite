@@ -187,7 +187,7 @@ def run_task_enrich_dois(partition_files, index_name):
 
     # todo gz before upload
     upload_object(
-        container='bso_dump'
+        container='bso_dump',
         source=f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl',
         target=f'{index_name}.jsonl',
     )
