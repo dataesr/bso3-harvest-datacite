@@ -69,7 +69,7 @@ class TestUtilsProcessor(TestCase):
         is_fr = (sample_affiliations.is_publisher_fr | sample_affiliations.is_clientId_fr | sample_affiliations.is_countries_fr)
         # When
         write_doi_files(
-            sample_affiliations, is_fr, fixture_path / "sample.ndjson", output_dir=str(output_dir), index_name='bso3-datacite-YYYYMMDD'
+            sample_affiliations, is_fr, fixture_path / "sample.ndjson", output_dir=str(output_dir), index_name='datacite_fr'
         )
         # Then
         output_files = [file.name for file in output_dir.glob("*.json")]
@@ -94,7 +94,7 @@ class TestUtilsProcessor(TestCase):
             expected_append = json.load(f)
         # When
         write_doi_files(
-            sample_affiliations, is_fr, fixture_path / "sample.ndjson", output_dir=str(output_dir), index_name='bso3-datacite-YYYYMMDD'
+            sample_affiliations, is_fr, fixture_path / "sample.ndjson", output_dir=str(output_dir), index_name='datacite_fr'
         )
         # Then
         mock_append.assert_called_with(_str=json.dumps(expected_append), file=config_harvester["es_index_sourcefile"])
