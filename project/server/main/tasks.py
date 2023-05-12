@@ -29,6 +29,12 @@ logger = get_logger(__name__)
 
 def run_task_import_elastic_search(index_name):
     """Create an ES index from a file using elasticdump, deleting it if it already exists."""
+    # todo gz before upload
+    upload_object(
+        container='bso_dump',
+        source=f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl',
+        target=f'{index_name}.jsonl',
+    )
     # elastic.py
     es_url_without_http = config_harvester["ES_URL"].replace("https://", "").replace("http://", "")
     es_host = f"https://{config_harvester['ES_LOGIN_BSO3_BACK']}:{parse.quote(config_harvester['ES_PASSWORD_BSO3_BACK'])}@{es_url_without_http}"
@@ -184,13 +190,6 @@ def run_task_enrich_dois(partition_files, index_name):
     for i, file in enumerate(partition_files):
         logger.debug(f"Processing {i} / {len(partition_files)}")
         write_doi_files(merged_affiliations, is_fr, Path(file), output_dir, index_name)
-
-    # todo gz before upload
-    upload_object(
-        container='bso_dump',
-        source=f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl',
-        target=f'{index_name}.jsonl',
-    )
 
     # Upload and clean up
     all_files = glob(output_dir + '*.json')

@@ -8,6 +8,7 @@ from application.utils_processor import _list_files_in_directory
 from config.global_config import config_harvester
 from flask import Blueprint, current_app, jsonify, render_template, request
 from project.server.main.logger import get_logger
+from project.server.main.re3data import get_list_re3data_repositories 
 from project.server.main.tasks import (
     run_task_consolidate_processed_files, run_task_consolidate_results,
     run_task_enrich_dois, run_task_harvest_dois,
@@ -155,6 +156,9 @@ def create_task_affiliations():
 @main_blueprint.route("/enrich_dois", methods=["POST"])
 def create_task_enrich_doi():
     args = request.get_json(force=True)
+    skip_re3data = args.get("skip_re3data", False)
+    if skip_re3data == False:
+        get_list_re3data_repositories()
     response_objects = []
     partition_size = args.get("partition_size", 10)
     index_name = args.get("index_name")
