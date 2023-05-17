@@ -9,6 +9,8 @@ from config.global_config import config_harvester
 from flask import Blueprint, current_app, jsonify, render_template, request
 from project.server.main.logger import get_logger
 from project.server.main.re3data import get_list_re3data_repositories 
+from config.global_config import MOUNTED_VOLUME_PATH
+from project.server.main.utils_swift import upload_object
 from project.server.main.tasks import (
     run_task_consolidate_processed_files, run_task_consolidate_results,
     run_task_enrich_dois, run_task_harvest_dois,
@@ -91,6 +93,8 @@ def create_task_harvest_dois():
 @main_blueprint.route("/process", methods=["POST"])
 def create_task_process_dois():
     args = request.get_json(force=True)
+    if args.get('upload_dump', False):
+        upload_object(container='bso-datacite', source='/data/dump', target='dump')
     response_objects = []
     total_number_of_partitions = args.get("total_number_of_partitions", 100)
     file_prefix = args.get("file_prefix")
@@ -160,23 +164,23 @@ def create_task_enrich_doi():
     if skip_re3data == False:
         get_list_re3data_repositories()
     response_objects = []
-    partition_size = args.get("partition_size", 10)
+    partition_size = args.get("partition_size", 8)
     index_name = args.get("index_name")
+    output_filename =  f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl'
+    logger.debug(f'remove {output_filename}')
+    os.system(f'rm -rf {output_filename}')
     datacite_dump_files = glob(os.path.join(
         config_harvester['raw_dump_folder_name'],
         '*' + config_harvester['datacite_file_extension'])
     )
-    partitions = get_partitions(datacite_dump_files, partition_size=partition_size)
+    #partitions = get_partitions(datacite_dump_files, partition_size=partition_size)
+    partition = get_partitions(datacite_dump_files, number_of_partitions=1)[0] # only one partition
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue(name="harvest-datacite", default_timeout=150 * 3600)
-        for partition in partitions:
-            task_kwargs = {
-                "partition_files": partition,
-                "index_name": index_name,
-                "job_timeout": 72 * 3600,
-            }
-            task = q.enqueue(run_task_enrich_dois, **task_kwargs)
-            response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
+        #for partition in partitions:
+            #task = q.enqueue(run_task_enrich_dois, partition, index_name)
+        task = q.enqueue(run_task_enrich_dois, partition, index_name)
+        response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
     return jsonify(response_objects), 202
 
 @main_blueprint.route("/create_index", methods=["POST"])

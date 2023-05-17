@@ -26,7 +26,7 @@ init_cmd = f"swift --os-auth-url https://auth.cloud.ovh.net/v3 --auth-version 3 
 @retry(delay=2, tries=50)
 def upload_object(container: str, source: str, target: Union[str, OvhPath], segments=True) -> str:
     logger.debug(f"Uploading {source} in {container} as {target}")
-    cmd = init_cmd + f" upload {container} {source} --object-name {target}"
+    cmd = init_cmd + f" upload {container} {source} --skip-identical --object-name {target}"
     if segments:
         cmd += " --segment-size 1048576000 --segment-threads 100"
     os.system(cmd)

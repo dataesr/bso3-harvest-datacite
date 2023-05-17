@@ -78,13 +78,13 @@ def get_matched_affiliations(aff_str_df: pd.DataFrame, aff_ror: str, aff_name: s
            }, creator_or_contributor, is_publisher_fr, is_clientId_fr, is_countries_fr
 
 
-def enrich_doi(doi, merged_affiliations_df):
+def enrich_doi(doi, this_doi_df):
     """Add a matched_affiliations field at the level of the affiliation containing
     the countries, ror, grid, rnsr detected by the affiliation matcher
     Return a list of matched_affiliations objects added for the doi"""
     CREATORS = "creators"
     CONTRIBUTORS = "contributors"
-    this_doi_df = merged_affiliations_df[merged_affiliations_df["doi"] == doi["id"]]
+    #this_doi_df = merged_affiliations_df[merged_affiliations_df["doi"] == doi["id"]]
     creators = []
     contributors = []
     is_publisher = []
@@ -184,7 +184,6 @@ def get_description_element(doi, element):
     except KeyError:
         return ""
 
-
 def get_abstract(doi):
     return get_description_element(doi, "Abstract")
 
@@ -276,6 +275,14 @@ def get_language(doi):
 def get_publicationYear(doi):
     return str(_safe_get("", doi, "attributes", "publicationYear"))
 
+def get_url(doi):
+    return str(_safe_get("", doi, "attributes", "url"))
+
+def get_creators(doi):
+    return str(_safe_get("", doi, "attributes", "creators"))
+
+def get_contributors(doi):
+    return str(_safe_get("", doi, "attributes", "contributors"))
 
 def get_updated(doi):
     return _safe_get("", doi, "attributes", "updated")
@@ -289,11 +296,14 @@ def get_client_id(doi):
     return _safe_get("", doi, "relationships", "client", "data", "id")
 
 
-def append_to_es_index_sourcefile(doi, creators, contributors, fr_reasons, fr_reasons_concat, index_name):
+def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name):
     enriched_doi = {
         "doi": doi.get("id", ""),
-        "creators": strip_creators_or_contributors(creators),
-        "contributors": strip_creators_or_contributors(contributors),
+        "url": get_url(doi),
+        "creators": get_creators(doi),
+        "contributors": get_contributors(doi),
+        #"creators": strip_creators_or_contributors(creators),
+        #"contributors": strip_creators_or_contributors(contributors),
         "title": get_title(doi),
         "publisher": get_publisher(doi),
         "classification_subject": get_classification_subject(doi),
@@ -344,6 +354,11 @@ def append_to_file(file, _str):
         f.write(_str)
         f.write(os.linesep)
 
+
+#TODO
+# ré-écrire write en lisant le consolidated_ avant (dans un dict sur les aff)
+# lire les dump un par un, et gérér les publisher / clientid etc
+# gérer aussi les dates ?
 
 def write_doi_files(merged_affiliations_df: pd.DataFrame,
                     mask: pd.Series,

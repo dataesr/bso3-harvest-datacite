@@ -16,8 +16,9 @@ from adapters.storages.swift_session import SwiftSession
 from application.elastic import reset_index
 from application.harvester import Harvester
 from application.processor import Processor, PartitionsController
-from application.utils_processor import _merge_files, write_doi_files
+from application.utils_processor import _merge_files, write_doi_files, json_line_generator, enrich_doi, append_to_es_index_sourcefile, _create_affiliation_string, get_publisher, get_client_id
 from config.global_config import config_harvester, MOUNTED_VOLUME_PATH
+from config.business_rules import FRENCH_PUBLISHERS
 from domain.model.ovh_path import OvhPath
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import upload_object
@@ -41,7 +42,7 @@ def run_task_import_elastic_search(index_name):
     logger.debug("loading datacite index")
     reset_index(index=index_name)
     elasticimport = (
-            f"elasticdump --input={MOUNTED_VOLUME_PATH}/{index_name}.json.jsonl --output={es_host}{index_name} --type=data --limit 50 "
+            f"elasticdump --input={MOUNTED_VOLUME_PATH}/{index_name}.jsonl --output={es_host}{index_name} --type=data --limit 50 "
             + "--transform='doc._source=Object.assign({},doc)'"
     )
     logger.debug(f"{elasticimport}")
@@ -129,31 +130,82 @@ def run_task_consolidate_results(file_prefix):
         os.remove(f)
 
 
+def get_affiliations_matches_df():
+    consolidated_affiliations_file = next(Path(config_harvester["affiliation_folder_name"]).glob('*consolidated_affiliations.csv'))
+    logger.debug(f'start reading {consolidated_affiliations_file} ...')
+    consolidated_affiliations = pd.read_csv(consolidated_affiliations_file, dtype=str).drop_duplicates()
+    logger.debug(f'done')
+    for f in  ['countries', 'grid', 'rnsr', 'ror']:
+        consolidated_affiliations[f] = consolidated_affiliations[f].apply(eval)
+    return consolidated_affiliations
+
+def get_affiliations_matches():
+    consolidated_affiliations = get_affiliations_matches_df()
+    matches = {}
+    for row in consolidated_affiliations.itertuples():
+        aff = row.affiliation_str
+        if isinstance(aff, str):
+            elt = row._asdict()
+            new_entry = {}
+            for f in ['countries', 'grid', 'rnsr', 'ror']:
+                if elt.get(f) and isinstance(elt[f], list):
+                    elt[f].sort()
+                    new_entry[f] = elt[f]
+            existing_entry = {}
+            if aff in matches:
+                existing_entry = matches[aff]
+            else:
+                matches[aff] = {}
+            for f in new_entry:
+                if f in existing_entry:
+                    assert(isinstance(existing_entry[f], list))
+                    if (existing_entry[f] != new_entry[f]):
+                        logger.debug(f'{aff} {f} {existing_entry[f]} vs {new_entry[f]}')
+                        if len(new_entry[f]) < len(existing_entry[f]):
+                            matches[aff][f] = new_entry[f]
+                            logger.debug(f'setting {matches[aff][f]}')
+                        else:
+                            logger.debug(f'keeping {matches[aff][f]}')
+                            pass
+                else:
+                    matches[aff][f] = new_entry[f]
+    logger.debug(f"{len(matches)} affiliations in dict")
+    return matches
+                 
+
 def get_merged_affiliations(partition_files) -> pd.DataFrame:
     """Read consolidated and detailled csv files.
     Return the filtered and merged DataFrame"""
-    consolidated_affiliations_file = next(Path(config_harvester["affiliation_folder_name"]).glob('*consolidated_affiliations.csv'))
-    consolidated_affiliations = pd.read_csv(consolidated_affiliations_file, dtype=str)
-    consolidated_affiliations.is_publisher_fr = consolidated_affiliations.is_publisher_fr.apply(eval)
-    consolidated_affiliations.is_clientId_fr = consolidated_affiliations.is_clientId_fr.apply(eval)
-    consolidated_affiliations.is_countries_fr = consolidated_affiliations.is_countries_fr.apply(eval)
+    consolidated_affiliations = get_affiliations_matches_df()
     detailed_affiliations_file = next(Path(config_harvester["processed_dump_folder_name"]).glob('*detailed_affiliations.csv'))
-    # Can't use pandas because detailed_affiliations is ~30Go and doesn't fit in RAM
-    # Use dask to filter down on partition_files then use pandas
-    detailed_affiliations = dd.read_csv(detailed_affiliations_file,
+    use_dask = False
+    if use_dask:
+        # Can't use pandas because detailed_affiliations is ~30Go and doesn't fit in RAM
+        # Use dask to filter down on partition_files then use pandas
+        detailed_affiliations = dd.read_csv(detailed_affiliations_file,
                                          names=[
                                              "doi", "doi_file_name",
                                              "creator_contributor",
                                              "name", "doi_publisher",
                                              "doi_client_id", "affiliation_str", "origin_file"
                                          ], header=None, dtype=str)
-    partition_files_basename = list(map(os.path.basename, partition_files))
-    logger.info("Filtering the detailed file on partition...")
-    start = time()
-    detailed_affiliations.origin_file = detailed_affiliations.origin_file.apply(os.path.basename)
-    detailed_affiliations = detailed_affiliations[detailed_affiliations.origin_file.isin(partition_files_basename)].compute()
-    stop = time()
-    logger.info(f"Filtering done in {stop - start:.2f}s")
+        partition_files_basename = list(map(os.path.basename, partition_files))
+        logger.info("Filtering the detailed file on partition...")
+        start = time()
+        detailed_affiliations.origin_file = detailed_affiliations.origin_file.apply(os.path.basename)
+        detailed_affiliations = detailed_affiliations[detailed_affiliations.origin_file.isin(partition_files_basename)].compute()
+        stop = time()
+        logger.info(f"Filtering done in {stop - start:.2f}s")
+    else: # do not use partitions, do it for the whole thing
+        logger.debug(f'start reading {detailed_affiliations_file} ...')
+        detailed_affiliations = pd.read_csv(detailed_affiliations_file,
+                                         names=[
+                                             "doi", "doi_file_name",
+                                             "creator_contributor",
+                                             "name", "doi_publisher",
+                                             "doi_client_id", "affiliation_str", "origin_file"
+                                         ], header=None, dtype=str)
+        logger.debug(f'done')
     merged_affiliations = pd.merge(consolidated_affiliations, detailed_affiliations, 'left',
                     on=["doi_publisher", "doi_client_id", "affiliation_str"])
     merged_affiliations = merged_affiliations[[
@@ -183,27 +235,82 @@ def run_task_enrich_dois(partition_files, index_name):
         it is enriched with informations from Affiliation Matcher
         - write a file for creating an ES index with french affiliation containing dois infos
     """
-    merged_affiliations = get_merged_affiliations(partition_files)
-    is_fr = (merged_affiliations.is_publisher_fr | merged_affiliations.is_clientId_fr | merged_affiliations.is_countries_fr)
-    fr_doi_file_name = merged_affiliations[is_fr].doi_file_name.to_list()
+    # sort partition files to start by the lastest
+    partition_files.sort(reverse=True)
+    #affiliations_matches = get_affiliations_matches()
+    #merged_affiliations = get_merged_affiliations(partition_files)
+    #is_fr = (merged_affiliations.is_publisher_fr | merged_affiliations.is_clientId_fr | merged_affiliations.is_countries_fr)
+    #fr_doi_file_name = merged_affiliations[is_fr].doi_file_name.to_list()
+    #merged_affiliations_fr = merged_affiliations[merged_affiliations.is_fr].set_index('doi')
+    #merged_affiliations_fr['doi'] = merged_affiliations_fr.index
+    #fr_dois = set(merged_affiliations_fr.doi.to_list())
     output_dir = './dois/'
-    for i, file in enumerate(partition_files):
-        logger.debug(f"Processing {i} / {len(partition_files)}")
-        write_doi_files(merged_affiliations, is_fr, Path(file), output_dir, index_name)
+
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+
+    matches = get_affiliations_matches()
+
+    known_dois = set([]) # to handle dois present multiple times
+    for dump_file in partition_files:
+        logger.debug(f'treating {dump_file}')
+        nb_new_doi, nb_new_country, nb_new_publisher, nb_new_client = 0, 0, 0, 0
+        for json_obj in json_line_generator(Path(dump_file)):
+            for doi in json_obj.get('data'):
+                if doi['id'] in known_dois:
+                    continue
+                countries, affiliations = [], []
+                for obj in doi["attributes"]["creators"] + doi["attributes"]["contributors"]:
+                    for affiliation in obj.get("affiliation"):
+                        if affiliation:
+                            local_matches = {}
+                            aff_str = _create_affiliation_string(affiliation, exclude_list = [])
+                            if aff_str in matches:
+                                local_matches = matches[aff_str]
+                            for f in local_matches:
+                                affiliation[f] = local_matches[f]
+                                if 'countries' in affiliation:
+                                    countries += affiliation['countries']
+                                if affiliation not in affiliations:
+                                    affiliations.append(affiliation)
+                countries = list(set(countries))
+                doi['countries'] = countries
+                doi['affiliations'] = affiliations
+                fr_reasons = []
+                if 'fr' in countries:
+                    fr_reasons.append('country')
+                    nb_new_country += 1
+                if get_publisher(doi) in FRENCH_PUBLISHERS:
+                    fr_reasons.append('publisher')
+                    nb_new_publisher += 1
+                if get_client_id(doi).startswith('inist.'):
+                    fr_reasons.append("clientId")
+                    nb_new_client += 1
+                fr_reasons.sort()
+                fr_reasons_concat = ';'.join(fr_reasons)
+                if fr_reasons:
+                    append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name)
+                    nb_new_doi += 1
+                known_dois.add(doi['id'])
+        logger.debug(f'{nb_new_doi} doi added to {index_name} - country {nb_new_country} - publisher {nb_new_publisher} - client {nb_new_client}')
+
+    #for i, file in enumerate(partition_files):
+    #    logger.debug(f"Processing {i} / {len(partition_files)}")
+    #    write_doi_files(merged_affiliations, is_fr, Path(file), output_dir, index_name)
 
     # Upload and clean up
-    all_files = glob(output_dir + '*.json')
+    #all_files = glob(output_dir + '*.json')
     upload_files = False
-    if upload_files:
-        fr_files = [
-            file
-            for file in all_files
-            if os.path.splitext(os.path.basename(file))[0] in fr_doi_file_name
-        ]
-        upload_doi_files(fr_files, prefix=config_harvester["fr_doi_files_prefix"])
-        upload_doi_files(all_files, prefix=config_harvester["doi_files_prefix"])
-    for file in all_files:
-        os.remove(file)
+    #if upload_files:
+    #    fr_files = [
+    #        file
+    #        for file in all_files
+    #        if os.path.splitext(os.path.basename(file))[0] in fr_doi_file_name
+    #    ]
+    #    upload_doi_files(fr_files, prefix=config_harvester["fr_doi_files_prefix"])
+    #    upload_doi_files(all_files, prefix=config_harvester["doi_files_prefix"])
+    #for file in all_files:
+    #    os.remove(file)
 
 
 def run_task_process_dois(partition_index, files_in_partition):

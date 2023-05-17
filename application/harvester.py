@@ -76,7 +76,7 @@ class Harvester(AbstractHarvester):
             begin_harvesting = False
             harvest_state.status = "already exists"
 
-        print(f"begin harvesting {begin_harvesting}")
+        logger.debug(f"begin harvesting {begin_harvesting}")
         if begin_harvesting:
             logger.info(f"Begin Harvesting")
             dcdump_interval: str = self.selectInterval(harvest_state.slice_type)
@@ -211,8 +211,8 @@ class Harvester(AbstractHarvester):
         if not Path(target_directory).exists():
             Path(target_directory).mkdir()
 
-        print(f"start date {start_date.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"end date {end_date.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.debug(f"start date {start_date.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.debug(f"end date {end_date.strftime('%Y-%m-%d %H:%M:%S')}")
 
         cmd = [
             "./dcdump/dcdump",
