@@ -1,5 +1,6 @@
 import requests
 import json
+import pandas as pd
 from bs4 import BeautifulSoup
 from project.server.main.logger import get_logger
 from config.global_config import MOUNTED_VOLUME_PATH
@@ -17,18 +18,61 @@ def get_list_re3data_repositories():
     data = []
     for ix, repository in enumerate(repositories):
         elt = {}
-        elt['re3data_id'] = repository.find('id').text
-        elt['re3data_name'] = repository.find('name').text
+        elt['id'] = repository.find('id').text
+        elt['name'] = repository.find('name').text
         if repository.find('doi'):
-            elt['re3data_doi'] = repository.find('doi').text.replace('https://doi.org/', '').lower()
-        details = get_re3data_repository(elt['re3data_id'])
+            elt['doi'] = repository.find('doi').text.replace('https://doi.org/', '').lower()
+        details = get_re3data_repository(elt['id'])
         elt.update(details)
         data.append(elt)
         #if ix%50 == 0:
         #    print(ix, end=',')
-    json.dump(data, open(f'{MOUNTED_VOLUME_PATH}re3data.json', 'w'))
-    logger.debug(f"{len('data')} repositories re3data dumped to {MOUNTED_VOLUME_PATH}re3data.json")
+    re3data_dict_filename = f'{MOUNTED_VOLUME_PATH}/re3data.json'
+    logger.debug(f'writing {re3data_dict_filename}')
+    json.dump(data, open(re3data_dict_filename, 'w'))
+    logger.debug(f"{len('data')} repositories re3data dumped to {re3data_dict_filename}")
     return data
+
+def enrich_re3data():
+    re3 = pd.read_json(f'{MOUNTED_VOLUME_PATH}/re3data.json')
+    signature_count = {}
+    re3['url_signatures'] = None
+    re3['url_signature'] = None
+    ix = -1
+    for row in re3.itertuples():
+        ix += 1
+        u = row.url
+        if not isinstance(u, str):
+            continue
+        if len(u.strip().lower())<2:
+            continue
+        if len(u)<2:
+            continue
+        url_signatures = get_url_signature(u)['normalized']
+        re3.at[ix, 'url_signature'] = url_signatures
+    re3_existing_signatures = {}
+    for row in re3.itertuples():
+        signature = row.url_signature
+        if not isinstance(signature, str):
+            continue
+        if signature in re3_existing_signatures:
+            logger.debug('---- DUPLICATE -----')
+            logger.debug(f"{row._asdict()['name']}, {row._asdict()['id']}, {signature}")
+            logger.debug(f"{re3_existing_signatures[signature]['name']}, {re3_existing_signatures[signature]['id']}")
+        re3_existing_signatures[signature] = row._asdict()
+
+    re3_existing_signatures['urgi.versailles.inrae.fr'] = re3_existing_signatures['urgi.versailles.inrae.fr/gnpis']
+    re3_existing_signatures['urgi.versailles.inra.fr'] = re3_existing_signatures['urgi.versailles.inrae.fr/gnpis']
+    re3_existing_signatures['campagnes.flotteoceanographique.fr'] = re3_existing_signatures['data.ifremer.fr']
+    re3_existing_signatures['cdsarc.cds.unistra.fr'] = re3_existing_signatures['cdsweb.u-strasbg.fr']
+    json.dump(re3_existing_signatures, open(f'{MOUNTED_VOLUME_PATH}/re3data_dict.json', 'w'))
+
+def find_re3(url, re3_existing_signatures):
+    signatures = get_url_signature(url)['signatures']
+    for s in signatures:
+        if s in re3_existing_signatures:
+            return re3_existing_signatures[s]
+
 
 def get_re3data_repository(re3data_id):
     url = f'{RE3DATA_API_BASE_URL}repository/{re3data_id}'
@@ -103,3 +147,42 @@ def get_re3data_repository(re3data_id):
         pids.append(pid)
     elt['pid'] = pids
     return elt
+
+def get_url_signature(x):
+    if not isinstance(x, str):
+        return None
+    x = x.lower().strip().split('?')[0]
+    x = x.replace('http://', '').replace('https://', '').replace('www.', '').strip()
+    if len(x)<2:
+        return None
+    split_1 = []
+    for ex, e in enumerate(x.split('/')):
+        skip = False
+        if len(e)==0:
+            skip = True
+        if ex > 0:
+            for w in ['en', 'index', 'home']:
+                if w == e:
+                    skip = True
+                if e.startswith(w+'.'):
+                    skip = True
+        if skip == False:
+            split_1.append(e)
+    if len(split_1) == 0:
+        print(x)
+    base = split_1[0]
+    res1, res2 = [], []
+    for ix in range(1, len(split_1) + 1):
+        res1.append('/'.join(split_1[0:ix]))
+    split_2 = [e for e in base.split('.') if e]
+    for ix in range(2, len(split_2) + 1):
+        res2.append('.'.join(split_2[-ix:]))
+    res = []
+    for r in res2:
+        res.append(r)
+    for r in res1:
+        if r not in res:
+            res.append(r)
+    return {'normalized': '/'.join(split_1), 'signatures': res}
+
+

@@ -8,7 +8,7 @@ from application.utils_processor import _list_files_in_directory
 from config.global_config import config_harvester
 from flask import Blueprint, current_app, jsonify, render_template, request
 from project.server.main.logger import get_logger
-from project.server.main.re3data import get_list_re3data_repositories 
+from project.server.main.re3data import get_list_re3data_repositories, enrich_re3data 
 from config.global_config import MOUNTED_VOLUME_PATH
 from project.server.main.utils_swift import upload_object
 from project.server.main.tasks import (
@@ -96,30 +96,31 @@ def create_task_process_dois():
     if args.get('upload_dump', False):
         upload_object(container='bso-datacite', source='/data/dump', target='dump')
     response_objects = []
-    total_number_of_partitions = args.get("total_number_of_partitions", 100)
-    file_prefix = args.get("file_prefix")
-    dump_files = _list_files_in_directory(config_harvester["raw_dump_folder_name"], "*" + config_harvester["datacite_file_extension"])
-    partitions = get_partitions(dump_files, number_of_partitions=total_number_of_partitions)
-    tasks_list = []
-    with Connection(redis.from_url(current_app.config["REDIS_URL"])):
-        q = Queue("harvest-datacite", default_timeout=150 * 3600)
-        for i, partition in enumerate(partitions):
-            task_kwargs = {
-                "partition_index": i,
-                "files_in_partition": partition,
+    if args.get('process', True):
+        total_number_of_partitions = args.get("total_number_of_partitions", 100)
+        file_prefix = args.get("file_prefix")
+        dump_files = _list_files_in_directory(config_harvester["raw_dump_folder_name"], "*" + config_harvester["datacite_file_extension"])
+        partitions = get_partitions(dump_files, number_of_partitions=total_number_of_partitions)
+        tasks_list = []
+        with Connection(redis.from_url(current_app.config["REDIS_URL"])):
+            q = Queue("harvest-datacite", default_timeout=150 * 3600)
+            for i, partition in enumerate(partitions):
+                task_kwargs = {
+                    "partition_index": i,
+                    "files_in_partition": partition,
+                }
+                task = q.enqueue(run_task_process_dois, **task_kwargs)
+                response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
+                tasks_list.append(task)
+            # consolidate files
+            consolidate_task_kwargs = {
+                "file_prefix": file_prefix,
             }
-            task = q.enqueue(run_task_process_dois, **task_kwargs)
-            response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
-            tasks_list.append(task)
-        # consolidate files
-        consolidate_task_kwargs = {
-            "file_prefix": file_prefix,
-        }
-        task_consolidate_processed_files = q.enqueue(run_task_consolidate_processed_files,
+            task_consolidate_processed_files = q.enqueue(run_task_consolidate_processed_files,
                                                      **consolidate_task_kwargs,
                                                      depends_on=tasks_list
                                                     )
-        response_objects.append({"status": "success", "data": {"task_id": task_consolidate_processed_files.get_id()}})
+            response_objects.append({"status": "success", "data": {"task_id": task_consolidate_processed_files.get_id()}})
     return jsonify(response_objects), 202
 
 
@@ -163,6 +164,7 @@ def create_task_enrich_doi():
     skip_re3data = args.get("skip_re3data", False)
     if skip_re3data == False:
         get_list_re3data_repositories()
+        enrich_re3data()
     response_objects = []
     partition_size = args.get("partition_size", 8)
     index_name = args.get("index_name")

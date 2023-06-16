@@ -18,7 +18,7 @@ from application.harvester import Harvester
 from application.processor import Processor, PartitionsController
 from application.utils_processor import _merge_files, write_doi_files, json_line_generator, enrich_doi, append_to_es_index_sourcefile, _create_affiliation_string, get_publisher, get_client_id
 from config.global_config import config_harvester, MOUNTED_VOLUME_PATH
-from config.business_rules import FRENCH_PUBLISHERS
+from config.business_rules import FRENCH_PUBLISHERS, FRENCH_ALPHA2
 from domain.model.ovh_path import OvhPath
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import upload_object
@@ -250,13 +250,17 @@ def run_task_enrich_dois(partition_files, index_name):
         os.makedirs(output_dir)
 
     matches = get_affiliations_matches()
-
+    output_file = f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl'
+    os.system(f'rm -rf {output_file}')
     known_dois = set([]) # to handle dois present multiple times
     for dump_file in partition_files:
         logger.debug(f'treating {dump_file}')
         nb_new_doi, nb_new_country, nb_new_publisher, nb_new_client = 0, 0, 0, 0
         for json_obj in json_line_generator(Path(dump_file)):
-            for doi in json_obj.get('data'):
+            data = json_obj.get('data')
+            #nb_data = len(data)
+            #logger.debug(f'{nb_data} objects')
+            for doi in data:
                 if doi['id'] in known_dois:
                     continue
                 countries, affiliations = [], []
@@ -277,15 +281,22 @@ def run_task_enrich_dois(partition_files, index_name):
                 doi['countries'] = countries
                 doi['affiliations'] = affiliations
                 fr_reasons = []
-                if 'fr' in countries:
-                    fr_reasons.append('country')
-                    nb_new_country += 1
-                if get_publisher(doi) in FRENCH_PUBLISHERS:
-                    fr_reasons.append('publisher')
-                    nb_new_publisher += 1
+                for c in countries:
+                    if c in FRENCH_ALPHA2:
+                        fr_reasons.append('country')
+                        nb_new_country += 1
+                current_publisher = get_publisher(doi)
+                #match regex INRA par ex (pas INRAP)
+                pattern_str = '|'.join([fr"\b{w}\b" for w in FRENCH_PUBLISHERS])
+                pattern = re.compile(pattern_str, re.IGNORECASE)
+                if isinstance(current_publisher, str):
+                    if re.search(pattern, get_publisher(doi)):
+                        fr_reasons.append('publisher')
+                        nb_new_publisher += 1
                 if get_client_id(doi).startswith('inist.'):
                     fr_reasons.append("clientId")
                     nb_new_client += 1
+                fr_reasons = list(set(fr_reasons))
                 fr_reasons.sort()
                 fr_reasons_concat = ';'.join(fr_reasons)
                 if fr_reasons:

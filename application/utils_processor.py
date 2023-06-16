@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, List, Union
 
 import pandas as pd
+from project.server.main.re3data import find_re3 
 
 from config.exceptions import FileLoadingException
 from config.global_config import config_harvester, COMPRESSION_SUFFIX, MOUNTED_VOLUME_PATH
@@ -15,6 +16,7 @@ from project.server.main.logger import get_logger
 
 logger = get_logger(__name__, level=LOGGER_LEVEL)
 
+re3_existing_signatures = {}
 
 def gzip_cli(file, keep=True, decompress=False):
     if decompress:
@@ -131,7 +133,8 @@ def enrich_doi(doi, this_doi_df):
         elif creator_or_contributor == "contributors":
             contributors.append(es_obj)
 
-    fr_reasons = sorted(set(filter(None, is_publisher + is_clientId + is_countries)))
+    fr_reasons = list(set(filter(None, is_publisher + is_clientId + is_countries)))
+    fr_reasons.sort()
     fr_reasons_concat = ";".join(fr_reasons)
 
     return creators, contributors, fr_reasons, fr_reasons_concat
@@ -297,6 +300,11 @@ def get_client_id(doi):
 
 
 def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name):
+
+    global re3_existing_signatures
+    if len(re3_existing_signatures) == 0:
+        re3_existing_signatures = json.load(open(f'{MOUNTED_VOLUME_PATH}/re3data_dict.json', 'r'))
+
     enriched_doi = {
         "doi": doi.get("id", ""),
         "url": get_url(doi),
@@ -326,6 +334,12 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
         "fr_reasons_concat": fr_reasons_concat,
         "update_date": get_updated(doi),
     }
+
+    if enriched_doi.get('url'):
+        re3_found = find_re3(enriched_doi['url'], re3_existing_signatures)
+        if re3_found:
+            for f in re3_found:
+                enriched_doi[f're3data_{f}'] = re3_found[f]
 
     # Keep only non-null values
     stripped_enriched_doi = trim_null_values(enriched_doi)
