@@ -36,6 +36,11 @@ def run_task_import_elastic_search(index_name):
         source=f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl',
         target=f'{index_name}.jsonl',
     )
+    upload_object(
+        container='bso_dump',
+        source=f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl',
+        target=f'bso-datacite-latest.jsonl',
+    )
     # elastic.py
     es_url_without_http = config_harvester["ES_URL"].replace("https://", "").replace("http://", "")
     es_host = f"https://{config_harvester['ES_LOGIN_BSO3_BACK']}:{parse.quote(config_harvester['ES_PASSWORD_BSO3_BACK'])}@{es_url_without_http}"
@@ -81,13 +86,13 @@ def run_task_match_affiliations_partition(file_prefix, partition_index, total_pa
     affiliation_matcher = AffiliationMatcher(base_url=config_harvester["affiliation_matcher_service"])
     affiliation_matcher_version = affiliation_matcher.get_version()
     logger.debug(f'start country matching with {affiliation_matcher_version} affiliation-matcher for {len(affiliations_df)} cases')
-    affiliations_df["countries"] = affiliations_df["affiliation_str"].apply(
+    affiliations_df["detected_countries"] = affiliations_df["affiliation_str"].apply(
         lambda x: affiliation_matcher.get_affiliation("country", x))
     affiliations_df["is_publisher_fr"] = affiliations_df["doi_publisher"].apply(str).apply(
         affiliation_matcher.is_publisher_fr)
     affiliations_df["is_clientId_fr"] = affiliations_df["doi_client_id"].apply(str).apply(
         affiliation_matcher.is_clientId_fr)
-    affiliations_df["is_countries_fr"] = affiliations_df["countries"].apply(affiliation_matcher.is_countries_fr)
+    affiliations_df["is_countries_fr"] = affiliations_df["detected_countries"].apply(affiliation_matcher.is_countries_fr)
     is_fr = (affiliations_df.is_publisher_fr | affiliations_df.is_clientId_fr | affiliations_df.is_countries_fr)
     affiliations_df["grid"] = [[]] * len(affiliations_df)
     affiliations_df["rnsr"] = [[]] * len(affiliations_df)

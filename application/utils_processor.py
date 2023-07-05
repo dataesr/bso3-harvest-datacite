@@ -200,14 +200,17 @@ def get_methods(doi):
 
 
 def get_grants(doi):
-    try:
-        return list(filter(None,
-            (trim_null_values({"name": funding_reference.get("funderName")})
-            for funding_reference in doi["attributes"]["fundingReferences"]
-            if funding_reference)
-        ))
-    except KeyError:
-        return []
+    grants = []
+    if 'fundingReferences' in doi['attributes'] and isinstance(doi["attributes"]["fundingReferences"], list):
+        for e in doi["attributes"]["fundingReferences"]:
+            elt = {}
+            if e.get('funderName'):
+                elt['agency'] = e['funderName']
+            if e.get('awardNumber'):
+                elt['grantid'] = e['awardNumber']
+            if elt:
+                grants.append(elt)
+    return grants
 
 
 def get_doi_element(doi, element):
@@ -282,10 +285,10 @@ def get_url(doi):
     return str(_safe_get("", doi, "attributes", "url"))
 
 def get_creators(doi):
-    return str(_safe_get("", doi, "attributes", "creators"))
+    return _safe_get("", doi, "attributes", "creators")
 
 def get_contributors(doi):
-    return str(_safe_get("", doi, "attributes", "contributors"))
+    return _safe_get("", doi, "attributes", "contributors")
 
 def get_updated(doi):
     return _safe_get("", doi, "attributes", "updated")
@@ -305,26 +308,89 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
     if len(re3_existing_signatures) == 0:
         re3_existing_signatures = json.load(open(f'{MOUNTED_VOLUME_PATH}/re3data_dict.json', 'r'))
 
+    creators = get_creators(doi)
+    contributors = get_contributors(doi)
+    authors = []
+    affiliations = []
+    for c in creators:
+        elt = {}
+        elt['role'] = 'creator'
+        if 'familyName' in c:
+            elt['last_name'] = c['familyName']
+        if 'givenName' in c:
+            elt['first_name'] = c['givenName']
+        if 'affiliation' in c:
+            elt['affiliations'] = c['affiliation']
+            for aff in c['affiliation']:
+                if aff not in affiliations:
+                    affiliations.append(aff)
+        for idi in c.get('nameIdentifiers', []):
+            if idi.get('nameIdentifierScheme') == 'ORCID' and isinstance(idi.get('nameIdentifier'), str):
+                elt['orcid'] = idi['nameIdentifier'].split('/')[-1]
+        authors.append(elt)
+    for c in contributors:
+        elt = {}
+        elt['role'] = 'contributor'
+        if 'familyName' in c:
+            elt['last_name'] = c['familyName']
+        if 'givenName' in c:
+            elt['first_name'] = c['givenName']
+        if 'affiliation' in c:
+            elt['affiliations'] = c['affiliation']
+            for aff in c['affiliation']:
+                if aff not in affiliations:
+                    affiliations.append(aff)
+        for idi in c.get('nameIdentifiers', []):
+            if idi.get('nameIdentifierScheme') == 'ORCID' and isinstance(idi.get('nameIdentifier'), str):
+                elt['orcid'] = idi['nameIdentifier'].split('/')[-1]
+        authors.append(elt)
+
+    external_ids = [{'id_type': 'datacite', 'id_value': doi['id']}]
+
+    genre_raw = get_resourceTypeGeneral(doi)
+    genre = ''
+    if genre in ['journalarticle', 'datapaper']:
+        genre = 'journal-article'
+    elif genre in ['bookchapter']:
+        genre = 'book-chapter'
+    elif genre in ['book']:
+        genre = 'book'
+    elif genre in ['conferencepaper', 'conferenceproceeding']:
+        genre = 'proceedings'
+    elif genre in ['dataset']:
+        genre = 'dataset'
+    else:
+        genre = 'other'
+
+    classifications = []
+    for s in get_classification_subject(doi):
+        elt = {'label': s, 'reference': 'subject-datacite'}
+        if elt not in classifications:
+            classifications.append(elt)
+    for s in get_classification_FOS(doi):
+        elt = {'label': s, 'reference': 'FOS-datacite'}
+        if elt not in classifications:
+            classifications.append(elt)
+
     enriched_doi = {
         "doi": doi.get("id", ""),
-        "url": get_url(doi),
-        "creators": get_creators(doi),
-        "contributors": get_contributors(doi),
-        #"creators": strip_creators_or_contributors(creators),
-        #"contributors": strip_creators_or_contributors(contributors),
+        "external_ids": external_ids,
+        "year": get_publicationYear(doi),
+        "authors": authors,
+        "affiliations": affiliations,
         "title": get_title(doi),
-        "publisher": get_publisher(doi),
-        "classification_subject": get_classification_subject(doi),
-        "classification_FOS": get_classification_FOS(doi),
-        "publicationYear": get_publicationYear(doi),
-        "language": get_language(doi),
-        "resourceTypeGeneral": get_resourceTypeGeneral(doi),
+        "genre_raw": genre_raw,
+        "genre": genre,
         "resourceType": get_resourceType(doi),
+        "abstract": [{'abstract': get_abstract(doi), 'lang': get_language(doi)}],
+        "grants": get_grants(doi),
+        "url": get_url(doi),
+        "publisher": get_publisher(doi),
+        "classifications": classifications,
+        "language": get_language(doi),
         "license": get_license(doi),
-        "abstract": get_abstract(doi),
         "methods": get_methods(doi),
         "description": get_description(doi),
-        "grants": get_grants(doi),
         "created": get_created(doi),
         "registered": get_registered(doi),
         "doi_supplement_to": get_doi_supplement_to(doi),
@@ -335,11 +401,11 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
         "update_date": get_updated(doi),
     }
 
-    if enriched_doi.get('url'):
-        re3_found = find_re3(enriched_doi['url'], re3_existing_signatures)
-        if re3_found:
-            for f in re3_found:
-                enriched_doi[f're3data_{f}'] = re3_found[f]
+    #if enriched_doi.get('url'):
+    #    re3_found = find_re3(enriched_doi['url'], re3_existing_signatures)
+    #    if re3_found:
+    #        for f in re3_found:
+    #            enriched_doi[f're3data_{f}'] = re3_found[f]
 
     # Keep only non-null values
     stripped_enriched_doi = trim_null_values(enriched_doi)
