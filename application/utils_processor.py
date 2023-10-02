@@ -301,6 +301,30 @@ def get_publisher(doi):
 def get_client_id(doi):
     return _safe_get("", doi, "relationships", "client", "data", "id")
 
+def make_author(c, role, affiliations):
+    elt = {}
+    elt['role'] = role
+    full_name = ''
+    if 'givenName' in c and isinstance(c['givenName'], str) and c['givenName']:
+        elt['first_name'] = c['givenName']
+        full_name = c['givenName']
+    if 'familyName' in c and isinstance(c['familyName'], str) and c['familyName']:
+        elt['last_name'] = c['familyName']
+        full_name += ' '+c['familyName']
+    full_name = full_name.strip()
+    if not full_name and 'name' in c and isinstance(c['name'], str) and c['name']:
+        full_name = c['name']
+    if full_name:
+        elt['full_name'] = full_name.strip()
+    if 'affiliation' in c and c['affiliation'] and isinstance(c['affiliation'], list):
+        elt['affiliations'] = c['affiliation']
+        for aff in c['affiliation']:
+            if aff not in affiliations:
+                affiliations.append(aff)
+    for idi in c.get('nameIdentifiers', []):
+        if idi.get('nameIdentifierScheme') == 'ORCID' and isinstance(idi.get('nameIdentifier'), str):
+            elt['orcid'] = idi['nameIdentifier'].split('/')[-1]
+    return elt, affiliations
 
 def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name):
 
@@ -313,51 +337,25 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
     authors = []
     affiliations = []
     for c in creators:
-        elt = {}
-        elt['role'] = 'creator'
-        if 'familyName' in c:
-            elt['last_name'] = c['familyName']
-        if 'givenName' in c:
-            elt['first_name'] = c['givenName']
-        if 'affiliation' in c:
-            elt['affiliations'] = c['affiliation']
-            for aff in c['affiliation']:
-                if aff not in affiliations:
-                    affiliations.append(aff)
-        for idi in c.get('nameIdentifiers', []):
-            if idi.get('nameIdentifierScheme') == 'ORCID' and isinstance(idi.get('nameIdentifier'), str):
-                elt['orcid'] = idi['nameIdentifier'].split('/')[-1]
+        elt, affiliations = make_author(c, 'creator', affiliations)
         authors.append(elt)
     for c in contributors:
-        elt = {}
-        elt['role'] = 'contributor'
-        if 'familyName' in c:
-            elt['last_name'] = c['familyName']
-        if 'givenName' in c:
-            elt['first_name'] = c['givenName']
-        if 'affiliation' in c:
-            elt['affiliations'] = c['affiliation']
-            for aff in c['affiliation']:
-                if aff not in affiliations:
-                    affiliations.append(aff)
-        for idi in c.get('nameIdentifiers', []):
-            if idi.get('nameIdentifierScheme') == 'ORCID' and isinstance(idi.get('nameIdentifier'), str):
-                elt['orcid'] = idi['nameIdentifier'].split('/')[-1]
+        elt, affiliations = make_author(c, 'contributor', affiliations)
         authors.append(elt)
 
     external_ids = [{'id_type': 'datacite', 'id_value': doi['id']}]
 
     genre_raw = get_resourceTypeGeneral(doi)
     genre = ''
-    if genre in ['journalarticle', 'datapaper']:
+    if genre_raw in ['journalarticle', 'datapaper']:
         genre = 'journal-article'
-    elif genre in ['bookchapter']:
+    elif genre_raw in ['bookchapter']:
         genre = 'book-chapter'
-    elif genre in ['book']:
+    elif genre_raw in ['book']:
         genre = 'book'
-    elif genre in ['conferencepaper', 'conferenceproceeding']:
+    elif genre_raw in ['conferencepaper', 'conferenceproceeding']:
         genre = 'proceedings'
-    elif genre in ['dataset']:
+    elif genre_raw in ['dataset']:
         genre = 'dataset'
     else:
         genre = 'other'
