@@ -233,10 +233,12 @@ class Harvester(AbstractHarvester):
             "-sleep",
             str(sleep_duration),
         ]
+        logger.debug(' '.join(cmd))
         p = run(cmd, text=True, capture_output=True)
 
         if p.returncode != 0:
-             raise Exception(p.stdout)
+            logger.debug(p.stdout)
+            raise Exception(p.stdout)
 
         return str(p.stdout)
 
