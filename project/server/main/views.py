@@ -10,7 +10,6 @@ from flask import Blueprint, current_app, jsonify, render_template, request
 from project.server.main.logger import get_logger
 from project.server.main.re3data import get_list_re3data_repositories, enrich_re3data 
 from config.global_config import MOUNTED_VOLUME_PATH
-from project.server.main.utils_swift import upload_object
 from project.server.main.tasks import (
     run_task_consolidate_processed_files, run_task_consolidate_results,
     run_task_enrich_dois, run_task_harvest_dois,
@@ -93,8 +92,6 @@ def create_task_harvest_dois():
 @main_blueprint.route("/process", methods=["POST"])
 def create_task_process_dois():
     args = request.get_json(force=True)
-    if args.get('upload_dump', False):
-        upload_object(container='bso-datacite', source='/data/dump', target='dump')
     response_objects = []
     if args.get('process', True):
         total_number_of_partitions = args.get("total_number_of_partitions", 100)

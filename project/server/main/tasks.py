@@ -364,6 +364,7 @@ def run_task_harvest_dois(target_directory, start_date, end_date, interval, use_
         use_thread=use_thread,
         force=force
     )
+    upload_object(container='bso-datacite', source='/data/dump', target='dump')
 
 
 def run_task_consolidate_processed_files(file_prefix):
