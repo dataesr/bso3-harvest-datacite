@@ -180,7 +180,8 @@ class Harvester(AbstractHarvester):
         p = run(cmd, stdout=PIPE, stderr=STDOUT, text=True)
 
         if p.returncode != 0:
-            raise Exception(p.stdout)
+            logger.debug(p.stdout)
+            #raise Exception(p.stdout)
 
         result = int(p.stdout.split('="')[-1].split()[0])
 
@@ -238,7 +239,7 @@ class Harvester(AbstractHarvester):
 
         if p.returncode != 0:
             logger.debug(p.stdout)
-            raise Exception(p.stdout)
+            #raise Exception(p.stdout)
 
         return str(p.stdout)
 
@@ -274,12 +275,14 @@ class Harvester(AbstractHarvester):
         p = run(cmds[0], stdout=PIPE, stderr=STDOUT, text=True)
 
         if p.returncode != 0:
-            raise Exception(p.stdout)
+            logger.debug(p.stdout)
+            #raise Exception(p.stdout)
 
         for cmd in cmds[1:]:
             p = run(cmd, stdout=PIPE, stderr=STDOUT, text=True, input=p.stdout)
 
             if p.returncode != 0:
-                raise Exception(p.stdout)
+                logger.debug(p.stdout)
+                #raise Exception(p.stdout)
 
         return int(p.stdout)
