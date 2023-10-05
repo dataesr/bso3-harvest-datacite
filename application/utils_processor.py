@@ -272,7 +272,10 @@ def get_resourceType(doi):
 
 def get_resourceTypeGeneral(doi):
     return str(_safe_get("", doi, "attributes", "types", "resourceTypeGeneral")).lower()
+    
 
+def get_relatedId(doi):
+    return _safe_get("", doi, "attributes", "relatedIdentifiers")
 
 def get_language(doi):
     return _safe_get("", doi, "attributes", "language")
@@ -360,6 +363,17 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
     else:
         genre = 'other'
 
+    nb_parts = 0
+    subparts = []
+    relatedIdentifiers = get_relatedId(doi)
+    if isinstance(relatedIdentifiers, list):
+        for e in relatedIdentifiers:
+            if e.get('relationType') == 'IsPartOf':
+                genre = 'file'
+                subparts.append(e)
+            if e.get('relationType') == 'HasPart':
+                nb_parts += 1
+
     classifications = []
     for s in get_classification_subject(doi):
         elt = {'label': s, 'reference': 'subject-datacite'}
@@ -370,6 +384,8 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
         if elt not in classifications:
             classifications.append(elt)
 
+    #tocheck https://api.datacite.org/application/vnd.datacite.datacite+json/10.15454/9vwitq and https://api.datacite.org/application/vnd.datacite.datacite+json/10.57745/TGRHPZ
+
     enriched_doi = {
         "doi": doi.get("id", ""),
         "external_ids": external_ids,
@@ -379,6 +395,8 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
         "title": get_title(doi),
         "genre_raw": genre_raw,
         "genre": genre,
+        "nb_parts": nb_parts,
+        "subparts": subparts,
         "resourceType": get_resourceType(doi),
         "abstract": [{'abstract': get_abstract(doi), 'lang': get_language(doi)}],
         "grants": get_grants(doi),
