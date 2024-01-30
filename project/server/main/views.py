@@ -81,7 +81,7 @@ def create_task_harvest_dois():
         task_kwargs.update({"force": args.get("force")})
 
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
-        q = Queue("harvest-datacite", default_timeout=150 * 3600)
+        q = Queue("harvest-datacite", default_timeout=1500 * 3600)
         task = q.enqueue(run_task_harvest_dois, **task_kwargs)
 
     response_object = {"status": "success", "data": {"task_id": task.get_id()}}
@@ -97,10 +97,11 @@ def create_task_process_dois():
         total_number_of_partitions = args.get("total_number_of_partitions", 100)
         file_prefix = args.get("file_prefix")
         dump_files = _list_files_in_directory(config_harvester["raw_dump_folder_name"], "*" + config_harvester["datacite_file_extension"])
+        logger.debug(f'{len(dump_files)} dump_files')
         partitions = get_partitions(dump_files, number_of_partitions=total_number_of_partitions)
         tasks_list = []
         with Connection(redis.from_url(current_app.config["REDIS_URL"])):
-            q = Queue("harvest-datacite", default_timeout=150 * 3600)
+            q = Queue("harvest-datacite", default_timeout=1500 * 3600)
             for i, partition in enumerate(partitions):
                 task_kwargs = {
                     "partition_index": i,
@@ -108,6 +109,7 @@ def create_task_process_dois():
                 }
                 task = q.enqueue(run_task_process_dois, **task_kwargs)
                 response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
+                logger.debug({task.get_id()})
                 tasks_list.append(task)
             # consolidate files
             consolidate_task_kwargs = {
@@ -129,13 +131,13 @@ def create_task_affiliations():
     file_prefix = args.get("file_prefix")
     tasks_list = []
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
-        q = Queue(name="harvest-datacite", default_timeout=150 * 3600)
+        q = Queue(name="harvest-datacite", default_timeout=1500 * 3600)
         for partition_index in range(number_of_partitions + 1):
             task_kwargs = {
                 "file_prefix": file_prefix,
                 "partition_index": partition_index,
                 "total_partition_number": number_of_partitions,
-                "job_timeout": 2 * 3600,
+                "job_timeout": 20 * 3600,
             }
             task = q.enqueue(run_task_match_affiliations_partition, **task_kwargs)
             response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
@@ -175,7 +177,7 @@ def create_task_enrich_doi():
     #partitions = get_partitions(datacite_dump_files, partition_size=partition_size)
     partition = get_partitions(datacite_dump_files, number_of_partitions=1)[0] # only one partition
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
-        q = Queue(name="harvest-datacite", default_timeout=150 * 3600)
+        q = Queue(name="harvest-datacite", default_timeout=1500 * 3600)
         #for partition in partitions:
             #task = q.enqueue(run_task_enrich_dois, partition, index_name)
         task = q.enqueue(run_task_enrich_dois, partition, index_name)
@@ -187,7 +189,7 @@ def create_task_import_elastic_search():
     args = request.get_json(force=True)
     index_name = args.get("index_name")
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
-        q = Queue(name="harvest-datacite", default_timeout=150 * 3600)
+        q = Queue(name="harvest-datacite", default_timeout=1500 * 3600)
         task = q.enqueue(run_task_import_elastic_search, index_name=index_name)
         response_object = {"status": "success", "data": {"task_id": task.get_id()}}
     return jsonify(response_object), 202

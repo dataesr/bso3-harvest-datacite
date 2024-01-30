@@ -350,7 +350,7 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
 
     genre_raw = get_resourceTypeGeneral(doi)
     genre = ''
-    if genre_raw in ['journalarticle', 'datapaper']:
+    if genre_raw in ['journalarticle']:
         genre = 'journal-article'
     elif genre_raw in ['bookchapter']:
         genre = 'book-chapter'
@@ -358,8 +358,10 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
         genre = 'book'
     elif genre_raw in ['conferencepaper', 'conferenceproceeding']:
         genre = 'proceedings'
-    elif genre_raw in ['dataset']:
+    elif genre_raw in ['dataset', 'image', 'sound', 'audiovisual', 'film', 'physicalobject']:
         genre = 'dataset'
+    elif genre_raw in ['datapaper']:
+        genre = 'datapaper'
     else:
         genre = 'other'
 
@@ -369,7 +371,7 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
     if isinstance(relatedIdentifiers, list):
         for e in relatedIdentifiers:
             if e.get('relationType') == 'IsPartOf':
-                genre = 'file'
+                genre = 'file_'+genre
                 subparts.append(e)
             if e.get('relationType') == 'HasPart':
                 nb_parts += 1
