@@ -135,8 +135,11 @@ def run_task_consolidate_results(file_prefix):
         os.remove(f)
 
 
-def get_affiliations_matches_df():
-    consolidated_affiliations_file = next(Path(config_harvester["affiliation_folder_name"]).glob('*consolidated_affiliations.csv'))
+def get_affiliations_matches_df(index_name):
+    index_date = index_name.split('-')[-1]
+    filename = [e for e in os.listdir('/data/affiliations') if index_date in e][0]
+    # consolidated_affiliations_file = next(Path(config_harvester["affiliation_folder_name"]).glob('*consolidated_affiliations.csv')) thanks octo
+    consolidated_affiliations_file = Path(f'/data/affiliations/{filename}')
     logger.debug(f'start reading {consolidated_affiliations_file} ...')
     consolidated_affiliations = pd.read_csv(consolidated_affiliations_file, dtype=str).drop_duplicates()
     logger.debug(f'done')
@@ -144,8 +147,8 @@ def get_affiliations_matches_df():
         consolidated_affiliations[f] = consolidated_affiliations[f].apply(eval)
     return consolidated_affiliations
 
-def get_affiliations_matches():
-    consolidated_affiliations = get_affiliations_matches_df()
+def get_affiliations_matches(index_name):
+    consolidated_affiliations = get_affiliations_matches_df(index_name)
     matches = {}
     for row in consolidated_affiliations.itertuples():
         aff = row.affiliation_str
@@ -178,10 +181,10 @@ def get_affiliations_matches():
     return matches
                  
 
-def get_merged_affiliations(partition_files) -> pd.DataFrame:
+def get_merged_affiliations(partition_files, index_name) -> pd.DataFrame:
     """Read consolidated and detailled csv files.
     Return the filtered and merged DataFrame"""
-    consolidated_affiliations = get_affiliations_matches_df()
+    consolidated_affiliations = get_affiliations_matches_df(index_name)
     detailed_affiliations_file = next(Path(config_harvester["processed_dump_folder_name"]).glob('*detailed_affiliations.csv'))
     use_dask = False
     if use_dask:
@@ -254,7 +257,7 @@ def run_task_enrich_dois(partition_files, index_name):
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
 
-    matches = get_affiliations_matches()
+    matches = get_affiliations_matches(index_name)
     output_file = f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl'
     os.system(f'rm -rf {output_file}')
     known_dois = set([]) # to handle dois present multiple times

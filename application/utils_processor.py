@@ -375,6 +375,8 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
                 subparts.append(e)
             if e.get('relationType') == 'HasPart':
                 nb_parts += 1
+            if e.get('relationType') == 'IsVersionOf':
+                genre = 'version'
 
     classifications = []
     for s in get_classification_subject(doi):
