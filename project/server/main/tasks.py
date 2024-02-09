@@ -3,6 +3,7 @@ from datetime import datetime
 from glob import glob
 from pathlib import Path
 import re
+import pickle
 from time import time
 from urllib import parse
 
@@ -16,12 +17,13 @@ from adapters.storages.swift_session import SwiftSession
 from application.elastic import reset_index
 from application.harvester import Harvester
 from application.processor import Processor, PartitionsController
-from application.utils_processor import _merge_files, write_doi_files, json_line_generator, enrich_doi, append_to_es_index_sourcefile, _create_affiliation_string, get_publisher, get_client_id
+from application.utils_processor import _merge_files, json_line_generator, enrich_doi, append_to_es_index_sourcefile, _create_affiliation_string, get_publisher, get_client_id
 from config.global_config import config_harvester, MOUNTED_VOLUME_PATH
 from config.business_rules import FRENCH_PUBLISHERS, FRENCH_ALPHA2
 from domain.model.ovh_path import OvhPath
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import upload_object
+from project.server.main.strings import normalize
 import dask.dataframe as dd
 
 
@@ -237,6 +239,81 @@ def upload_doi_files(files, prefix):
     swift.upload_files_to_swift(config_harvester["datacite_container"], file_path_dest_path_tuples)
 
 
+def update_bso_publications():
+    logger.debug('update bso publications files')
+    df_bso = pd.read_csv('https://storage.gra.cloud.ovh.net/v1/AUTH_32c5d10cb0fe4519b957064a111717e3/bso_dump/bso-publications-latest.csv.gz', sep=';')
+    bso_doi_dict = {}
+    for row in df_bso.itertuples():
+        if isinstance(row.doi, str) and isinstance(row.bso_country, str) and 'fr' in row.bso_country:
+            bso_doi_dict[row.doi] = {}
+            rors = []
+            if isinstance(row.rors, str):
+                rors = [r.split('/')[-1] for r in row.rors.split('|')]
+            bso_doi_dict[row.doi]['rors'] = rors
+            bso_local_affiliations = []
+            if isinstance(row.bso_local_affiliations, str):
+                bso_local_affiliations = [a for a in row.bso_local_affiliations.split('|')]
+            bso_doi_dict[row.doi]['bso_local_affiliations'] = bso_local_affiliations
+    logger.debug(f'writing {len(bso_doi_dict)} dois info from bso publications')
+    pickle.dump(bso_doi_dict, open('/data/bso_doi_dict.pkl', 'wb'))
+
+def get_bso_publications():
+    return pickle.load(open('/data/bso_doi_dict.pkl', 'rb'))
+
+def list_french_authors_from_openalex():
+    logger.debug('getting french authors from openalex')
+    french_authors = []
+    for jx in range(0, 10000):
+        logger.debug(f'chunk {jx}')
+        if jx == 0:
+            cursor = '*'
+        url_oa = f'https://api.openalex.org/authors?filter=last_known_institutions.country_code:FR,works_count:>3&per-page=200&select=id,orcid,display_name,affiliations,works_count&cursor={cursor}'
+        res = requests.get(url_oa).json()
+        if 'results' not in res:
+            break
+        for k in res['results']:
+            french_authors.append(k)
+        try:
+            cursor = res['meta']['next_cursor']
+        except:
+            break
+    return french_authors
+
+def update_french_authors():
+    french_authors = list_french_authors_from_openalex()
+    logger.debug(f'writing {len(french_authors)} authors info from openalex')
+    french_authors_dict = {}
+    for elt in french_authors:
+        keys = []
+        if '.' not in elt.get('display_name'):
+            keys.append(normalize(elt['display_name']))
+        if isinstance(elt.get('orcid'), str):
+            orcid = elt['orcid'].split('/')[-1].upper()
+            keys.append(orcid)
+        for k in keys:
+            if k in french_authors_dict:
+                french_authors_dict[k]['has_duplicate'] = True
+            else:
+                french_authors_dict[k] = {'has_duplicate': False}
+            for aff in elt.get('affiliations'):
+                if isinstance(aff.get('institution', {}).get('ror'), str):
+                    ror = aff['institution']['ror'].split('/')[-1]
+                    for y in aff.get('years'):
+                        if y <= 2012:
+                            continue
+                        if y not in french_authors_dict[k]:
+                            french_authors_dict[k][y] = []
+                        french_authors_dict[k][y].append(ror)
+    final_french_authors_dict = {k: french_authors_dict[k] for k in french_authors_dict if french_authors_dict[k]['has_duplicate'] == False}
+    logger.debug(f'writing {len(final_french_authors_dict)} french authors info')
+    pickle.dump(final_french_authors_dict, open('/data/french_authors.pkl', 'wb'))
+
+
+def get_french_authors():
+    return pickle.load(open('/data/french_authors.pkl', 'rb'))
+
+
+# IsSupplementTo
 def run_task_enrich_dois(partition_files, index_name):
     """Read downloaded datacite files and :
         - write a file for each doi. If the doi contains a french affiliation,
@@ -257,6 +334,9 @@ def run_task_enrich_dois(partition_files, index_name):
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
 
+    bso_doi_dict = get_bso_publications() 
+    french_authors_dict = get_french_authors()
+
     matches = get_affiliations_matches(index_name)
     output_file = f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl'
     os.system(f'rm -rf {output_file}')
@@ -271,9 +351,49 @@ def run_task_enrich_dois(partition_files, index_name):
             for doi in data:
                 if doi['id'] in known_dois:
                     continue
+                fr_reasons = []
+                rors = []
+                bso_local_affiliations = []
+                current_year = doi.get('publicationYear')
+                if 'attributes' in doi and 'relatedIdentifiers' in doi['attributes']:
+                    for rel_id in doi['attributes']['relatedIdentifiers']:
+                        if rel_id.get('relationType') == 'IsSupplementTo':
+                            if isinstance(rel_id.get('relatedIdentifier'), str) and rel_id['relatedIdentifier'].lower() in bso_doi_dict:
+                                fr_reasons.append('linked_article')
+                                publi_info = bso_doi_dict[rel_id['relatedIdentifier'].lower()]
+                                rors += publi_info['rors']
+                                bso_local_affiliations += publi_info['bso_local_affiliations']
                 countries, affiliations = [], []
                 for obj in doi["attributes"]["creators"] + doi["attributes"]["contributors"]:
+                    if 'nameIdentifiers' in obj:
+                        assert(isinstance(obj['nameIdentifiers'], list))
+                    for nameIdentifier in obj.get('nameIdentifiers'):
+                        if isinstance(nameIdentifier.get('nameIdentifierScheme'), str) and nameIdentifier.get('nameIdentifierScheme').lower().strip()=='orcid':
+                            if isinstance(nameIdentifier.get('nameIdentifier'), str):
+                                current_orcid = nameIdentifier.get('nameIdentifier').split('/')[-1].upper()
+                                if current_orcid in french_authors_dict and current_year in french_authors_dict[current_orcid]:
+                                    fr_reasons.append('french_orcid')
+                                    orcid_info = french_authors_dict[current_orcid][current_year]
+                                    rors += orcid_info['rors']
+                    normalized_names = []
+                    if isinstance(obj.get('name'), str):
+                        normalized_name = normalize(obj['name'])
+                        normalized_names.append(normalized_name)
+                    if isinstance(obj.get('familyName'), str) and isinstance(obj.get('givenName'), str):
+                        normalized_name = normalize(obj['givenName'])+' '+normalize(obj['familyName'])
+                        normalized_names.append(normalized_name)
+                        normalized_name = normalize(obj['familyName'])+' '+normalize(obj['givenName'])
+                        normalized_names.append(normalized_name)
+                    for normalized_name in list(set(normalized_names)):
+                        if normalized_name in french_authors_dict and current_year in french_authors_dict[normalized_name]:
+                            fr_reasons.append('french_author')
+                            author_info = french_authors_dict[normalized_name][current_year]
+                            rors += author_info['rors']
                     for affiliation in obj.get("affiliation"):
+                        if 'affiliationIdentifier' in obj:
+                            assert(isinstance(obj['affiliationIdentifier'], str))
+                            if 'ror' in obj['affiliationIdentifier'].lower():
+                                rors.append(obj['affiliationIdentifier'].lower().split('/')[-1])
                         if affiliation:
                             local_matches = {}
                             aff_str = _create_affiliation_string(affiliation, exclude_list = [])
@@ -288,7 +408,6 @@ def run_task_enrich_dois(partition_files, index_name):
                 countries = list(set(countries))
                 doi['countries'] = countries
                 doi['affiliations'] = affiliations
-                fr_reasons = []
                 for c in countries:
                     if c in FRENCH_ALPHA2:
                         fr_reasons.append('country')
@@ -304,12 +423,15 @@ def run_task_enrich_dois(partition_files, index_name):
                 if get_client_id(doi).startswith('inist.'):
                     fr_reasons.append("clientId")
                     nb_new_client += 1
+                rors = list(set(rors))
+                bso_local_affiliations = list(set(bso_local_affiliations))
                 fr_reasons = list(set(fr_reasons))
                 fr_reasons.sort()
                 fr_reasons_concat = ';'.join(fr_reasons)
                 if fr_reasons:
-                    append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name)
-                    nb_new_doi += 1
+                    is_doi_kept = append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name, rors, bso_local_affiliations)
+                    if is_doi_kept:
+                        nb_new_doi += 1
                 known_dois.add(doi['id'])
         logger.debug(f'{nb_new_doi} doi added to {index_name} - country {nb_new_country} - publisher {nb_new_publisher} - client {nb_new_client}')
 

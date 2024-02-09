@@ -280,6 +280,12 @@ def get_relatedId(doi):
 def get_language(doi):
     return _safe_get("", doi, "attributes", "language")
 
+def get_size(doi):
+    return _safe_get("", doi, "attributes", "sizes")
+
+def get_format(doi):
+    return _safe_get("", doi, "attributes", "formats")
+
 
 def get_publicationYear(doi):
     return str(_safe_get("", doi, "attributes", "publicationYear"))
@@ -329,7 +335,7 @@ def make_author(c, role, affiliations):
             elt['orcid'] = idi['nameIdentifier'].split('/')[-1]
     return elt, affiliations
 
-def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name):
+def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name, rors, bso_local_affiliations):
 
     global re3_existing_signatures
     if len(re3_existing_signatures) == 0:
@@ -364,19 +370,26 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
         genre = 'datapaper'
     else:
         genre = 'other'
+    genre_detail = genre_raw
 
     nb_parts = 0
     subparts = []
     relatedIdentifiers = get_relatedId(doi)
+    #if is a version of
+    if isinstance(relatedIdentifiers, list):
+        for e in relatedIdentifiers:
+            if e.get('relationType') == 'IsVersionOf':
+                genre = 'version'
+                genre_detail = 'version_'+genre_raw
+    # part of 
     if isinstance(relatedIdentifiers, list):
         for e in relatedIdentifiers:
             if e.get('relationType') == 'IsPartOf':
-                genre = 'file_'+genre
+                genre = 'file'
+                genre_detail = 'file_'+genre_raw
                 subparts.append(e)
             if e.get('relationType') == 'HasPart':
                 nb_parts += 1
-            if e.get('relationType') == 'IsVersionOf':
-                genre = 'version'
 
     classifications = []
     for s in get_classification_subject(doi):
@@ -393,12 +406,13 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
     enriched_doi = {
         "doi": doi.get("id", ""),
         "external_ids": external_ids,
-        "year": get_publicationYear(doi),
+        "year": int(get_publicationYear(doi)),
         "authors": authors,
         "affiliations": affiliations,
         "title": get_title(doi),
         "genre_raw": genre_raw,
         "genre": genre,
+        "genre_detail": genre_detail,
         "nb_parts": nb_parts,
         "subparts": subparts,
         "resourceType": get_resourceType(doi),
@@ -416,8 +430,12 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
         "doi_supplement_to": get_doi_supplement_to(doi),
         "doi_version_of": get_doi_version_of(doi),
         "client_id": get_client_id(doi),
+        "size": get_size(doi),
+        "format": get_format(doi),
         "fr_reasons": fr_reasons,
         "fr_reasons_concat": fr_reasons_concat,
+        "rors": rors,
+        "bso_local_affiliations": bso_local_affiliations,
         "update_date": get_updated(doi),
     }
 
@@ -429,9 +447,11 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
 
     # Keep only non-null values
     stripped_enriched_doi = trim_null_values(enriched_doi)
-    append_to_file(
-        file=f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl',
-        _str=json.dumps(stripped_enriched_doi))
+    if 'version' not in genre_detail and 'file' not in genre_detail:
+        append_to_file(
+            file=f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl',
+            _str=json.dumps(stripped_enriched_doi))
+        return True
 
 
 def strip_creators_or_contributors(creators_or_contributors: List) -> List:
@@ -460,34 +480,37 @@ def append_to_file(file, _str):
 # lire les dump un par un, et gérér les publisher / clientid etc
 # gérer aussi les dates ?
 
-def write_doi_files(merged_affiliations_df: pd.DataFrame,
-                    mask: pd.Series,
-                    dump_file: PathLike,
-                    output_dir: str,
-                    index_name: str
-                    ):
-    """Write a json file for each doi, as is, if not contained in the mask,
-    otherwise with the matched affiliation to each creator or contributor
-    object in the doi.
-    Add a line with the matched affiliation and doi infos in the ES index
-    source file for each doi contained in the mask.
-    """
-    creators = []
-    if not os.path.isdir(output_dir):
-        os.makedirs(output_dir)
-    for json_obj in json_line_generator(dump_file):
-        for doi in json_obj.get('data'):
-            doi_contains_selected_affiliations = (
-                    len(merged_affiliations_df[mask][merged_affiliations_df[mask]["doi"] == doi["id"]].index) != 0
-            )
 
-            if doi_contains_selected_affiliations:
-                creators, contributors, fr_reasons, fr_reasons_concat = enrich_doi(doi, merged_affiliations_df)
+# IsSupplementTo
 
-                append_to_es_index_sourcefile(doi, creators, contributors, fr_reasons, fr_reasons_concat, index_name)
-
-            with open(f"{output_dir}/{_format_string(doi['id'])}.json", 'w') as f:
-                json.dump(doi, f, indent=None)
+#def write_doi_files(merged_affiliations_df: pd.DataFrame,
+#                    mask: pd.Series,
+#                    dump_file: PathLike,
+#                    output_dir: str,
+#                    index_name: str
+#                    ):
+#    """Write a json file for each doi, as is, if not contained in the mask,
+#    otherwise with the matched affiliation to each creator or contributor
+#    object in the doi.
+#    Add a line with the matched affiliation and doi infos in the ES index
+#    source file for each doi contained in the mask.
+#    """
+#    creators = []
+#    if not os.path.isdir(output_dir):
+#        os.makedirs(output_dir)
+#    for json_obj in json_line_generator(dump_file):
+#        for doi in json_obj.get('data'):
+#            doi_contains_selected_affiliations = (
+#                    len(merged_affiliations_df[mask][merged_affiliations_df[mask]["doi"] == doi["id"]].index) != 0
+#            )
+#
+#            if doi_contains_selected_affiliations:
+#                creators, contributors, fr_reasons, fr_reasons_concat = enrich_doi(doi, merged_affiliations_df)
+#
+#                append_to_es_index_sourcefile(doi, creators, contributors, fr_reasons, fr_reasons_concat, index_name)
+#
+#            with open(f"{output_dir}/{_format_string(doi['id'])}.json", 'w') as f:
+#                json.dump(doi, f, indent=None)
 
 
 def _list_files_in_directory(folder: Union[str, Path], regex: str):

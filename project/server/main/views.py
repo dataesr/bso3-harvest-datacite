@@ -14,7 +14,7 @@ from project.server.main.tasks import (
     run_task_consolidate_processed_files, run_task_consolidate_results,
     run_task_enrich_dois, run_task_harvest_dois,
     run_task_match_affiliations_partition, run_task_process_dois,
-    run_task_import_elastic_search)
+    run_task_import_elastic_search, update_bso_publications, update_french_authors)
 from rq import Connection, Queue
 
 main_blueprint = Blueprint(
@@ -176,6 +176,14 @@ def create_task_enrich_doi():
     )
     #partitions = get_partitions(datacite_dump_files, partition_size=partition_size)
     partition = get_partitions(datacite_dump_files, number_of_partitions=1)[0] # only one partition
+
+
+    if args.get('update_publications', True):
+        update_bso_publications()
+    
+    if args.get('update_french_authors', False):
+        update_french_authors()
+
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue(name="harvest-datacite", default_timeout=1500 * 3600)
         #for partition in partitions:
