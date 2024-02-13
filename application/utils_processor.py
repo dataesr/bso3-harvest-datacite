@@ -80,64 +80,64 @@ def get_matched_affiliations(aff_str_df: pd.DataFrame, aff_ror: str, aff_name: s
            }, creator_or_contributor, is_publisher_fr, is_clientId_fr, is_countries_fr
 
 
-def enrich_doi(doi, this_doi_df):
-    """Add a matched_affiliations field at the level of the affiliation containing
-    the countries, ror, grid, rnsr detected by the affiliation matcher
-    Return a list of matched_affiliations objects added for the doi"""
-    CREATORS = "creators"
-    CONTRIBUTORS = "contributors"
-    #this_doi_df = merged_affiliations_df[merged_affiliations_df["doi"] == doi["id"]]
-    creators = []
-    contributors = []
-    is_publisher = []
-    is_clientId = []
-    is_countries = []
-    creator_or_contributor = ""
-
-    for obj in doi["attributes"][CREATORS] + doi["attributes"][CONTRIBUTORS]:
-        obj['affiliations'] = []
-        for affiliation in obj.get("affiliation"):
-            if affiliation:
-                aff_str = _create_affiliation_string(affiliation, exclude_list=["affiliationIdentifierScheme"])
-
-                aff_ror = get_ror_or_orcid(affiliation, "affiliationIdentifierScheme", "ROR", "affiliationIdentifier")
-                aff_name = affiliation.get('name')
-                aff_str_df = this_doi_df[this_doi_df["affiliation_str"] == aff_str]
-                matched_affiliations, creator_or_contributor, is_publisher_fr, is_clientId_fr, is_countries_fr \
-                    = get_matched_affiliations(aff_str_df, aff_ror, aff_name)
-
-                obj['affiliations'].append(matched_affiliations)
-
-                is_publisher.append("publisher" if is_publisher_fr else "")
-                is_clientId.append("clientid" if is_clientId_fr else "")
-                is_countries.append("countries" if is_countries_fr else "")
-        if obj['affiliations'] == []:
-            del obj['affiliations']
-        es_obj = deepcopy(obj)
-        es_obj['orcid'] = next(
-            iter([get_ror_or_orcid(name_identifier, "nameIdentifierScheme", "ORCID", "nameIdentifier")
-                  for name_identifier in obj.get("nameIdentifiers") if name_identifier]), "")
-
-        es_obj['first_name'] = es_obj.get('givenName')
-        es_obj['last_name'] = es_obj.get('familyName')
-        es_obj['full_name'] = es_obj.get('name')
-
-        for key in ['givenName', 'familyName', 'name', 'nameType', 'affiliation', 'matched_affiliations',
-                    'nameIdentifiers']:
-            if key in es_obj:
-                del es_obj[key]
-
-        trim_null_values(es_obj)
-        if creator_or_contributor == "creators":
-            creators.append(es_obj)
-        elif creator_or_contributor == "contributors":
-            contributors.append(es_obj)
-
-    fr_reasons = list(set(filter(None, is_publisher + is_clientId + is_countries)))
-    fr_reasons.sort()
-    fr_reasons_concat = ";".join(fr_reasons)
-
-    return creators, contributors, fr_reasons, fr_reasons_concat
+#def enrich_doi(doi, this_doi_df):
+#    """Add a matched_affiliations field at the level of the affiliation containing
+#    the countries, ror, grid, rnsr detected by the affiliation matcher
+#    Return a list of matched_affiliations objects added for the doi"""
+#    CREATORS = "creators"
+#    CONTRIBUTORS = "contributors"
+#    #this_doi_df = merged_affiliations_df[merged_affiliations_df["doi"] == doi["id"]]
+#    creators = []
+#    contributors = []
+#    is_publisher = []
+#    is_clientId = []
+#    is_countries = []
+#    creator_or_contributor = ""
+#
+#    for obj in doi["attributes"][CREATORS] + doi["attributes"][CONTRIBUTORS]:
+#        obj['affiliations'] = []
+#        for affiliation in obj.get("affiliation"):
+#            if affiliation:
+#                aff_str = _create_affiliation_string(affiliation, exclude_list=["affiliationIdentifierScheme"])
+#
+#                aff_ror = get_ror_or_orcid(affiliation, "affiliationIdentifierScheme", "ROR", "affiliationIdentifier")
+#                aff_name = affiliation.get('name')
+#                aff_str_df = this_doi_df[this_doi_df["affiliation_str"] == aff_str]
+#                matched_affiliations, creator_or_contributor, is_publisher_fr, is_clientId_fr, is_countries_fr \
+#                    = get_matched_affiliations(aff_str_df, aff_ror, aff_name)
+#
+#                obj['affiliations'].append(matched_affiliations)
+#
+#                is_publisher.append("publisher" if is_publisher_fr else "")
+#                is_clientId.append("clientid" if is_clientId_fr else "")
+#                is_countries.append("countries" if is_countries_fr else "")
+#        if obj['affiliations'] == []:
+#            del obj['affiliations']
+#        es_obj = deepcopy(obj)
+#        es_obj['orcid'] = next(
+#            iter([get_ror_or_orcid(name_identifier, "nameIdentifierScheme", "ORCID", "nameIdentifier")
+#                  for name_identifier in obj.get("nameIdentifiers") if name_identifier]), "")
+#
+#        es_obj['first_name'] = es_obj.get('givenName')
+#        es_obj['last_name'] = es_obj.get('familyName')
+#        es_obj['full_name'] = es_obj.get('name')
+#
+#        for key in ['givenName', 'familyName', 'name', 'nameType', 'affiliation', 'matched_affiliations',
+#                    'nameIdentifiers']:
+#            if key in es_obj:
+#                del es_obj[key]
+#
+#        trim_null_values(es_obj)
+#        if creator_or_contributor == "creators":
+#            creators.append(es_obj)
+#        elif creator_or_contributor == "contributors":
+#            contributors.append(es_obj)
+#
+#    fr_reasons = list(set(filter(None, is_publisher + is_clientId + is_countries)))
+#    fr_reasons.sort()
+#    fr_reasons_concat = ";".join(fr_reasons)
+#
+#    return creators, contributors, fr_reasons, fr_reasons_concat
 
 
 def get_ror_or_orcid(affiliation_or_name_identifier: Dict, schema: str, ror_or_orcid: str, identifier: str) -> str:
@@ -288,7 +288,11 @@ def get_format(doi):
 
 
 def get_publicationYear(doi):
-    return str(_safe_get("", doi, "attributes", "publicationYear"))
+    year = str(_safe_get("", doi, "attributes", "publicationYear"))
+    try:
+        return int(year)
+    except:
+        return None
 
 def get_url(doi):
     return str(_safe_get("", doi, "attributes", "url"))
@@ -406,7 +410,7 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
     enriched_doi = {
         "doi": doi.get("id", ""),
         "external_ids": external_ids,
-        "year": int(get_publicationYear(doi)),
+        "year": get_publicationYear(doi),
         "authors": authors,
         "affiliations": affiliations,
         "title": get_title(doi),

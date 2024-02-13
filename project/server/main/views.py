@@ -14,7 +14,8 @@ from project.server.main.tasks import (
     run_task_consolidate_processed_files, run_task_consolidate_results,
     run_task_enrich_dois, run_task_harvest_dois,
     run_task_match_affiliations_partition, run_task_process_dois,
-    run_task_import_elastic_search, update_bso_publications, update_french_authors)
+    run_task_import_elastic_search, update_bso_publications, update_french_authors, update_french_rors)
+from project.server.main.pdb import update_pdbs
 from rq import Connection, Queue
 
 main_blueprint = Blueprint(
@@ -183,6 +184,12 @@ def create_task_enrich_doi():
     
     if args.get('update_french_authors', False):
         update_french_authors()
+    
+    if args.get('update_french_rors', True):
+        update_french_rors()
+    
+    if args.get('update_pdb', False):
+        update_pdbs()
 
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue(name="harvest-datacite", default_timeout=1500 * 3600)

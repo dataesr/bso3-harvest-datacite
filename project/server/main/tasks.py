@@ -17,13 +17,14 @@ from adapters.storages.swift_session import SwiftSession
 from application.elastic import reset_index
 from application.harvester import Harvester
 from application.processor import Processor, PartitionsController
-from application.utils_processor import _merge_files, json_line_generator, enrich_doi, append_to_es_index_sourcefile, _create_affiliation_string, get_publisher, get_client_id
+from application.utils_processor import _merge_files, json_line_generator, append_to_es_index_sourcefile, _create_affiliation_string, get_publisher, get_client_id, get_resourceTypeGeneral
 from config.global_config import config_harvester, MOUNTED_VOLUME_PATH
 from config.business_rules import FRENCH_PUBLISHERS, FRENCH_ALPHA2
 from domain.model.ovh_path import OvhPath
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import upload_object
 from project.server.main.strings import normalize
+from project.server.main.pdb import treat_pdb, load_pdbs
 import dask.dataframe as dd
 
 
@@ -313,6 +314,50 @@ def get_french_authors():
     return pickle.load(open('/data/french_authors.pkl', 'rb'))
 
 
+from tempfile import mkdtemp
+from zipfile import ZipFile
+import json
+import shutil
+CHUNK_SIZE = 128
+def get_last_ror_dump_url():
+    ROR_URL = "https://zenodo.org/api/communities/ror-data/records?q=&sort=newest"
+    response = requests.get(url=ROR_URL).json()
+    ror_dump_url = response['hits']['hits'][0]['files'][-1]['links']['self']
+    logger.debug(f'Last ROR dump url found: {ror_dump_url}')
+    return ror_dump_url
+
+def download_ror_data() -> list:
+    ROR_DUMP_URL = get_last_ror_dump_url()
+    logger.debug(f'download ROR from {ROR_DUMP_URL}')
+    ror_downloaded_file = 'ror_data_dump.zip'
+    ror_unzipped_folder = mkdtemp()
+    response = requests.get(url=ROR_DUMP_URL, stream=True)
+    with open(file=ror_downloaded_file, mode='wb') as file:
+        for chunk in response.iter_content(chunk_size=CHUNK_SIZE):
+            file.write(chunk)
+    with ZipFile(file=ror_downloaded_file, mode='r') as file:
+        file.extractall(ror_unzipped_folder)
+    for data_file in os.listdir(ror_unzipped_folder):
+        if data_file.endswith('.json'):
+            with open(f'{ror_unzipped_folder}/{data_file}', 'r') as file:
+                data = json.load(file)
+    os.remove(path=ror_downloaded_file)
+    shutil.rmtree(path=ror_unzipped_folder)
+    return data
+
+def update_french_rors():
+    french_rors = set([])
+    all_rors = download_ror_data()
+    for r in all_rors:
+        if r.get('country', {}).get('country_code').lower() in FRENCH_ALPHA2:
+            french_rors.add(r['id'].split('/')[-1].lower())
+    logger.debug(f'{len(french_rors)} french rors')
+    pickle.dump(french_rors, open('/data/french_rors.pkl', 'wb'))
+
+def get_french_rors():
+    return pickle.load(open('/data/french_rors.pkl', 'rb'))
+
+
 # IsSupplementTo
 def run_task_enrich_dois(partition_files, index_name):
     """Read downloaded datacite files and :
@@ -336,11 +381,18 @@ def run_task_enrich_dois(partition_files, index_name):
 
     bso_doi_dict = get_bso_publications() 
     french_authors_dict = get_french_authors()
+    french_rors = get_french_rors()
 
     matches = get_affiliations_matches(index_name)
     output_file = f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl'
     os.system(f'rm -rf {output_file}')
     known_dois = set([]) # to handle dois present multiple times
+
+
+    pdbs_data = load_pdbs()
+    for pdb_id in pdbs_data:
+        treat_pdb(pdb_id, bso_doi_dict, index_name)
+
     for dump_file in partition_files:
         logger.debug(f'treating {dump_file}')
         nb_new_doi, nb_new_country, nb_new_publisher, nb_new_client = 0, 0, 0, 0
@@ -354,7 +406,7 @@ def run_task_enrich_dois(partition_files, index_name):
                 fr_reasons = []
                 rors = []
                 bso_local_affiliations = []
-                current_year = doi.get('publicationYear')
+                current_year = doi['attributes'].get('publicationYear')
                 if 'attributes' in doi and 'relatedIdentifiers' in doi['attributes']:
                     for rel_id in doi['attributes']['relatedIdentifiers']:
                         if rel_id.get('relationType') == 'IsSupplementTo':
@@ -367,18 +419,21 @@ def run_task_enrich_dois(partition_files, index_name):
                 for obj in doi["attributes"]["creators"] + doi["attributes"]["contributors"]:
                     if 'nameIdentifiers' in obj:
                         assert(isinstance(obj['nameIdentifiers'], list))
-                    for nameIdentifier in obj.get('nameIdentifiers'):
-                        if isinstance(nameIdentifier.get('nameIdentifierScheme'), str) and nameIdentifier.get('nameIdentifierScheme').lower().strip()=='orcid':
-                            if isinstance(nameIdentifier.get('nameIdentifier'), str):
-                                current_orcid = nameIdentifier.get('nameIdentifier').split('/')[-1].upper()
-                                if current_orcid in french_authors_dict and current_year in french_authors_dict[current_orcid]:
-                                    fr_reasons.append('french_orcid')
-                                    orcid_info = french_authors_dict[current_orcid][current_year]
-                                    rors += orcid_info['rors']
+                        for nameIdentifier in obj.get('nameIdentifiers'):
+                            if isinstance(nameIdentifier.get('nameIdentifierScheme'), str) and nameIdentifier.get('nameIdentifierScheme').lower().strip()=='orcid':
+                                if isinstance(nameIdentifier.get('nameIdentifier'), str):
+                                    current_orcid = nameIdentifier.get('nameIdentifier').split('/')[-1].upper()
+                                    if current_orcid in french_authors_dict and current_year in french_authors_dict[current_orcid]:
+                                        fr_reasons.append('french_orcid')
+                                        orcid_info = french_authors_dict[current_orcid][current_year]
+                                        rors += orcid_info
                     normalized_names = []
                     if isinstance(obj.get('name'), str):
                         normalized_name = normalize(obj['name'])
                         normalized_names.append(normalized_name)
+                        for k in ['cnrs', 'saclay', 'sorbonne', 'inrae', 'inserm', 'cirad', 'ifremer', 'cnes', 'paris france']:
+                            if k in normalized_name:
+                                fr_reasons.append(f'name_{k}')
                     if isinstance(obj.get('familyName'), str) and isinstance(obj.get('givenName'), str):
                         normalized_name = normalize(obj['givenName'])+' '+normalize(obj['familyName'])
                         normalized_names.append(normalized_name)
@@ -388,12 +443,15 @@ def run_task_enrich_dois(partition_files, index_name):
                         if normalized_name in french_authors_dict and current_year in french_authors_dict[normalized_name]:
                             fr_reasons.append('french_author')
                             author_info = french_authors_dict[normalized_name][current_year]
-                            rors += author_info['rors']
+                            rors += author_info
                     for affiliation in obj.get("affiliation"):
                         if 'affiliationIdentifier' in obj:
                             assert(isinstance(obj['affiliationIdentifier'], str))
                             if 'ror' in obj['affiliationIdentifier'].lower():
-                                rors.append(obj['affiliationIdentifier'].lower().split('/')[-1])
+                                current_ror = obj['affiliationIdentifier'].lower().split('/')[-1]
+                                rors.append(current_ror)
+                                if current_ror in french_rors:
+                                    fr_reasons.append('french_ror')
                         if affiliation:
                             local_matches = {}
                             aff_str = _create_affiliation_string(affiliation, exclude_list = [])
@@ -405,6 +463,10 @@ def run_task_enrich_dois(partition_files, index_name):
                                     countries += affiliation['countries']
                                 if affiliation not in affiliations:
                                     affiliations.append(affiliation)
+                            aff_str_normalized = normalize(aff_str)
+                            for k in ['france', 'french', 'umr ', 'cnrs', 'ifremer', 'cnes', 'saclay', 'sorbonne', 'paris', ' lyon', 'marseille', 'lille', 'nantes', 'rennes', 'inrae', 'inserm', 'montpellier', 'toulouse', 'strasbourg', 'université de lorraine', 'toulon', 'pierre simon laplace']:
+                                if k in aff_str_normalized:
+                                    fr_reasons.append(f'affiliation_{k}')
                 countries = list(set(countries))
                 doi['countries'] = countries
                 doi['affiliations'] = affiliations
@@ -428,7 +490,11 @@ def run_task_enrich_dois(partition_files, index_name):
                 fr_reasons = list(set(fr_reasons))
                 fr_reasons.sort()
                 fr_reasons_concat = ';'.join(fr_reasons)
-                if fr_reasons:
+                # skip image from nakala without any other interesting meta
+                if fr_reasons_concat == 'clientId;publisher' and get_resourceTypeGeneral(doi) == 'image':
+                    fr_reasons = []
+                    continue
+                if len(fr_reasons)>0:
                     is_doi_kept = append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name, rors, bso_local_affiliations)
                     if is_doi_kept:
                         nb_new_doi += 1
