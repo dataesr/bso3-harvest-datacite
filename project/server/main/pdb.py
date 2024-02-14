@@ -1,4 +1,5 @@
 import requests
+import json
 import pickle
 import pandas as pd
 from project.server.main.logger import get_logger
@@ -29,6 +30,7 @@ def load_pdbs():
     except:
         pdbs = {}
     logger.debug(f'{len(pdbs)} pdbs loaded')
+    return pdbs
 
 def save_pdbs():
     global pdbs
@@ -77,6 +79,8 @@ def parse_pdb(e, bso_doi_dict):
         doi_supplement_to.append(e.get('rcsb_primary_citation', {}).get('pdbx_database_id_doi').lower().strip())
     if doi_supplement_to:
         elt['doi_supplement_to'] = list(set(doi_supplement_to))
+    else:
+        elt['doi_supplement_to'] = []
     fr_reasons=[]
     for c in elt['doi_supplement_to']:
         if c in bso_doi_dict:
@@ -103,5 +107,5 @@ def parse_pdb(e, bso_doi_dict):
 def treat_pdb(e, bso_doi_dict, index_name):
     elt = parse_pdb(e, bso_doi_dict)
     if len(elt.get('fr_reasons', []))>0:
-        logger.debug(f'french pdb {e}')
+        logger.debug(f"french pdb {elt['id']}")
         append_to_file(file=f'/data/{index_name}.jsonl', _str=json.dumps(elt))

@@ -391,7 +391,7 @@ def run_task_enrich_dois(partition_files, index_name):
 
     pdbs_data = load_pdbs()
     for pdb_id in pdbs_data:
-        treat_pdb(pdb_id, bso_doi_dict, index_name)
+        treat_pdb(pdbs_data[pdb_id], bso_doi_dict, index_name)
 
     for dump_file in partition_files:
         logger.debug(f'treating {dump_file}')
