@@ -8,6 +8,7 @@ from typing import Dict, List, Union
 
 import pandas as pd
 from project.server.main.re3data import find_re3 
+from project.server.main.strings import normalize
 
 from config.exceptions import FileLoadingException
 from config.global_config import config_harvester, COMPRESSION_SUFFIX, MOUNTED_VOLUME_PATH
@@ -339,7 +340,7 @@ def make_author(c, role, affiliations):
             elt['orcid'] = idi['nameIdentifier'].split('/')[-1]
     return elt, affiliations
 
-def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name, rors, bso_local_affiliations):
+def append_to_es_index_sourcefile(doi, index_name):
 
     global re3_existing_signatures
     if len(re3_existing_signatures) == 0:
@@ -423,7 +424,8 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
         "abstract": [{'abstract': get_abstract(doi), 'lang': get_language(doi)}],
         "grants": get_grants(doi),
         "url": get_url(doi),
-        "publisher": get_publisher(doi),
+        "publisher_raw": get_publisher(doi),
+        "publisher": normalize_publisher(get_publisher(doi)),
         "classifications": classifications,
         "language": get_language(doi),
         "license": get_license(doi),
@@ -436,11 +438,14 @@ def append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name
         "client_id": get_client_id(doi),
         "size": get_size(doi),
         "format": get_format(doi),
-        "fr_reasons": fr_reasons,
-        "fr_reasons_concat": fr_reasons_concat,
-        "rors": rors,
-        "bso_local_affiliations": bso_local_affiliations,
-        "update_date": get_updated(doi),
+        "fr_reasons": doi.get('fr_reasons'),
+        "fr_reasons_concat": doi.get('fr_reasons_concat'),
+        "rors": doi.get('rors'),
+        "bso_local_affiliations": doi.get('bso_local_affiliations'),
+        'fr_authors_orcid': doi.get('fr_authors_orcid'),
+        'fr_authors_name': doi.get('fr_authors_name'),
+        'fr_publications_linked': doi.get('fr_publications_linked'),
+        "update_date": get_updated(doi)
     }
 
     #if enriched_doi.get('url'):
@@ -678,3 +683,24 @@ def trim_null_values(data: dict) -> dict:
         if not v in (u'', None, {}, []):
             new_data[k] = v
     return new_data
+
+def normalize_publisher(x):
+    if not isinstance(x, str):
+        return None
+    normalized_input = normalize(x)
+    if normalize('cole des Hautes Études en Sciences Sociales') in normalized_input:
+        return 'EHESS'
+    if normalize('NAKALA') in normalized_input:
+        return 'NAKALA'
+    if 'figshare' in normalized_input:
+        return 'figshare'
+    if normalize('Strasbourg (CDS)') in normalized_input:
+        return 'Centre Données Strasbourg (CDS)'
+    if normalize('UMS PatriNat') in normalized_input:
+        return 'UMS PatriNat'
+    if x in ['Portail Data INRAE', 'Institut national de recherche pour l’agriculture, l’alimentation et l’environnement (INRAE)', 'INRAE']:
+        return 'Portail Data INRAE'
+    if x[0:7].lower() == 'ifremer' or normalize('Délégation Ifremer') in normalized_input:
+        return 'IFREMER'
+    if x[0:6].lower() == 'zenodo':
+        return 'Zenodo'

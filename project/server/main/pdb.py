@@ -107,5 +107,5 @@ def parse_pdb(e, bso_doi_dict):
 def treat_pdb(e, bso_doi_dict, index_name):
     elt = parse_pdb(e, bso_doi_dict)
     if len(elt.get('fr_reasons', []))>0:
-        logger.debug(f"french pdb {elt['id']}")
+        logger.debug(f"french pdb {elt['doi']}")
         append_to_file(file=f'/data/{index_name}.jsonl', _str=json.dumps(elt))

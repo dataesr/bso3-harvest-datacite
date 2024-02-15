@@ -34,15 +34,16 @@ logger = get_logger(__name__)
 def run_task_import_elastic_search(index_name):
     """Create an ES index from a file using elasticdump, deleting it if it already exists."""
     # todo gz before upload
+    os.system(f'cd /data && gzip -k {index_name}.jsonl')
     upload_object(
         container='bso_dump',
-        source=f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl',
-        target=f'{index_name}.jsonl',
+        source=f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl.gz',
+        target=f'{index_name}.jsonl.gz',
     )
     upload_object(
         container='bso_dump',
-        source=f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl',
-        target=f'bso-datacite-latest.jsonl',
+        source=f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl.gz',
+        target=f'bso-datacite-latest.jsonl.gz',
     )
     # elastic.py
     es_url_without_http = config_harvester["ES_URL"].replace("https://", "").replace("http://", "")
@@ -357,8 +358,6 @@ def update_french_rors():
 def get_french_rors():
     return pickle.load(open('/data/french_rors.pkl', 'rb'))
 
-
-# IsSupplementTo
 def run_task_enrich_dois(partition_files, index_name):
     """Read downloaded datacite files and :
         - write a file for each doi. If the doi contains a french affiliation,
@@ -406,7 +405,11 @@ def run_task_enrich_dois(partition_files, index_name):
                 fr_reasons = []
                 rors = []
                 bso_local_affiliations = []
+                fr_publications_linked = []
+                fr_authors_orcid = []
+                fr_authors_name = []
                 current_year = doi['attributes'].get('publicationYear')
+                publisher = doi['attributes'].get('publisher')
                 if 'attributes' in doi and 'relatedIdentifiers' in doi['attributes']:
                     for rel_id in doi['attributes']['relatedIdentifiers']:
                         if rel_id.get('relationType') == 'IsSupplementTo':
@@ -415,6 +418,7 @@ def run_task_enrich_dois(partition_files, index_name):
                                 publi_info = bso_doi_dict[rel_id['relatedIdentifier'].lower()]
                                 rors += publi_info['rors']
                                 bso_local_affiliations += publi_info['bso_local_affiliations']
+                                fr_publications_linked.append({'doi': rel_id['relatedIdentifier'].lower(), 'rors': publi_info['rors'], 'bso_local_affiliations': publi_info['bso_local_affiliations']})
                 countries, affiliations = [], []
                 for obj in doi["attributes"]["creators"] + doi["attributes"]["contributors"]:
                     if 'nameIdentifiers' in obj:
@@ -427,9 +431,10 @@ def run_task_enrich_dois(partition_files, index_name):
                                         fr_reasons.append('french_orcid')
                                         orcid_info = french_authors_dict[current_orcid][current_year]
                                         rors += orcid_info
+                                        fr_authors_orcid.append({'author': obj, 'rors': orcid_info})
                     normalized_names = []
                     if isinstance(obj.get('name'), str):
-                        normalized_name = normalize(obj['name'])
+                        normalized_name = normalize(obj['name'].replace(',', ' '))
                         normalized_names.append(normalized_name)
                         for k in ['cnrs', 'saclay', 'sorbonne', 'inrae', 'inserm', 'cirad', 'ifremer', 'cnes', 'paris france']:
                             if k in normalized_name:
@@ -441,9 +446,12 @@ def run_task_enrich_dois(partition_files, index_name):
                         normalized_names.append(normalized_name)
                     for normalized_name in list(set(normalized_names)):
                         if normalized_name in french_authors_dict and current_year in french_authors_dict[normalized_name]:
+                            if publisher=='UNITE Community' and normalized_name in ['anne houles']:
+                                continue
                             fr_reasons.append('french_author')
                             author_info = french_authors_dict[normalized_name][current_year]
                             rors += author_info
+                            fr_authors_name.append({'author': {'name': normalized_name}, 'rors':author_info})
                     for affiliation in obj.get("affiliation"):
                         if 'affiliationIdentifier' in obj:
                             assert(isinstance(obj['affiliationIdentifier'], str))
@@ -495,7 +503,14 @@ def run_task_enrich_dois(partition_files, index_name):
                     fr_reasons = []
                     continue
                 if len(fr_reasons)>0:
-                    is_doi_kept = append_to_es_index_sourcefile(doi, fr_reasons, fr_reasons_concat, index_name, rors, bso_local_affiliations)
+                    doi['fr_reasons'] = fr_reasons
+                    doi['fr_reasons_concat'] = fr_reasons_concat
+                    doi['rors'] = rors
+                    doi['bso_local_affiliations'] = bso_local_affiliations
+                    doi['fr_authors_orcid'] = fr_authors_orcid
+                    doi['fr_authors_name'] = fr_authors_name
+                    doi['fr_publications_linked'] = fr_publications_linked
+                    is_doi_kept = append_to_es_index_sourcefile(doi, index_name)
                     if is_doi_kept:
                         nb_new_doi += 1
                 known_dois.add(doi['id'])
