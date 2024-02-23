@@ -82,12 +82,14 @@ def parse_pdb(e, bso_doi_dict):
     else:
         elt['doi_supplement_to'] = []
     fr_reasons=[]
+    fr_publications_linked = []
     for c in elt['doi_supplement_to']:
         if c in bso_doi_dict:
             fr_reasons.append('linked_article')
             publi_info = bso_doi_dict[c]
             rors += publi_info['rors']
             bso_local_affiliations += publi_info['bso_local_affiliations']
+            fr_publications_linked.append({'doi': c, 'rors': publi_info['rors'], 'bso_local_affiliations': publi_info['bso_local_affiliations']})
     authors=[]
     for a in e.get('audit_author'):
         if a.get('name'):
@@ -98,6 +100,7 @@ def parse_pdb(e, bso_doi_dict):
     fr_reasons.sort()
     fr_reasons_concat = ";".join(fr_reasons)
     elt['fr_reasons_concat'] = fr_reasons_concat
+    elt['fr_publications_linked'] = fr_publications_linked
     if rors:
         elt['rors'] = rors
     if bso_local_affiliations:

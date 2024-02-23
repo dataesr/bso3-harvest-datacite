@@ -176,8 +176,9 @@ def create_task_enrich_doi():
         '*' + config_harvester['datacite_file_extension'])
     )
     #partitions = get_partitions(datacite_dump_files, partition_size=partition_size)
-    partition = get_partitions(datacite_dump_files, number_of_partitions=1)[0] # only one partition
-
+    #partition = get_partitions(datacite_dump_files, number_of_partitions=1)[0] # only one partition
+    datacite_dump_files.sort(reverse=True)
+    partition = datacite_dump_files
 
     if args.get('update_publications', True):
         update_bso_publications()

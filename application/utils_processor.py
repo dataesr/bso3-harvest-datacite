@@ -376,6 +376,8 @@ def append_to_es_index_sourcefile(doi, index_name):
     else:
         genre = 'other'
     genre_detail = genre_raw
+    if get_publisher(doi) in ['HEPData', 'PANGAEA']:
+        genre = 'dataset'
 
     nb_parts = 0
     subparts = []
@@ -704,3 +706,4 @@ def normalize_publisher(x):
         return 'IFREMER'
     if x[0:6].lower() == 'zenodo':
         return 'Zenodo'
+    return x
