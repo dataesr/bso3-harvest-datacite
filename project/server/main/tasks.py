@@ -31,7 +31,9 @@ import dask.dataframe as dd
 logger = get_logger(__name__)
 
 
-def run_task_import_elastic_search(index_name):
+def run_task_import_elastic_search(args):
+    index_name = args.get("index_name")
+    new_index_name = args.get("new_index_name", index_name)
     """Create an ES index from a file using elasticdump, deleting it if it already exists."""
     # todo gz before upload
     os.system(f'cd /data && gzip -k {index_name}.jsonl')
@@ -49,9 +51,9 @@ def run_task_import_elastic_search(index_name):
     es_url_without_http = config_harvester["ES_URL"].replace("https://", "").replace("http://", "")
     es_host = f"https://{config_harvester['ES_LOGIN_BSO3_BACK']}:{parse.quote(config_harvester['ES_PASSWORD_BSO3_BACK'])}@{es_url_without_http}"
     logger.debug("loading datacite index")
-    reset_index(index=index_name)
+    reset_index(index=new_index_name)
     elasticimport = (
-            f"elasticdump --input={MOUNTED_VOLUME_PATH}/{index_name}.jsonl --output={es_host}{index_name} --type=data --limit 50 "
+            f"elasticdump --input={MOUNTED_VOLUME_PATH}/{index_name}.jsonl --output={es_host}{new_index_name} --type=data --limit 50 "
             + "--transform='doc._source=Object.assign({},doc)'"
     )
     logger.debug(f"{elasticimport}")
@@ -472,7 +474,7 @@ def run_task_enrich_dois(partition_files, index_name):
                                 if affiliation not in affiliations:
                                     affiliations.append(affiliation)
                             aff_str_normalized = normalize(aff_str)
-                            for k in ['france', 'french', 'umr ', 'cnrs', 'ifremer', 'cnes', 'saclay', 'sorbonne', 'paris', ' lyon', 'marseille', 'lille', 'nantes', 'rennes', 'inrae', 'inserm', 'montpellier', 'toulouse', 'strasbourg', 'université de lorraine', 'toulon', 'pierre simon laplace']:
+                            for k in ['france', 'french', 'umr ', 'cnrs', 'ifremer', 'cnes', 'saclay', 'sorbonne', 'paris', ' lyon', 'marseille', 'lille', 'nantes', 'rennes', 'inrae', 'inserm', 'montpellier', 'toulouse', 'strasbourg', 'université de lorraine', 'toulon', 'pierre simon laplace', 'grenoble']:
                                 if k in aff_str_normalized:
                                     fr_reasons.append(f'affiliation_{k}')
                 countries = list(set(countries))

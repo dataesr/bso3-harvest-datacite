@@ -382,19 +382,18 @@ def append_to_es_index_sourcefile(doi, index_name):
     nb_parts = 0
     subparts = []
     relatedIdentifiers = get_relatedId(doi)
-    #if is a version of
     if isinstance(relatedIdentifiers, list):
         for e in relatedIdentifiers:
             if e.get('relationType') == 'IsVersionOf':
                 genre = 'version'
                 genre_detail = 'version_'+genre_raw
-    # part of 
-    if isinstance(relatedIdentifiers, list):
-        for e in relatedIdentifiers:
             if e.get('relationType') == 'IsPartOf':
                 genre = 'file'
                 genre_detail = 'file_'+genre_raw
                 subparts.append(e)
+            if e.get('relationType') == 'IsIdenticalTo':
+                genre = 'identical'
+                genre_detail = 'identical_'+genre_raw
             if e.get('relationType') == 'HasPart':
                 nb_parts += 1
 
