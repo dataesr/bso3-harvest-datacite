@@ -438,7 +438,7 @@ def run_task_enrich_dois(partition_files, index_name):
                     if isinstance(obj.get('name'), str):
                         normalized_name = normalize(obj['name'].replace(',', ' '))
                         normalized_names.append(normalized_name)
-                        for k in ['cnrs', 'saclay', 'sorbonne', 'inrae', 'inserm', 'cirad', 'ifremer', 'cnes', 'paris france']:
+                        for k in ['cnrs', 'saclay', 'sorbonne', 'inrae', 'inserm', 'cirad', 'ifremer', 'cnes', 'paris france', 'arkeopen', 'cocoon']:
                             if k in normalized_name:
                                 fr_reasons.append(f'name_{k}')
                     if isinstance(obj.get('familyName'), str) and isinstance(obj.get('givenName'), str):

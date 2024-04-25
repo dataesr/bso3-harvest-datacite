@@ -66,10 +66,11 @@ def get_status(task_id):
     return jsonify(response_object)
 
 
-@main_blueprint.route("/harvest_dois", methods=["POST"])
+@main_blueprint.route("/harvest_dois", methods=["GET"])
 def create_task_harvest_dois():
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    args = request.get_json(force=True)
+    # args = request.get_json(force=True)
+    args = {}
     task_kwargs = {
         "target_directory": args.get("target_directory", config_harvester["raw_dump_folder_name"]),
         "start_date": args.get("start_date", config_harvester["dump_default_start_date"]),

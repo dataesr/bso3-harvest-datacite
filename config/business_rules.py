@@ -36,6 +36,7 @@ FRENCH_PUBLISHERS = [
             "caen",
             "MNHN",
             "École des Hautes Études en Sciences Sociales",
+            "Data Terra",
             "Supaéro",
             "Hautes Études en Sciences Sociales",
             "Institut Laue-Langevin",
