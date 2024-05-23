@@ -63,13 +63,17 @@ def reset_index(index: str) -> None:
         dynamic_match = "*authors"
 
     mappings = {'properties': {}}
-    # attention l'analyzer .keyword ne sera pas présent pour ce champs !
     for f in ['z_authors.family', 'z_authors.given', 'title', 'journal_name', 'keywords.keyword',
               'affiliations.name', 'authors.first_name', 'authors.last_name', 'authors.full_name',
               'authors.affiliations.name', 'title_first_author']:
         mappings['properties'][f] = {
             'type': 'text',
-            'analyzer': 'light'
+            'analyzer': 'light',
+            'fields': {
+                'keyword': {
+                    'type':  'keyword'
+                }
+            }
         }
 
     if dynamic_match:

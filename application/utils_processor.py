@@ -183,8 +183,9 @@ def get_description_element(doi, element):
             for description in doi["attributes"]["descriptions"]
             if description
             and description.get("descriptionType", "") == element
+            and isinstance(description.get("description"), str)
             ]
-        return " ".join(filter(None, (description.get("description", "") for description in descriptions_filtered))).strip()
+        return " ".join([d.get('description') for d in descriptions_filtered if isinstance(d, dict) and isinstance(d.get('description'), str)]).strip()
     except KeyError:
         return ""
 
@@ -438,7 +439,8 @@ def append_to_es_index_sourcefile(doi, index_name):
         "doi_version_of": get_doi_version_of(doi),
         "client_id": get_client_id(doi),
         "size": get_size(doi),
-        "format": get_format(doi),
+        "format_raw": get_format(doi),
+        "format": normalize_format(get_format(doi)),
         "fr_reasons": doi.get('fr_reasons'),
         "fr_reasons_concat": doi.get('fr_reasons_concat'),
         "rors": doi.get('rors'),
@@ -693,6 +695,8 @@ def normalize_publisher(x):
         return 'EHESS'
     if normalize('NAKALA') in normalized_input:
         return 'NAKALA'
+    if normalize('SAGE') in normalized_input:
+        return 'SAGE'
     if 'figshare' in normalized_input:
         return 'figshare'
     if normalize('Strasbourg (CDS)') in normalized_input:
@@ -706,3 +710,36 @@ def normalize_publisher(x):
     if x[0:6].lower() == 'zenodo':
         return 'Zenodo'
     return x
+
+def normalize_format(x):
+    if not isinstance(x, str):
+        return None
+    for f in ['image', 'audio', 'video', 'text', 'pdf', 'json', 'zip', 'fits',
+              'xml', 'csv', 'netcdf', 'html', 'javascript', 'sql', 'rdata', 'access']:
+        if f in x.lower():
+            return f
+    for f in ['jpg', 'jpeg', 'gif', 'tiff', 'svg', 'tif', 'png']:
+        if f in x.lower():
+            return 'image'
+    for f in ['mp4', 'mpeg', 'mpg', 'rec']:
+        if f in x.lower():
+            return 'video'
+    for f in ['word', 'txt', 'rtf']:
+        if f in x.lower():
+            return 'text'
+    for f in ['excel', 'spreadsheet', 'xls']:
+        if f in x.lower():
+            return 'spreadsheet'
+    for f in ['tar']:
+        if f in x.lower():
+            return 'zip'
+    for f in ['spss', 'stata', 'sas', 'r ']:
+        if f in x.lower():
+            return 'sas / stata / spss / R'
+    for f in ['powerpoint', 'slides']:
+        if f in x.lower():
+            return 'slides'
+    for f in ['shp', 'shapefile']:
+        if f in x.lower():
+            return 'shapefile'
+    return x#'other'
