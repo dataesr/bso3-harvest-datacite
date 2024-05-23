@@ -316,6 +316,11 @@ def update_french_authors():
 def get_french_authors():
     return pickle.load(open('/data/french_authors.pkl', 'rb'))
 
+EXCLUDED_FULL_NAMES = ['anne houles']
+df_excluded_last_names = pd.read_csv('/src/project/server/main/excluded_last_names.csv')
+EXCLUDED_LAST_NAMES = [normalize(x) for x in df_excluded_last_names.key.to_list()]
+logger.debug(f'{len(EXCLUDED_LAST_NAMES)} EXCLUDED_LAST_NAMES loaded')
+
 
 from tempfile import mkdtemp
 from zipfile import ZipFile
@@ -341,7 +346,7 @@ def download_ror_data() -> list:
     with ZipFile(file=ror_downloaded_file, mode='r') as file:
         file.extractall(ror_unzipped_folder)
     for data_file in os.listdir(ror_unzipped_folder):
-        if data_file.endswith('.json'):
+        if data_file.endswith('v2.json'):
             with open(f'{ror_unzipped_folder}/{data_file}', 'r') as file:
                 data = json.load(file)
     os.remove(path=ror_downloaded_file)
@@ -352,8 +357,9 @@ def update_french_rors():
     french_rors = set([])
     all_rors = download_ror_data()
     for r in all_rors:
-        if r.get('country', {}).get('country_code').lower() in FRENCH_ALPHA2:
-            french_rors.add(r['id'].split('/')[-1].lower())
+        for loc in r.get('locations', []):
+            if loc.get('geonames_details', {}).get('country_code', '').lower() in FRENCH_ALPHA2:
+                french_rors.add(r['id'].split('/')[-1].lower())
     logger.debug(f'{len(french_rors)} french rors')
     pickle.dump(french_rors, open('/data/french_rors.pkl', 'wb'))
 
@@ -447,8 +453,14 @@ def run_task_enrich_dois(partition_files, index_name):
                         normalized_name = normalize(obj['familyName'])+' '+normalize(obj['givenName'])
                         normalized_names.append(normalized_name)
                     for normalized_name in list(set(normalized_names)):
+                        to_exclude = False
                         if normalized_name in french_authors_dict and current_year in french_authors_dict[normalized_name]:
-                            if publisher=='UNITE Community' and normalized_name in ['anne houles']:
+                            if publisher=='UNITE Community' and normalized_name in EXCLUDED_FULL_NAMES:
+                                to_exclude = True
+                            for word in EXCLUDED_LAST_NAMES:
+                                if word in normalized_name.split(' '):
+                                    to_exclude = True
+                            if to_exclude:
                                 continue
                             fr_reasons.append('french_author')
                             author_info = french_authors_dict[normalized_name][current_year]
