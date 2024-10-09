@@ -22,7 +22,7 @@ from config.global_config import config_harvester, MOUNTED_VOLUME_PATH
 from config.business_rules import FRENCH_PUBLISHERS, FRENCH_ALPHA2
 from domain.model.ovh_path import OvhPath
 from project.server.main.logger import get_logger
-from project.server.main.utils_swift import upload_object
+from project.server.main.utils_swift import upload_object, init_cmd
 from project.server.main.strings import normalize
 from project.server.main.pdb import treat_pdb, load_pdbs
 import dask.dataframe as dd
@@ -257,7 +257,7 @@ def update_bso_publications():
             bso_local_affiliations = []
             if isinstance(row.bso_local_affiliations, str):
                 bso_local_affiliations = [a for a in row.bso_local_affiliations.split('|')]
-            bso_doi_dict[row.doi]['bso_local_affiliations'] = bso_local_affiliations
+            bso_doi_dict[row.doi]['bso_local_affiliations_from_publications'] = bso_local_affiliations
     logger.debug(f'writing {len(bso_doi_dict)} dois info from bso publications')
     pickle.dump(bso_doi_dict, open('/data/bso_doi_dict.pkl', 'wb'))
 
@@ -366,6 +366,73 @@ def update_french_rors():
 def get_french_rors():
     return pickle.load(open('/data/french_rors.pkl', 'rb'))
 
+def build_bso3_local_dict():
+    bso3_local_dict = {}
+    os.system(f'mkdir -p /data/bso3_local')
+    cmd =  init_cmd + f' download bso3-local -D /data/bso3_local --skip-identical'
+    os.system(cmd)
+    for filename in os.listdir(f'/data/bso3_local'):
+        local_affiliations = '.'.join(filename.split('.')[:-1]).split('_')
+        data_from_input = get_dois_from_input(filename=filename)
+        current_ids = []
+        if 'doi' in data_from_input:
+            current_ids += data_from_input['doi']
+        for elt in current_ids:
+            elt_id = elt['id']
+            if elt_id not in bso3_local_dict:
+                bso3_local_dict[elt_id] = {'affiliations': []}
+            for local_affiliation in local_affiliations:
+                if local_affiliation not in bso3_local_dict[elt_id]['affiliations']:
+                    bso3_local_dict[elt_id]['affiliations'].append(local_affiliation)
+    return bso3_local_dict
+
+def get_clean_id(e):
+    res = str(e).replace('.0','').strip().lower()
+    res = res.split(',')[0].strip()
+    return res
+
+DOI_PREFIX = re.compile("(10\.)(.*?)( |$)")
+def clean_doi(doi):
+    res = doi.lower().strip()
+    res = res.replace('%2f', '/')
+    doi_match = DOI_PREFIX.search(res)
+    if doi_match:
+        return doi_match.group().strip()
+    return None
+
+def get_dois_from_input(filename: str) -> list:
+    target = f'/data/bso3_local/{filename}'
+    logger.debug(f'reading {target}')
+    if 'xls' in filename.lower():
+        df = pd.read_excel(target, engine='openpyxl')
+    else:
+        df = pd.read_csv(target, sep=',')
+        doi_columns = [c for c in df.columns if 'doi' in c.lower()]
+        if doi_columns and ';' in doi_columns[0]:
+            df = pd.read_csv(target, sep=';')
+    doi_columns = [c for c in df.columns if 'doi' in c.lower()]
+    if len(doi_columns) > 0:
+        doi_column = doi_columns[0]
+    else:
+        logger.debug(f'ATTENTION !! Pas de colonne avec doi détectée pour {filename}')
+        return []
+    df['doi'] = df[doi_column]
+    filtered_columns = ['doi']
+    elts_with_id = []
+    grant_ids = []
+    for row in df[filtered_columns].itertuples():
+        clean_id = None
+        if isinstance(row.doi, str):
+            clean_id = clean_doi(row.doi)
+            elt = {'id': f'doi{clean_id}', 'doi': clean_id}
+        if clean_id is None or len(clean_id)<5:
+            continue
+        elt['sources'] = [filename]
+        elts_with_id.append(elt)
+    res = {'doi': elts_with_id}
+    logger.debug(f'doi column: {doi_column} for {filename} with {len(elts_with_id)} dois')
+    return res
+
 def run_task_enrich_dois(partition_files, index_name):
     """Read downloaded datacite files and :
         - write a file for each doi. If the doi contains a french affiliation,
@@ -390,11 +457,12 @@ def run_task_enrich_dois(partition_files, index_name):
     french_authors_dict = get_french_authors()
     french_rors = get_french_rors()
 
-    matches = get_affiliations_matches(index_name)
+    #matches = get_affiliations_matches(index_name)
     output_file = f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl'
     os.system(f'rm -rf {output_file}')
     known_dois = set([]) # to handle dois present multiple times
 
+    bso3_local_affiliations_dict = build_bso3_local_dict()
 
     pdbs_data = load_pdbs()
     for pdb_id in pdbs_data:
@@ -412,12 +480,20 @@ def run_task_enrich_dois(partition_files, index_name):
                     continue
                 fr_reasons = []
                 rors = []
-                bso_local_affiliations = []
+                bso_local_affiliations_from_publications = []
                 fr_publications_linked = []
                 fr_authors_orcid = []
                 fr_authors_name = []
                 current_year = doi['attributes'].get('publicationYear')
                 publisher = doi['attributes'].get('publisher')
+                doi_split_last = doi['id'].lower().split('.')[-1]
+                has_version_in_doi = ( len(doi_split_last) >= 2 and doi_split_last[0] == 'v' and doi_split_last[1:].isdigit() )
+                # do not keep 10.6084/m9.figshare.12874890.v1 type doi (duplicates from figshare)
+                if has_version_in_doi:
+                    if isinstance(publisher, str) and publisher.lower() in ['figshare', '4tu.researchdata']:
+                        continue
+                    if 'figshare' in doi['id'].lower():
+                        continue
                 if 'attributes' in doi and 'relatedIdentifiers' in doi['attributes']:
                     for rel_id in doi['attributes']['relatedIdentifiers']:
                         if rel_id.get('relationType') == 'IsSupplementTo':
@@ -425,8 +501,8 @@ def run_task_enrich_dois(partition_files, index_name):
                                 fr_reasons.append('linked_article')
                                 publi_info = bso_doi_dict[rel_id['relatedIdentifier'].lower()]
                                 rors += publi_info['rors']
-                                bso_local_affiliations += publi_info['bso_local_affiliations']
-                                fr_publications_linked.append({'doi': rel_id['relatedIdentifier'].lower(), 'rors': publi_info['rors'], 'bso_local_affiliations': publi_info['bso_local_affiliations']})
+                                bso_local_affiliations_from_publications += publi_info['bso_local_affiliations_from_publications']
+                                fr_publications_linked.append({'doi': rel_id['relatedIdentifier'].lower(), 'rors': publi_info['rors'], 'bso_local_affiliations_from_publications': publi_info['bso_local_affiliations_from_publications']})
                 countries, affiliations = [], []
                 for obj in doi["attributes"]["creators"] + doi["attributes"]["contributors"]:
                     if 'nameIdentifiers' in obj:
@@ -476,17 +552,18 @@ def run_task_enrich_dois(partition_files, index_name):
                                     fr_reasons.append('french_ror')
                         if affiliation:
                             local_matches = {}
-                            aff_str = _create_affiliation_string(affiliation, exclude_list = [])
-                            if aff_str in matches:
-                                local_matches = matches[aff_str]
-                            for f in local_matches:
-                                affiliation[f] = local_matches[f]
-                                if 'countries' in affiliation:
-                                    countries += affiliation['countries']
-                                if affiliation not in affiliations:
-                                    affiliations.append(affiliation)
+                            #aff_str = _create_affiliation_string(affiliation, exclude_list = [])
+                            aff_str = str(affiliation)
+                            #if aff_str in matches:
+                            #    local_matches = matches[aff_str]
+                            #for f in local_matches:
+                            #    affiliation[f] = local_matches[f]
+                            #    if 'countries' in affiliation:
+                            #        countries += affiliation['countries']
+                            #    if affiliation not in affiliations:
+                            #        affiliations.append(affiliation)
                             aff_str_normalized = normalize(aff_str)
-                            for k in ['france', 'french', 'umr ', 'cnrs', 'ifremer', 'cnes', 'saclay', 'sorbonne', 'paris', ' lyon', 'marseille', 'lille', 'nantes', 'rennes', 'inrae', 'inserm', 'montpellier', 'toulouse', 'strasbourg', 'université de lorraine', 'toulon', 'pierre simon laplace', 'grenoble']:
+                            for k in ['france', 'french', 'umr ', 'cnrs', 'ifremer', 'cnes', 'saclay', 'sorbonne', 'paris', ' lyon', 'marseille', 'lille', 'nantes', 'rennes', 'inrae', 'inserm', 'montpellier', 'toulouse', 'strasbourg', 'lorraine', 'toulon', 'pierre simon laplace', 'grenoble', 'roscoff', 'agrocampus', 'nanterre', 'orleans', 'paul sabatier', 'caen', 'normandie', 'jean perrin', 'bordeaux', 'ecole polytechnique', 'reims', 'ardenne', 'la reunion', 'poitiers', 'ecole normale superieure', 'saint etienne', 'onera', 'cirm', 'savoie', 'salpetriere', 'cochin', 'inria', 'inra', 'cea', 'mondor', 'roussy', 'necker', 'necker', 'nancy', 'tours', 'avicenne', 'lariboisiere']:
                                 if k in aff_str_normalized:
                                     fr_reasons.append(f'affiliation_{k}')
                 countries = list(set(countries))
@@ -508,7 +585,7 @@ def run_task_enrich_dois(partition_files, index_name):
                     fr_reasons.append("clientId")
                     nb_new_client += 1
                 rors = list(set(rors))
-                bso_local_affiliations = list(set(bso_local_affiliations))
+                bso_local_affiliations_from_publications = list(set(bso_local_affiliations_from_publications))
                 fr_reasons = list(set(fr_reasons))
                 fr_reasons.sort()
                 fr_reasons_concat = ';'.join(fr_reasons)
@@ -520,11 +597,11 @@ def run_task_enrich_dois(partition_files, index_name):
                     doi['fr_reasons'] = fr_reasons
                     doi['fr_reasons_concat'] = fr_reasons_concat
                     doi['rors'] = rors
-                    doi['bso_local_affiliations'] = bso_local_affiliations
+                    doi['bso_local_affiliations_from_publications'] = bso_local_affiliations_from_publications
                     doi['fr_authors_orcid'] = fr_authors_orcid
                     doi['fr_authors_name'] = fr_authors_name
                     doi['fr_publications_linked'] = fr_publications_linked
-                    is_doi_kept = append_to_es_index_sourcefile(doi, index_name)
+                    is_doi_kept = append_to_es_index_sourcefile(doi, index_name, bso3_local_affiliations_dict)
                     if is_doi_kept:
                         nb_new_doi += 1
                 known_dois.add(doi['id'])

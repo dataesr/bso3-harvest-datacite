@@ -1,4 +1,5 @@
 import json
+import numpy as np
 import os
 from copy import deepcopy
 from json import JSONDecodeError
@@ -9,6 +10,7 @@ from typing import Dict, List, Union
 import pandas as pd
 from project.server.main.re3data import find_re3 
 from project.server.main.strings import normalize
+from project.server.main.utils import get_mbytes, get_most_frequent
 
 from config.exceptions import FileLoadingException
 from config.global_config import config_harvester, COMPRESSION_SUFFIX, MOUNTED_VOLUME_PATH
@@ -285,6 +287,40 @@ def get_language(doi):
 def get_size(doi):
     return _safe_get("", doi, "attributes", "sizes")
 
+def get_total_size_mb(doi):
+    sizes = get_size(doi)
+    parsed_sizes=[]
+    parsed_units=[]
+    if sizes:
+        for size in sizes:
+            mb_detection = get_mbytes(size)
+            if mb_detection:
+                unit_detected = mb_detection.get('unit_detected')
+                if unit_detected:
+                    parsed_units.append(unit_detected)
+                mo = mb_detection.get('mo')
+                if mo:
+                    parsed_sizes.append(mo)
+    size_total_mb = None
+    has_size = False
+    size_cat = 'N/A'
+    if parsed_sizes:
+        size_total_mb = np.sum(parsed_sizes)
+        has_size = True
+        if size_total_mb < 1:
+            size_cat = "< 1 Mo"
+        elif 1 <= size_total_mb <= 10:
+            size_cat = "1 - 10 Mo"
+        elif 10 <= size_total_mb <= 100:
+            size_cat = "10 - 100 Mo"
+        elif 100 <= size_total_mb <= 1000:
+            size_cat = "100Mo - 1 Go"
+        else:
+            size_cat = ">= 1 Go"
+    return {'size_total_mb': size_total_mb, 'units': parsed_units, 'has_size': has_size, 'size_cat': size_cat}
+
+
+
 def get_format(doi):
     return _safe_get("", doi, "attributes", "formats")
 
@@ -341,7 +377,7 @@ def make_author(c, role, affiliations):
             elt['orcid'] = idi['nameIdentifier'].split('/')[-1]
     return elt, affiliations
 
-def append_to_es_index_sourcefile(doi, index_name):
+def append_to_es_index_sourcefile(doi, index_name, bso3_local_dict = {}):
 
     global re3_existing_signatures
     if len(re3_existing_signatures) == 0:
@@ -385,18 +421,19 @@ def append_to_es_index_sourcefile(doi, index_name):
     relatedIdentifiers = get_relatedId(doi)
     if isinstance(relatedIdentifiers, list):
         for e in relatedIdentifiers:
-            if e.get('relationType') == 'IsVersionOf':
-                genre = 'version'
-                genre_detail = 'version_'+genre_raw
-            if e.get('relationType') == 'IsPartOf':
-                genre = 'file'
-                genre_detail = 'file_'+genre_raw
-                subparts.append(e)
-            if e.get('relationType') == 'IsIdenticalTo':
-                genre = 'identical'
-                genre_detail = 'identical_'+genre_raw
-            if e.get('relationType') == 'HasPart':
-                nb_parts += 1
+            if e.get('relatedIdentifierType') == 'DOI':
+                if e.get('relationType') == 'IsVersionOf':
+                    genre = 'version'
+                    genre_detail = 'version_'+genre_raw
+                if e.get('relationType') == 'IsPartOf':
+                    genre = 'file'
+                    genre_detail = 'file_'+genre_raw
+                    subparts.append(e)
+                if e.get('relationType') == 'IsIdenticalTo':
+                    genre = 'identical'
+                    genre_detail = 'identical_'+genre_raw
+                if e.get('relationType') == 'HasPart':
+                    nb_parts += 1
 
     classifications = []
     for s in get_classification_subject(doi):
@@ -409,7 +446,6 @@ def append_to_es_index_sourcefile(doi, index_name):
             classifications.append(elt)
 
     #tocheck https://api.datacite.org/application/vnd.datacite.datacite+json/10.15454/9vwitq and https://api.datacite.org/application/vnd.datacite.datacite+json/10.57745/TGRHPZ
-
     enriched_doi = {
         "doi": doi.get("id", ""),
         "external_ids": external_ids,
@@ -427,7 +463,7 @@ def append_to_es_index_sourcefile(doi, index_name):
         "grants": get_grants(doi),
         "url": get_url(doi),
         "publisher_raw": get_publisher(doi),
-        "publisher": normalize_publisher(get_publisher(doi)),
+        "publisher": normalize_publisher(doi),
         "classifications": classifications,
         "language": get_language(doi),
         "license": get_license(doi),
@@ -439,17 +475,34 @@ def append_to_es_index_sourcefile(doi, index_name):
         "doi_version_of": get_doi_version_of(doi),
         "client_id": get_client_id(doi),
         "size": get_size(doi),
-        "format_raw": get_format(doi),
-        "format": normalize_format(get_format(doi)),
         "fr_reasons": doi.get('fr_reasons'),
         "fr_reasons_concat": doi.get('fr_reasons_concat'),
         "rors": doi.get('rors'),
-        "bso_local_affiliations": doi.get('bso_local_affiliations'),
+        "bso_local_affiliations_from_publications": doi.get('bso_local_affiliations_from_publications'),
         'fr_authors_orcid': doi.get('fr_authors_orcid'),
         'fr_authors_name': doi.get('fr_authors_name'),
         'fr_publications_linked': doi.get('fr_publications_linked'),
         "update_date": get_updated(doi)
     }
+
+    if enriched_doi.get('doi'):
+        enriched_doi['id'] = 'doi'+enriched_doi.get('doi')
+    else:
+        return
+
+    format_raw = get_format(doi)
+    if isinstance(format_raw, str):
+        format_raw = [format_raw]
+    enriched_doi['format_raw'] = format_raw
+    if isinstance(format_raw, list):
+        formats = [normalize_format(f) for f in format_raw]
+        enriched_doi['format'] = formats
+    size_infos = get_total_size_mb(doi)
+    enriched_doi.update(size_infos)
+
+
+    if enriched_doi.get('id') in bso3_local_dict:
+        enriched_doi['bso3_local_affiliations'] = bso3_local_dict[enriched_doi['id']].get('affiliations', [])
 
     #if enriched_doi.get('url'):
     #    re3_found = find_re3(enriched_doi['url'], re3_existing_signatures)
@@ -687,7 +740,10 @@ def trim_null_values(data: dict) -> dict:
             new_data[k] = v
     return new_data
 
-def normalize_publisher(x):
+def normalize_publisher(doi):
+    if 'figshare' in doi.get('id').lower():
+        return 'figshare'
+    x = get_publisher(doi)
     if not isinstance(x, str):
         return None
     normalized_input = normalize(x)
@@ -711,35 +767,37 @@ def normalize_publisher(x):
         return 'Zenodo'
     return x
 
-def normalize_format(x):
-    if not isinstance(x, str):
+def normalize_format(a):
+    if not isinstance(a, str):
+        logger.debug(f'unable to normalize format for {a} of type {type(a)}')
         return None
+    x = a.lower()
     for f in ['image', 'audio', 'video', 'text', 'pdf', 'json', 'zip', 'fits',
               'xml', 'csv', 'netcdf', 'html', 'javascript', 'sql', 'rdata', 'access']:
-        if f in x.lower():
+        if f in x:
             return f
     for f in ['jpg', 'jpeg', 'gif', 'tiff', 'svg', 'tif', 'png']:
-        if f in x.lower():
+        if f in x:
             return 'image'
     for f in ['mp4', 'mpeg', 'mpg', 'rec']:
-        if f in x.lower():
+        if f in x:
             return 'video'
     for f in ['word', 'txt', 'rtf']:
-        if f in x.lower():
+        if f in x:
             return 'text'
     for f in ['excel', 'spreadsheet', 'xls']:
-        if f in x.lower():
+        if f in x:
             return 'spreadsheet'
-    for f in ['tar']:
-        if f in x.lower():
+    for f in ['tar', 'zip']:
+        if f in x:
             return 'zip'
     for f in ['spss', 'stata', 'sas', 'r ']:
-        if f in x.lower():
+        if f in x:
             return 'sas / stata / spss / R'
     for f in ['powerpoint', 'slides']:
-        if f in x.lower():
+        if f in x:
             return 'slides'
     for f in ['shp', 'shapefile']:
-        if f in x.lower():
+        if f in x:
             return 'shapefile'
     return x#'other'
