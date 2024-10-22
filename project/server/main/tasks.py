@@ -6,6 +6,7 @@ import re
 import pickle
 from time import time
 from urllib import parse
+from retry import retry
 
 import pandas as pd
 import requests
@@ -31,9 +32,9 @@ import dask.dataframe as dd
 logger = get_logger(__name__)
 
 
-def run_task_import_elastic_search(args):
-    index_name = args.get("index_name")
-    new_index_name = args.get("new_index_name", index_name)
+def run_task_import_elastic_search(index_name, new_index_name):
+    #index_name = args.get("index_name")
+    #new_index_name = args.get("new_index_name", index_name)
     """Create an ES index from a file using elasticdump, deleting it if it already exists."""
     # todo gz before upload
     os.system(f'cd /data && gzip -k {index_name}.jsonl')
@@ -264,6 +265,10 @@ def update_bso_publications():
 def get_bso_publications():
     return pickle.load(open('/data/bso_doi_dict.pkl', 'rb'))
 
+@retry(delay=200, tries=5)
+def get_url(url):
+    return requests.get(url, verify=False)
+
 def list_french_authors_from_openalex():
     logger.debug('getting french authors from openalex')
     french_authors = []
@@ -271,8 +276,8 @@ def list_french_authors_from_openalex():
         logger.debug(f'chunk {jx}')
         if jx == 0:
             cursor = '*'
-        url_oa = f'https://api.openalex.org/authors?filter=last_known_institutions.country_code:FR,works_count:>3&per-page=200&select=id,orcid,display_name,affiliations,works_count&cursor={cursor}'
-        res = requests.get(url_oa).json()
+        url_oa = f'https://api.openalex.org/authors?filter=last_known_institutions.country_code:FR,works_count:>5&per-page=200&select=id,orcid,display_name,affiliations,works_count&cursor={cursor}'
+        res = get_url(url_oa).json()
         if 'results' not in res:
             break
         for k in res['results']:
@@ -433,7 +438,7 @@ def get_dois_from_input(filename: str) -> list:
     logger.debug(f'doi column: {doi_column} for {filename} with {len(elts_with_id)} dois')
     return res
 
-def run_task_enrich_dois(partition_files, index_name):
+def run_task_enrich_dois(partition_files, index_name, new_index_name):
     """Read downloaded datacite files and :
         - write a file for each doi. If the doi contains a french affiliation,
         it is enriched with informations from Affiliation Matcher
@@ -606,14 +611,14 @@ def run_task_enrich_dois(partition_files, index_name):
                         nb_new_doi += 1
                 known_dois.add(doi['id'])
         logger.debug(f'{nb_new_doi} doi added to {index_name} - country {nb_new_country} - publisher {nb_new_publisher} - client {nb_new_client}')
-
+    run_task_import_elastic_search(index_name, new_index_name)
     #for i, file in enumerate(partition_files):
     #    logger.debug(f"Processing {i} / {len(partition_files)}")
     #    write_doi_files(merged_affiliations, is_fr, Path(file), output_dir, index_name)
 
     # Upload and clean up
     #all_files = glob(output_dir + '*.json')
-    upload_files = False
+    # upload_files = False
     #if upload_files:
     #    fr_files = [
     #        file
