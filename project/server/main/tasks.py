@@ -18,7 +18,7 @@ from adapters.storages.swift_session import SwiftSession
 from application.elastic import reset_index
 from application.harvester import Harvester
 from application.processor import Processor, PartitionsController
-from application.utils_processor import _merge_files, json_line_generator, append_to_es_index_sourcefile, _create_affiliation_string, get_publisher, get_client_id, get_resourceTypeGeneral
+from application.utils_processor import _merge_files, json_line_generator, append_to_es_index_sourcefile, _create_affiliation_string, get_publisher, get_client_id, get_resourceTypeGeneral, get_natural_key
 from config.global_config import config_harvester, MOUNTED_VOLUME_PATH
 from config.business_rules import FRENCH_PUBLISHERS, FRENCH_ALPHA2
 from domain.model.ovh_path import OvhPath
@@ -466,6 +466,7 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
     output_file = f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl'
     os.system(f'rm -rf {output_file}')
     known_dois = set([]) # to handle dois present multiple times
+    known_natural_keys = set([]) # to handle natural keys present multiple times
 
     bso3_local_affiliations_dict = build_bso3_local_dict()
 
@@ -482,6 +483,9 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
             #logger.debug(f'{nb_data} objects')
             for doi in data:
                 if doi['id'] in known_dois:
+                    continue
+                natural_key = get_natural_key(doi)
+                if natural_key and natural_key in known_natural_keys:
                     continue
                 fr_reasons = []
                 rors = []
@@ -606,10 +610,12 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
                     doi['fr_authors_orcid'] = fr_authors_orcid
                     doi['fr_authors_name'] = fr_authors_name
                     doi['fr_publications_linked'] = fr_publications_linked
+                    doi['natural_key'] = natural_key
                     is_doi_kept = append_to_es_index_sourcefile(doi, index_name, bso3_local_affiliations_dict)
                     if is_doi_kept:
                         nb_new_doi += 1
                 known_dois.add(doi['id'])
+                known_natural_keys.add(natural_key)
         logger.debug(f'{nb_new_doi} doi added to {index_name} - country {nb_new_country} - publisher {nb_new_publisher} - client {nb_new_client}')
     run_task_import_elastic_search(index_name, new_index_name)
     #for i, file in enumerate(partition_files):

@@ -348,6 +348,25 @@ def get_updated(doi):
 def get_publisher(doi):
     return _safe_get("", doi, "attributes", "publisher")
 
+def get_natural_key(doi):
+    naturalKeyElts = []
+    title = get_title(doi)
+    if title:
+        naturalKeyElts.append(str(title))
+    creators = get_creators(doi)
+    if creators:
+        elt, _ = make_author(creators[0], 'creator', [])
+        if elt and elt.get('full_name'):
+            naturalKeyElts.append(str(elt['full_name']))
+    year = get_publicationYear(doi)
+    if year:
+        naturalKeyElts.append(str(year))
+    publisher = get_publisher(doi)
+    if publisher:
+        naturalKeyElts.append(str(publisher))
+    if len(naturalKeyElts) >= 4:
+        return ';'.join(naturalKeyElts)
+    return None
 
 def get_client_id(doi):
     return _safe_get("", doi, "relationships", "client", "data", "id")
