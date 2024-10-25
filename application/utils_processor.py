@@ -501,6 +501,7 @@ def append_to_es_index_sourcefile(doi, index_name, bso3_local_dict = {}):
         'fr_authors_orcid': doi.get('fr_authors_orcid'),
         'fr_authors_name': doi.get('fr_authors_name'),
         'fr_publications_linked': doi.get('fr_publications_linked'),
+        'natural_key': doi.get('natural_key'),
         "update_date": get_updated(doi)
     }
 

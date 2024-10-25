@@ -614,8 +614,8 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
                     is_doi_kept = append_to_es_index_sourcefile(doi, index_name, bso3_local_affiliations_dict)
                     if is_doi_kept:
                         nb_new_doi += 1
+                    known_natural_keys.add(natural_key) # only for french
                 known_dois.add(doi['id'])
-                known_natural_keys.add(natural_key)
         logger.debug(f'{nb_new_doi} doi added to {index_name} - country {nb_new_country} - publisher {nb_new_publisher} - client {nb_new_client}')
     run_task_import_elastic_search(index_name, new_index_name)
     #for i, file in enumerate(partition_files):
