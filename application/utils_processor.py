@@ -785,6 +785,12 @@ def normalize_publisher(doi):
         return 'IFREMER'
     if x[0:6].lower() == 'zenodo':
         return 'Zenodo'
+    if 'cambridge crystallographic' in x.lower():
+        return 'Cambridge Structural Database (CSD)'
+    if 'fiz karlsruhe' in x.lower():
+        return 'Inorganic Crystal Structure Database (ICSD)'
+    if 'sage journal' in x.lower():
+        return 'SAGE'
     return x
 
 def normalize_format(a):
