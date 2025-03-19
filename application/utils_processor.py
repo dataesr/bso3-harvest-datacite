@@ -265,7 +265,7 @@ def get_license(doi):
             for right in doi["attributes"]["rightsList"]
             if right
         ))
-        return " ".join(rights_filtered).strip()
+        return " ".join(rights_filtered).strip().lower()
     except KeyError:
         return ""
 
