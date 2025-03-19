@@ -258,14 +258,14 @@ def get_created(doi):
     return _safe_get("", doi, "attributes", "created")
 
 
-def get_license(doi):
+def get_licenses(doi):
     try:
         rights_filtered = filter(None, (
             right["rightsIdentifier"]
             for right in doi["attributes"]["rightsList"]
             if right
         ))
-        return " ".join(rights_filtered).strip().lower()
+        return [right.strip().lower() for right in rights_filtered]
     except KeyError:
         return ""
 
@@ -485,7 +485,7 @@ def append_to_es_index_sourcefile(doi, index_name, bso3_local_dict = {}):
         "publisher": normalize_publisher(doi),
         "classifications": classifications,
         "language": get_language(doi),
-        "license": get_license(doi),
+        "licenses": get_licenses(doi),
         "methods": get_methods(doi),
         "description": get_description(doi),
         "created": get_created(doi),
