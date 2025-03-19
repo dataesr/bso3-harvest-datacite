@@ -265,7 +265,7 @@ def get_licenses(doi):
             for right in doi["attributes"]["rightsList"]
             if right
         ))
-        return [right.strip().lower() for right in rights_filtered]
+        return list(set([right.strip().lower() for right in rights_filtered]))
     except KeyError:
         return ""
 
