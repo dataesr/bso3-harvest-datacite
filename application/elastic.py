@@ -69,7 +69,12 @@ def reset_index(index: str) -> None:
               'authors.affiliations.name', 'title_first_author']:
         mappings['properties'][f] = {
             'type': 'text',
-            'analyzer': 'light'
+            'analyzer': 'light',
+            'fields': {
+                'keyword': {
+                    'type':  'keyword'
+                }
+            }
         }
 
     if dynamic_match:

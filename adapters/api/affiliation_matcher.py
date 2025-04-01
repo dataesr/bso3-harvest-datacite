@@ -40,6 +40,8 @@ class AffiliationMatcher(AbstractAffiliationMatcher):
         Calls affiliation matcher to determine the countries/ror/grid/rnsr mentionned in the string.
         Uses a cache to avoid repeating frequent queries.
         """
+        if not isinstance(affiliation_string, str):
+            return []
         try:
             return requests.post(
                     url=f"{self.base_url}/match",

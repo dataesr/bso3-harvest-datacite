@@ -28,7 +28,7 @@ DEFAULT_START_DATE = "2018-01-01"
 # Elastic Searh configurations
 ES_LOGIN_BSO3_BACK = os.getenv("ES_LOGIN_BSO3_BACK", "")
 ES_PASSWORD_BSO3_BACK = os.getenv("ES_PASSWORD_BSO3_BACK", "")
-ES_URL = os.getenv("ES_URL", "http://localhost:9200")
+ES_URL = os.getenv("ES_URL2", "http://localhost:9200")
 
 
 def get_harvester_config() -> dict:

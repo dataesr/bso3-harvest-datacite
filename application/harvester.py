@@ -76,7 +76,7 @@ class Harvester(AbstractHarvester):
             begin_harvesting = False
             harvest_state.status = "already exists"
 
-        print(f"begin harvesting {begin_harvesting}")
+        logger.debug(f"begin harvesting {begin_harvesting}")
         if begin_harvesting:
             logger.info(f"Begin Harvesting")
             dcdump_interval: str = self.selectInterval(harvest_state.slice_type)
@@ -180,7 +180,7 @@ class Harvester(AbstractHarvester):
         p = run(cmd, stdout=PIPE, stderr=STDOUT, text=True)
 
         if p.returncode != 0:
-            raise Exception(p.stdout)
+            logger.debug(p.stdout)
 
         result = int(p.stdout.split('="')[-1].split()[0])
 
@@ -211,8 +211,8 @@ class Harvester(AbstractHarvester):
         if not Path(target_directory).exists():
             Path(target_directory).mkdir()
 
-        print(f"start date {start_date.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"end date {end_date.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.debug(f"start date {start_date.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.debug(f"end date {end_date.strftime('%Y-%m-%d %H:%M:%S')}")
 
         cmd = [
             "./dcdump/dcdump",
@@ -233,11 +233,10 @@ class Harvester(AbstractHarvester):
             "-sleep",
             str(sleep_duration),
         ]
+        logger.debug(' '.join(cmd))
         p = run(cmd, text=True, capture_output=True)
-
         if p.returncode != 0:
-             raise Exception(p.stdout)
-
+            logger.debug(p.stdout)
         return str(p.stdout)
 
     def getNumberDownloaded(self, target_directory: str, file_prefix: str, start_date: datetime,
@@ -272,12 +271,9 @@ class Harvester(AbstractHarvester):
         p = run(cmds[0], stdout=PIPE, stderr=STDOUT, text=True)
 
         if p.returncode != 0:
-            raise Exception(p.stdout)
-
+            logger.debug(p.stdout)
         for cmd in cmds[1:]:
             p = run(cmd, stdout=PIPE, stderr=STDOUT, text=True, input=p.stdout)
-
             if p.returncode != 0:
-                raise Exception(p.stdout)
-
+                logger.debug(p.stdout)
         return int(p.stdout)
