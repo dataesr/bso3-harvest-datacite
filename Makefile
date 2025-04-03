@@ -1,15 +1,15 @@
-DOCKER_IMAGE_NAME=dataesr/bso3-harvest-datacite
 CURRENT_VERSION=$(shell cat project/__init__.py | cut -d "'" -f 2)
+DOCKER_IMAGE_NAME=dataesr/bso3-harvest-datacite
+GHCR_IMAGE_NAME=ghcr.io/$(DOCKER_IMAGE_NAME)
 
 docker-build:
 	@echo Building a new docker image
-	docker build -t $(DOCKER_IMAGE_NAME):$(CURRENT_VERSION) -t $(DOCKER_IMAGE_NAME):latest -f ./Dockerfiles/prod/Dockerfile .
+	docker build -t $(GHCR_IMAGE_NAME):$(CURRENT_VERSION) -t $(GHCR_IMAGE_NAME):latest -f ./Dockerfiles/prod/Dockerfile .
 	@echo Docker image built
 
 docker-push:
 	@echo Pushing a new docker image
-	docker push $(DOCKER_IMAGE_NAME):$(CURRENT_VERSION)
-	docker push $(DOCKER_IMAGE_NAME):latest
+	docker push -a $(GHCR_IMAGE_NAME)
 	@echo Docker image pushed
 
 docker-compose-up:
