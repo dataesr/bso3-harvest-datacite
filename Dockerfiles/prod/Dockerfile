@@ -60,4 +60,4 @@ RUN cd /src && git clone https://github.com/miku/dcdump.git
 
 COPY affiliation_main.go /src/dcdump/cmd/main.go
 
-RUN cd /src/dcdump && make
+RUN cd /src/dcdump && git checkout 3691d32a4b6d6029847acd5ce13eadc2e370a29f && make
