@@ -477,13 +477,15 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
     for dump_file in partition_files:
         logger.debug(f'treating {dump_file}')
         nb_new_doi, nb_new_country, nb_new_publisher, nb_new_client = 0, 0, 0, 0
-        for json_obj in json_line_generator(Path(dump_file)):
-            data = json_obj.get('data')
+        dump_objects = pd.read_json(dump_file, lines=True).to_dict(orient='records')
+        #for json_obj in json_line_generator(Path(dump_file)):
+        for doi in dump_objects:
+            # data = json_obj.get('data')
             #nb_data = len(data)
             #logger.debug(f'{nb_data} objects')
-            for doi in data:
-                if doi['id'] in known_dois:
-                    continue
+            if doi['id'] not in known_dois:
+                #if doi['id'] in known_dois:
+                #    continue
                 natural_key = get_natural_key(doi)
                 if natural_key and natural_key in known_natural_keys:
                     continue
@@ -515,8 +517,11 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
                 countries, affiliations = [], []
                 for obj in doi["attributes"]["creators"] + doi["attributes"]["contributors"]:
                     if 'nameIdentifiers' in obj:
-                        assert(isinstance(obj['nameIdentifiers'], list))
-                        for nameIdentifier in obj.get('nameIdentifiers'):
+                        nameIdentifiers = obj.get('nameIdentifiers', [])
+                        if not isinstance(nameIdentifiers, list):
+                            nameIdentifiers = [nameIdentifiers]
+                        assert(isinstance(nameIdentifiers, list))
+                        for nameIdentifier in nameIdentifiers:
                             if isinstance(nameIdentifier.get('nameIdentifierScheme'), str) and nameIdentifier.get('nameIdentifierScheme').lower().strip()=='orcid':
                                 if isinstance(nameIdentifier.get('nameIdentifier'), str):
                                     current_orcid = nameIdentifier.get('nameIdentifier').split('/')[-1].upper()
@@ -551,7 +556,7 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
                             author_info = french_authors_dict[normalized_name][current_year]
                             rors += author_info
                             fr_authors_name.append({'author': {'name': normalized_name}, 'rors':author_info})
-                    for affiliation in obj.get("affiliation"):
+                    for affiliation in obj.get("affiliation", []):
                         if 'affiliationIdentifier' in obj:
                             assert(isinstance(obj['affiliationIdentifier'], str))
                             if 'ror' in obj['affiliationIdentifier'].lower():

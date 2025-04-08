@@ -1,5 +1,6 @@
 FRENCH_PUBLISHERS = [
             "Recherche Data Gouv",
+            "data.InDoRES",
             "Université de Lorraine",
             "NAKALA",
             "CIRAD",

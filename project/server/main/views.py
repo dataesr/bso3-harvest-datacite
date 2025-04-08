@@ -173,14 +173,24 @@ def create_task_enrich_doi():
     output_filename =  f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl'
     logger.debug(f'remove {output_filename}')
     os.system(f'rm -rf {output_filename}')
-    datacite_dump_files = glob(os.path.join(
-        config_harvester['raw_dump_folder_name'],
-        '*' + config_harvester['datacite_file_extension'])
-    )
+    #datacite_dump_files = glob(os.path.join(
+    #    config_harvester['raw_dump_folder_name'],
+    #    '*' + config_harvester['datacite_file_extension'])
+    #)
     #partitions = get_partitions(datacite_dump_files, partition_size=partition_size)
     #partition = get_partitions(datacite_dump_files, number_of_partitions=1)[0] # only one partition
-    datacite_dump_files.sort(reverse=True)
-    partition = datacite_dump_files
+    #datacite_dump_files.sort(reverse=True)
+    #partition = datacite_dump_files
+
+
+    datacite_files = []
+    for f in os.listdir('/data/dois/'):
+        if f.startswith('updated'):
+            for f2 in os.listdir(f'/data/dois/{f}'):
+                if f2.endswith('.jsonl.gz'):
+                    datacite_files.append(f'/data/dois/{f}/{f2}')
+    datacite_files.sort()
+    partition = datacite_files
 
     if args.get('update_publications', True):
         update_bso_publications()

@@ -390,7 +390,10 @@ def make_author(c, role, affiliations):
         for aff in c['affiliation']:
             if aff not in affiliations:
                 affiliations.append(aff)
-    for idi in c.get('nameIdentifiers', []):
+    nameIdentifiers = c.get('nameIdentifiers', [])
+    if not isinstance(nameIdentifiers, list):
+        nameIdentifiers = [nameIdentifiers]
+    for idi in nameIdentifiers:
         if idi.get('nameIdentifierScheme') == 'ORCID' and isinstance(idi.get('nameIdentifier'), str):
             elt['orcid'] = idi['nameIdentifier'].split('/')[-1]
     return elt, affiliations
