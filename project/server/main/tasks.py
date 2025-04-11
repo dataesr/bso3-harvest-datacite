@@ -477,151 +477,157 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
     for dump_file in partition_files:
         logger.debug(f'treating {dump_file}')
         nb_new_doi, nb_new_country, nb_new_publisher, nb_new_client = 0, 0, 0, 0
-        dump_objects = pd.read_json(dump_file, lines=True).to_dict(orient='records')
-        #for json_obj in json_line_generator(Path(dump_file)):
-        for doi in dump_objects:
-            # data = json_obj.get('data')
-            #nb_data = len(data)
-            #logger.debug(f'{nb_data} objects')
-            if doi['id'] not in known_dois:
-                #if doi['id'] in known_dois:
-                #    continue
-                natural_key = get_natural_key(doi)
-                if natural_key and natural_key in known_natural_keys:
-                    continue
-                fr_reasons = []
-                rors = []
-                bso_local_affiliations_from_publications = []
-                fr_publications_linked = []
-                fr_authors_orcid = []
-                fr_authors_name = []
-                current_year = doi['attributes'].get('publicationYear')
-                publisher = doi['attributes'].get('publisher')
-                doi_split_last = doi['id'].lower().split('.')[-1]
-                has_version_in_doi = ( len(doi_split_last) >= 2 and doi_split_last[0] == 'v' and doi_split_last[1:].isdigit() )
-                # do not keep 10.6084/m9.figshare.12874890.v1 type doi (duplicates from figshare)
-                if has_version_in_doi:
-                    if isinstance(publisher, str) and publisher.lower() in ['figshare', '4tu.researchdata']:
+        logger.debug(f'start reading {dump_file}')
+        df_dois = pd.read_json(dump_file, lines=True, chunksize=10000)
+        for c in df_dois:
+            logger.debug('new chunk ...')
+            dump_objects = c.to_dict(orient='records')
+            logger.debug(f'read len = {len(dump_objects)}')
+            #for json_obj in json_line_generator(Path(dump_file)):
+            for doi in dump_objects:
+                # data = json_obj.get('data')
+                #nb_data = len(data)
+                #logger.debug(f'{nb_data} objects')
+                if doi['id'] not in known_dois:
+                    #if doi['id'] in known_dois:
+                    #    continue
+                    natural_key = get_natural_key(doi)
+                    if natural_key and natural_key in known_natural_keys:
                         continue
-                    if 'figshare' in doi['id'].lower():
-                        continue
-                if 'attributes' in doi and 'relatedIdentifiers' in doi['attributes']:
-                    for rel_id in doi['attributes']['relatedIdentifiers']:
-                        if rel_id.get('relationType') == 'IsSupplementTo':
-                            if isinstance(rel_id.get('relatedIdentifier'), str) and rel_id['relatedIdentifier'].lower() in bso_doi_dict:
-                                fr_reasons.append('linked_article')
-                                publi_info = bso_doi_dict[rel_id['relatedIdentifier'].lower()]
-                                rors += publi_info['rors']
-                                bso_local_affiliations_from_publications += publi_info['bso_local_affiliations_from_publications']
-                                fr_publications_linked.append({'doi': rel_id['relatedIdentifier'].lower(), 'rors': publi_info['rors'], 'bso_local_affiliations_from_publications': publi_info['bso_local_affiliations_from_publications']})
-                countries, affiliations = [], []
-                for obj in doi["attributes"]["creators"] + doi["attributes"]["contributors"]:
-                    if 'nameIdentifiers' in obj:
-                        nameIdentifiers = obj.get('nameIdentifiers', [])
-                        if not isinstance(nameIdentifiers, list):
-                            nameIdentifiers = [nameIdentifiers]
-                        assert(isinstance(nameIdentifiers, list))
-                        for nameIdentifier in nameIdentifiers:
-                            if isinstance(nameIdentifier.get('nameIdentifierScheme'), str) and nameIdentifier.get('nameIdentifierScheme').lower().strip()=='orcid':
-                                if isinstance(nameIdentifier.get('nameIdentifier'), str):
-                                    current_orcid = nameIdentifier.get('nameIdentifier').split('/')[-1].upper()
-                                    if current_orcid in french_authors_dict and current_year in french_authors_dict[current_orcid]:
-                                        fr_reasons.append('french_orcid')
-                                        orcid_info = french_authors_dict[current_orcid][current_year]
-                                        rors += orcid_info
-                                        fr_authors_orcid.append({'author': obj, 'rors': orcid_info})
-                    normalized_names = []
-                    if isinstance(obj.get('name'), str):
-                        normalized_name = normalize(obj['name'].replace(',', ' '))
-                        normalized_names.append(normalized_name)
-                        for k in ['cnrs', 'saclay', 'sorbonne', 'inrae', 'inserm', 'cirad', 'ifremer', 'cnes', 'paris france', 'arkeopen', 'cocoon']:
-                            if k in normalized_name:
-                                fr_reasons.append(f'name_{k}')
-                    if isinstance(obj.get('familyName'), str) and isinstance(obj.get('givenName'), str):
-                        normalized_name = normalize(obj['givenName'])+' '+normalize(obj['familyName'])
-                        normalized_names.append(normalized_name)
-                        normalized_name = normalize(obj['familyName'])+' '+normalize(obj['givenName'])
-                        normalized_names.append(normalized_name)
-                    for normalized_name in list(set(normalized_names)):
-                        to_exclude = False
-                        if normalized_name in french_authors_dict and current_year in french_authors_dict[normalized_name]:
-                            if publisher=='UNITE Community' and normalized_name in EXCLUDED_FULL_NAMES:
-                                to_exclude = True
-                            for word in EXCLUDED_LAST_NAMES:
-                                if word in normalized_name.split(' '):
-                                    to_exclude = True
-                            if to_exclude:
-                                continue
-                            fr_reasons.append('french_author')
-                            author_info = french_authors_dict[normalized_name][current_year]
-                            rors += author_info
-                            fr_authors_name.append({'author': {'name': normalized_name}, 'rors':author_info})
-                    for affiliation in obj.get("affiliation", []):
-                        if 'affiliationIdentifier' in obj:
-                            assert(isinstance(obj['affiliationIdentifier'], str))
-                            if 'ror' in obj['affiliationIdentifier'].lower():
-                                current_ror = obj['affiliationIdentifier'].lower().split('/')[-1]
-                                rors.append(current_ror)
-                                if current_ror in french_rors:
-                                    fr_reasons.append('french_ror')
-                        if affiliation:
-                            local_matches = {}
-                            #aff_str = _create_affiliation_string(affiliation, exclude_list = [])
-                            aff_str = str(affiliation)
-                            #if aff_str in matches:
-                            #    local_matches = matches[aff_str]
-                            #for f in local_matches:
-                            #    affiliation[f] = local_matches[f]
-                            #    if 'countries' in affiliation:
-                            #        countries += affiliation['countries']
-                            #    if affiliation not in affiliations:
-                            #        affiliations.append(affiliation)
-                            aff_str_normalized = normalize(aff_str)
-                            for k in ['france', 'french', 'umr ', 'cnrs', 'ifremer', 'cnes', 'saclay', 'sorbonne', 'paris', ' lyon', 'marseille', 'lille', 'nantes', 'rennes', 'inrae', 'inserm', 'montpellier', 'toulouse', 'strasbourg', 'lorraine', 'toulon', 'pierre simon laplace', 'grenoble', 'roscoff', 'agrocampus', 'nanterre', 'orleans', 'paul sabatier', 'caen', 'normandie', 'jean perrin', 'bordeaux', 'ecole polytechnique', 'reims', 'ardenne', 'la reunion', 'poitiers', 'ecole normale superieure', 'saint etienne', 'onera', 'cirm', 'savoie', 'salpetriere', 'cochin', 'inria', 'inra', 'cea', 'mondor', 'roussy', 'necker', 'necker', 'nancy', 'tours', 'avicenne', 'lariboisiere']:
-                                if k in aff_str_normalized:
-                                    fr_reasons.append(f'affiliation_{k}')
-                countries = list(set(countries))
-                doi['countries'] = countries
-                doi['affiliations'] = affiliations
-                for c in countries:
-                    if c in FRENCH_ALPHA2:
-                        fr_reasons.append('country')
-                        nb_new_country += 1
-                current_publisher = get_publisher(doi)
-                #match regex INRA par ex (pas INRAP)
-                pattern_str = '|'.join([fr"\b{w}\b" for w in FRENCH_PUBLISHERS])
-                pattern = re.compile(pattern_str, re.IGNORECASE)
-                if isinstance(current_publisher, str):
-                    if re.search(pattern, get_publisher(doi)):
-                        fr_reasons.append('publisher')
-                        nb_new_publisher += 1
-                if get_client_id(doi).startswith('inist.'):
-                    fr_reasons.append("clientId")
-                    nb_new_client += 1
-                rors = list(set(rors))
-                bso_local_affiliations_from_publications = list(set(bso_local_affiliations_from_publications))
-                fr_reasons = list(set(fr_reasons))
-                fr_reasons.sort()
-                fr_reasons_concat = ';'.join(fr_reasons)
-                # skip image from nakala without any other interesting meta
-                if fr_reasons_concat == 'clientId;publisher' and get_resourceTypeGeneral(doi) == 'image':
                     fr_reasons = []
-                    continue
-                if len(fr_reasons)>0:
-                    doi['fr_reasons'] = fr_reasons
-                    doi['fr_reasons_concat'] = fr_reasons_concat
-                    doi['rors'] = rors
-                    doi['bso_local_affiliations_from_publications'] = bso_local_affiliations_from_publications
-                    doi['fr_authors_orcid'] = fr_authors_orcid
-                    doi['fr_authors_name'] = fr_authors_name
-                    doi['fr_publications_linked'] = fr_publications_linked
-                    doi['natural_key'] = natural_key
-                    is_doi_kept = append_to_es_index_sourcefile(doi, index_name, bso3_local_affiliations_dict)
-                    if is_doi_kept:
-                        nb_new_doi += 1
-                    known_natural_keys.add(natural_key) # only for french
-                known_dois.add(doi['id'])
-        logger.debug(f'{nb_new_doi} doi added to {index_name} - country {nb_new_country} - publisher {nb_new_publisher} - client {nb_new_client}')
+                    rors = []
+                    bso_local_affiliations_from_publications = []
+                    fr_publications_linked = []
+                    fr_authors_orcid = []
+                    fr_authors_name = []
+                    current_year = doi['attributes'].get('publicationYear')
+                    publisher = doi['attributes'].get('publisher')
+                    doi_split_last = doi['id'].lower().split('.')[-1]
+                    has_version_in_doi = ( len(doi_split_last) >= 2 and doi_split_last[0] == 'v' and doi_split_last[1:].isdigit() )
+                    # do not keep 10.6084/m9.figshare.12874890.v1 type doi (duplicates from figshare)
+                    if has_version_in_doi:
+                        if isinstance(publisher, str) and publisher.lower() in ['figshare', '4tu.researchdata']:
+                            continue
+                        if 'figshare' in doi['id'].lower():
+                            continue
+                    if 'attributes' in doi and 'relatedIdentifiers' in doi['attributes']:
+                        for rel_id in doi['attributes']['relatedIdentifiers']:
+                            if rel_id.get('relationType') == 'IsSupplementTo':
+                                if isinstance(rel_id.get('relatedIdentifier'), str) and rel_id['relatedIdentifier'].lower() in bso_doi_dict:
+                                    fr_reasons.append('linked_article')
+                                    publi_info = bso_doi_dict[rel_id['relatedIdentifier'].lower()]
+                                    rors += publi_info['rors']
+                                    bso_local_affiliations_from_publications += publi_info['bso_local_affiliations_from_publications']
+                                    fr_publications_linked.append({'doi': rel_id['relatedIdentifier'].lower(), 'rors': publi_info['rors'], 'bso_local_affiliations_from_publications': publi_info['bso_local_affiliations_from_publications']})
+                    countries, affiliations = [], []
+                    for obj in doi["attributes"]["creators"] + doi["attributes"]["contributors"]:
+                        if 'nameIdentifiers' in obj:
+                            nameIdentifiers = obj.get('nameIdentifiers', [])
+                            if not isinstance(nameIdentifiers, list):
+                                nameIdentifiers = [nameIdentifiers]
+                            assert(isinstance(nameIdentifiers, list))
+                            for nameIdentifier in nameIdentifiers:
+                                if isinstance(nameIdentifier.get('nameIdentifierScheme'), str) and nameIdentifier.get('nameIdentifierScheme').lower().strip()=='orcid':
+                                    if isinstance(nameIdentifier.get('nameIdentifier'), str):
+                                        current_orcid = nameIdentifier.get('nameIdentifier').split('/')[-1].upper()
+                                        if current_orcid in french_authors_dict and current_year in french_authors_dict[current_orcid]:
+                                            fr_reasons.append('french_orcid')
+                                            orcid_info = french_authors_dict[current_orcid][current_year]
+                                            rors += orcid_info
+                                            fr_authors_orcid.append({'author': obj, 'rors': orcid_info})
+                        normalized_names = []
+                        if isinstance(obj.get('name'), str):
+                            normalized_name = normalize(obj['name'].replace(',', ' '))
+                            normalized_names.append(normalized_name)
+                            for k in ['cnrs', 'saclay', 'sorbonne', 'inrae', 'inserm', 'cirad', 'ifremer', 'cnes', 'paris france', 'arkeopen', 'cocoon']:
+                                if k in normalized_name:
+                                    fr_reasons.append(f'name_{k}')
+                        if isinstance(obj.get('familyName'), str) and isinstance(obj.get('givenName'), str):
+                            normalized_name = normalize(obj['givenName'])+' '+normalize(obj['familyName'])
+                            normalized_names.append(normalized_name)
+                            normalized_name = normalize(obj['familyName'])+' '+normalize(obj['givenName'])
+                            normalized_names.append(normalized_name)
+                        for normalized_name in list(set(normalized_names)):
+                            to_exclude = False
+                            if normalized_name in french_authors_dict and current_year in french_authors_dict[normalized_name]:
+                                if publisher=='UNITE Community' and normalized_name in EXCLUDED_FULL_NAMES:
+                                    to_exclude = True
+                                for word in EXCLUDED_LAST_NAMES:
+                                    if word in normalized_name.split(' '):
+                                        to_exclude = True
+                                if to_exclude:
+                                    continue
+                                fr_reasons.append('french_author')
+                                author_info = french_authors_dict[normalized_name][current_year]
+                                rors += author_info
+                                fr_authors_name.append({'author': {'name': normalized_name}, 'rors':author_info})
+                        for affiliation in obj.get("affiliation", []):
+                            if 'affiliationIdentifier' in obj:
+                                assert(isinstance(obj['affiliationIdentifier'], str))
+                                if 'ror' in obj['affiliationIdentifier'].lower():
+                                    current_ror = obj['affiliationIdentifier'].lower().split('/')[-1]
+                                    rors.append(current_ror)
+                                    if current_ror in french_rors:
+                                        fr_reasons.append('french_ror')
+                            if affiliation:
+                                local_matches = {}
+                                #aff_str = _create_affiliation_string(affiliation, exclude_list = [])
+                                aff_str = str(affiliation)
+                                #if aff_str in matches:
+                                #    local_matches = matches[aff_str]
+                                #for f in local_matches:
+                                #    affiliation[f] = local_matches[f]
+                                #    if 'countries' in affiliation:
+                                #        countries += affiliation['countries']
+                                #    if affiliation not in affiliations:
+                                #        affiliations.append(affiliation)
+                                aff_str_normalized = normalize(aff_str)
+                                for k in ['france', 'french', 'umr ', 'cnrs', 'ifremer', 'cnes', 'saclay', 'sorbonne', 'paris', ' lyon', 'marseille', 'lille', 'nantes', 'rennes', 'inrae', 'inserm', 'montpellier', 'toulouse', 'strasbourg', 'lorraine', 'toulon', 'pierre simon laplace', 'grenoble', 'roscoff', 'agrocampus', 'nanterre', 'orleans', 'paul sabatier', 'caen', 'normandie', 'jean perrin', 'bordeaux', 'ecole polytechnique', 'reims', 'ardenne', 'la reunion', 'poitiers', 'ecole normale superieure', 'saint etienne', 'onera', 'cirm', 'savoie', 'salpetriere', 'cochin', 'inria', 'inra', 'cea', 'mondor', 'roussy', 'necker', 'necker', 'nancy', 'tours', 'avicenne', 'lariboisiere']:
+                                    if k in aff_str_normalized:
+                                        fr_reasons.append(f'affiliation_{k}')
+                    countries = list(set(countries))
+                    doi['countries'] = countries
+                    doi['affiliations'] = affiliations
+                    for c in countries:
+                        if c in FRENCH_ALPHA2:
+                            fr_reasons.append('country')
+                            nb_new_country += 1
+                    current_publisher = get_publisher(doi)
+                    #match regex INRA par ex (pas INRAP)
+                    pattern_str = '|'.join([fr"\b{w}\b" for w in FRENCH_PUBLISHERS])
+                    pattern = re.compile(pattern_str, re.IGNORECASE)
+                    if isinstance(current_publisher, str):
+                        if re.search(pattern, get_publisher(doi)):
+                            fr_reasons.append('publisher')
+                            nb_new_publisher += 1
+                    if get_client_id(doi).startswith('inist.'):
+                        fr_reasons.append("clientId")
+                        nb_new_client += 1
+                    rors = list(set(rors))
+                    bso_local_affiliations_from_publications = list(set(bso_local_affiliations_from_publications))
+                    fr_reasons = list(set(fr_reasons))
+                    fr_reasons.sort()
+                    fr_reasons_concat = ';'.join(fr_reasons)
+                    # skip image from nakala without any other interesting meta
+                    if fr_reasons_concat == 'clientId;publisher' and get_resourceTypeGeneral(doi) == 'image':
+                        fr_reasons = []
+                        continue
+                    if len(fr_reasons)>0:
+                        doi['fr_reasons'] = fr_reasons
+                        doi['fr_reasons_concat'] = fr_reasons_concat
+                        doi['rors'] = rors
+                        doi['bso_local_affiliations_from_publications'] = bso_local_affiliations_from_publications
+                        doi['fr_authors_orcid'] = fr_authors_orcid
+                        doi['fr_authors_name'] = fr_authors_name
+                        doi['fr_publications_linked'] = fr_publications_linked
+                        doi['natural_key'] = natural_key
+                        is_doi_kept = append_to_es_index_sourcefile(doi, index_name, bso3_local_affiliations_dict)
+                        if is_doi_kept:
+                            nb_new_doi += 1
+                        known_natural_keys.add(natural_key) # only for french
+                    #known_dois.add(doi['id'])
+            logger.debug(f'{nb_new_doi} doi added to {index_name} - country {nb_new_country} - publisher {nb_new_publisher} - client {nb_new_client}')
+            logger.debug(f"known_natural_keys={len(known_natural_keys)} / known_dois = {len(known_dois)}")
     run_task_import_elastic_search(index_name, new_index_name)
     #for i, file in enumerate(partition_files):
     #    logger.debug(f"Processing {i} / {len(partition_files)}")
