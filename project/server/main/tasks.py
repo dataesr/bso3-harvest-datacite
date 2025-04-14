@@ -18,14 +18,15 @@ from adapters.storages.swift_session import SwiftSession
 from application.elastic import reset_index
 from application.harvester import Harvester
 from application.processor import Processor, PartitionsController
-from application.utils_processor import _merge_files, json_line_generator, append_to_es_index_sourcefile, _create_affiliation_string, get_publisher, get_client_id, get_resourceTypeGeneral, get_natural_key
+from application.utils_processor import _merge_files, append_to_es_index_sourcefile, _create_affiliation_string, get_publisher, get_client_id, get_resourceTypeGeneral, get_natural_key
 from config.global_config import config_harvester, MOUNTED_VOLUME_PATH
 from config.business_rules import FRENCH_PUBLISHERS, FRENCH_ALPHA2
 from domain.model.ovh_path import OvhPath
 from project.server.main.logger import get_logger
-from project.server.main.utils_swift import upload_object, init_cmd
+from project.server.main.utils_swift import download_object, get_list_files, init_cmd, upload_object
 from project.server.main.strings import normalize
 from project.server.main.pdb import treat_pdb, load_pdbs
+from project.server.main.utils import clean_json, to_jsonl
 import dask.dataframe as dd
 
 
@@ -33,10 +34,7 @@ logger = get_logger(__name__)
 
 
 def run_task_import_elastic_search(index_name, new_index_name):
-    #index_name = args.get("index_name")
-    #new_index_name = args.get("new_index_name", index_name)
-    """Create an ES index from a file using elasticdump, deleting it if it already exists."""
-    # todo gz before upload
+    """Create an ES index from a file using elasticdump, deleting it if already exists."""
     os.system(f'cd /data && gzip -k {index_name}.jsonl')
     upload_object(
         container='bso_dump',
@@ -48,7 +46,6 @@ def run_task_import_elastic_search(index_name, new_index_name):
         source=f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl.gz',
         target=f'bso-datacite-latest.jsonl.gz',
     )
-    # elastic.py
     es_url_without_http = config_harvester["ES_URL"].replace("https://", "").replace("http://", "")
     es_host = f"https://{config_harvester['ES_LOGIN_BSO3_BACK']}:{parse.quote(config_harvester['ES_PASSWORD_BSO3_BACK'])}@{es_url_without_http}"
     logger.debug("loading datacite index")
@@ -57,9 +54,9 @@ def run_task_import_elastic_search(index_name, new_index_name):
             f"elasticdump --input={MOUNTED_VOLUME_PATH}/{index_name}.jsonl --output={es_host}{new_index_name} --type=data --limit 50 "
             + "--transform='doc._source=Object.assign({},doc)'"
     )
-    logger.debug(f"{elasticimport}")
-    logger.debug("starting import in elastic.py")
+    logger.debug("Import file into elasticsearch - start")
     os.system(elasticimport)
+    logger.debug("Import file into elasticsearch - end")
 
 
 def get_partition_size(source_metadata_file, total_partition_number):
@@ -695,3 +692,37 @@ def run_task_consolidate_processed_files(file_prefix):
     partitions_controller.concat_files()
     partitions_controller.push_to_ovh()
     partitions_controller.clear_local_directory()
+
+def run_task_dump_files():
+    # Download files from "bso3-local" Swift container
+    bso_locals = get_list_files("bso3-local", "")
+    bso_locals = [local.replace(".csv", "") for local in bso_locals]
+    locals_publications = {}
+    for struct_id in bso_locals:
+        locals_publications[struct_id] = []
+    for struct_id in locals_publications.keys():
+        filename = f"bso-datasets-{struct_id}.jsonl"
+        if os.path.exists(filename):
+            os.remove(filename)
+    # Download latest dump of bso-datasets and read it by chunk of 1000 lines
+    bso_datasets_latest_dump = "bso-datacite-latest.jsonl.gz"
+    download_object("bso_dump", bso_datasets_latest_dump, bso_datasets_latest_dump)
+    dfs = pd.read_json("bso-datacite-latest.jsonl.gz", lines=True, chunksize=1000)
+    if os.path.exists(bso_datasets_latest_dump):
+        os.remove(bso_datasets_latest_dump)
+    # Locally creates files dedicated to each local BSO
+    for df in dfs:
+        datasets = df.to_dict(orient="records")
+        for dataset in datasets:
+            bso_local_affiliations_from_publications = dataset.get("bso_local_affiliations_from_publications", [])
+            bso_local_affiliations_from_publications = bso_local_affiliations_from_publications if isinstance(bso_local_affiliations_from_publications, list) else []
+            for bso_local_affiliations_from_publication in bso_local_affiliations_from_publications:
+                if bso_local_affiliations_from_publication in locals_publications.keys():
+                    to_jsonl([dataset], f"bso-datasets-{bso_local_affiliations_from_publication}.jsonl", "a")
+    # Then upload the dedicated files to OVH Swift "bso_dump" container and delete them
+    for struct_id in locals_publications.keys():
+        filename = f"bso-datasets-{struct_id}.jsonl"
+        if os.path.exists(filename):
+            upload_object("bso_dump", source=filename, target=filename)
+            os.remove(filename)
+    return

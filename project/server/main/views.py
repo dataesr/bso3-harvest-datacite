@@ -11,10 +11,18 @@ from project.server.main.logger import get_logger
 from project.server.main.re3data import get_list_re3data_repositories, enrich_re3data 
 from config.global_config import MOUNTED_VOLUME_PATH
 from project.server.main.tasks import (
-    run_task_consolidate_processed_files, run_task_consolidate_results,
-    run_task_enrich_dois, run_task_harvest_dois,
-    run_task_match_affiliations_partition, run_task_process_dois,
-    run_task_import_elastic_search, update_bso_publications, update_french_authors, update_french_rors)
+    run_task_consolidate_processed_files,
+    run_task_consolidate_results,
+    run_task_dump_files,
+    run_task_enrich_dois,
+    run_task_harvest_dois,
+    run_task_import_elastic_search,
+    run_task_match_affiliations_partition,
+    run_task_process_dois,
+    update_bso_publications,
+    update_french_authors,
+    update_french_rors
+)
 from project.server.main.pdb import update_pdbs
 from rq import Connection, Queue
 
@@ -220,5 +228,16 @@ def create_task_import_elastic_search():
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue(name="harvest-datacite", default_timeout=1500 * 3600)
         task = q.enqueue(run_task_import_elastic_search, index_name, new_index_name)
+        response_object = {"status": "success", "data": {"task_id": task.get_id()}}
+    return jsonify(response_object), 202
+
+
+@main_blueprint.route("/dump_files", methods=["POST"])
+def create_task_dump_files():
+    args = request.get_json(force=True)
+    index_name = args.get("index_name")
+    with Connection(redis.from_url(current_app.config["REDIS_URL"])):
+        q = Queue(name="harvest-datacite", default_timeout=1500 * 3600)
+        task = q.enqueue(run_task_dump_files, index_name)
         response_object = {"status": "success", "data": {"task_id": task.get_id()}}
     return jsonify(response_object), 202

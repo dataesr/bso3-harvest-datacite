@@ -1,6 +1,10 @@
+import json
+
 from project.server.main.logger import get_logger
 from collections import Counter
+
 logger = get_logger(__name__)
+
 
 def get_mbytes(z):
     if not isinstance(z, str):
@@ -62,9 +66,32 @@ def get_mbytes(z):
     logger.debug(f"unable to get size from {x}")
     return None
 
+
 def get_most_frequent(a):
     b = Counter(a)
     try:
         return b.most_common(1)[0][0]
     except:
         return None
+
+
+def clean_json(elt: dict) -> dict:
+    keys = list(elt.keys()).copy()
+    for f in keys:
+        if isinstance(elt[f], dict):
+            elt[f] = clean_json(elt[f])
+        elif (not elt[f] == elt[f]) or (elt[f] is None):
+            del elt[f]
+        elif (isinstance(elt[f], str) and len(elt[f])==0):
+            del elt[f]
+        elif (isinstance(elt[f], list) and len(elt[f])==0):
+            del elt[f]
+    return elt
+
+
+def to_jsonl(input_list: list, output_file: str, mode: str="a"):
+    with open(output_file, mode) as outfile:
+        for entry in input_list:
+            new = clean_json(entry)
+            json.dump(new, outfile)
+            outfile.write('\n')
