@@ -1,15 +1,15 @@
-import os
 from datetime import datetime
 from glob import glob
 from pathlib import Path
-import re
-import pickle
+from retry import retry
 from time import time
 from urllib import parse
-from retry import retry
-
+import os
 import pandas as pd
+import pickle
+import re
 import requests
+
 from adapters.api.affiliation_matcher import AffiliationMatcher
 from adapters.databases.harvest_state_repository import HarvestStateRepository
 from adapters.databases.postgres_session import PostgresSession
@@ -18,15 +18,15 @@ from adapters.storages.swift_session import SwiftSession
 from application.elastic import reset_index
 from application.harvester import Harvester
 from application.processor import Processor, PartitionsController
-from application.utils_processor import _merge_files, append_to_es_index_sourcefile, _create_affiliation_string, get_publisher, get_client_id, get_resourceTypeGeneral, get_natural_key
-from config.global_config import config_harvester, MOUNTED_VOLUME_PATH
+from application.utils_processor import _merge_files, append_to_es_index_sourcefile, get_publisher, get_client_id, get_resourceTypeGeneral, get_natural_key
 from config.business_rules import FRENCH_PUBLISHERS, FRENCH_ALPHA2
+from config.global_config import config_harvester, MOUNTED_VOLUME_PATH
 from domain.model.ovh_path import OvhPath
 from project.server.main.logger import get_logger
-from project.server.main.utils_swift import download_object, get_list_files, init_cmd, upload_object
+from project.server.main.pdb import load_pdbs, treat_pdb
 from project.server.main.strings import normalize
-from project.server.main.pdb import treat_pdb, load_pdbs
-from project.server.main.utils import clean_json, to_jsonl
+from project.server.main.utils import to_jsonl
+from project.server.main.utils_swift import download_object, get_list_files, init_cmd, upload_object
 import dask.dataframe as dd
 
 
@@ -151,6 +151,7 @@ def get_affiliations_matches_df(index_name):
         consolidated_affiliations[f] = consolidated_affiliations[f].apply(eval)
     return consolidated_affiliations
 
+
 def get_affiliations_matches(index_name):
     consolidated_affiliations = get_affiliations_matches_df(index_name)
     matches = {}
@@ -183,7 +184,7 @@ def get_affiliations_matches(index_name):
                     matches[aff][f] = new_entry[f]
     logger.debug(f"{len(matches)} affiliations in dict")
     return matches
-                 
+
 
 def get_merged_affiliations(partition_files, index_name) -> pd.DataFrame:
     """Read consolidated and detailled csv files.
@@ -259,12 +260,15 @@ def update_bso_publications():
     logger.debug(f'writing {len(bso_doi_dict)} dois info from bso publications')
     pickle.dump(bso_doi_dict, open('/data/bso_doi_dict.pkl', 'wb'))
 
+
 def get_bso_publications():
     return pickle.load(open('/data/bso_doi_dict.pkl', 'rb'))
+
 
 @retry(delay=200, tries=5)
 def get_url(url):
     return requests.get(url, verify=False)
+
 
 def list_french_authors_from_openalex():
     logger.debug('getting french authors from openalex')
@@ -284,6 +288,7 @@ def list_french_authors_from_openalex():
         except:
             break
     return french_authors
+
 
 def update_french_authors():
     french_authors = list_french_authors_from_openalex()
@@ -336,6 +341,7 @@ def get_last_ror_dump_url():
     logger.debug(f'Last ROR dump url found: {ror_dump_url}')
     return ror_dump_url
 
+
 def download_ror_data() -> list:
     ROR_DUMP_URL = get_last_ror_dump_url()
     logger.debug(f'download ROR from {ROR_DUMP_URL}')
@@ -355,6 +361,7 @@ def download_ror_data() -> list:
     shutil.rmtree(path=ror_unzipped_folder)
     return data
 
+
 def update_french_rors():
     french_rors = set([])
     all_rors = download_ror_data()
@@ -365,8 +372,10 @@ def update_french_rors():
     logger.debug(f'{len(french_rors)} french rors')
     pickle.dump(french_rors, open('/data/french_rors.pkl', 'wb'))
 
+
 def get_french_rors():
     return pickle.load(open('/data/french_rors.pkl', 'rb'))
+
 
 def build_bso3_local_dict():
     bso3_local_dict = {}
@@ -388,10 +397,12 @@ def build_bso3_local_dict():
                     bso3_local_dict[elt_id]['affiliations'].append(local_affiliation)
     return bso3_local_dict
 
+
 def get_clean_id(e):
     res = str(e).replace('.0','').strip().lower()
     res = res.split(',')[0].strip()
     return res
+
 
 DOI_PREFIX = re.compile("(10\.)(.*?)( |$)")
 def clean_doi(doi):
@@ -401,6 +412,7 @@ def clean_doi(doi):
     if doi_match:
         return doi_match.group().strip()
     return None
+
 
 def get_dois_from_input(filename: str) -> list:
     target = f'/data/bso3_local/{filename}'
@@ -434,6 +446,7 @@ def get_dois_from_input(filename: str) -> list:
     res = {'doi': elts_with_id}
     logger.debug(f'doi column: {doi_column} for {filename} with {len(elts_with_id)} dois')
     return res
+
 
 def run_task_enrich_dois(partition_files, index_name, new_index_name):
     """Read downloaded datacite files and :
@@ -692,6 +705,7 @@ def run_task_consolidate_processed_files(file_prefix):
     partitions_controller.concat_files()
     partitions_controller.push_to_ovh()
     partitions_controller.clear_local_directory()
+
 
 def run_task_dump_files():
     # Download files from "bso3-local" Swift container

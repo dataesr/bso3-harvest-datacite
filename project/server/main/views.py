@@ -189,8 +189,6 @@ def create_task_enrich_doi():
     #partition = get_partitions(datacite_dump_files, number_of_partitions=1)[0] # only one partition
     #datacite_dump_files.sort(reverse=True)
     #partition = datacite_dump_files
-
-
     datacite_files = []
     for f in os.listdir('/data/dois/'):
         if f.startswith('updated'):
@@ -199,19 +197,14 @@ def create_task_enrich_doi():
                     datacite_files.append(f'/data/dois/{f}/{f2}')
     datacite_files.sort()
     partition = datacite_files
-
     if args.get('update_publications', True):
         update_bso_publications()
-    
     if args.get('update_french_authors', False):
         update_french_authors()
-    
     if args.get('update_french_rors', True):
         update_french_rors()
-    
     if args.get('update_pdb', False):
         update_pdbs()
-
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue(name="harvest-datacite", default_timeout=1500 * 3600)
         #for partition in partitions:
@@ -219,6 +212,7 @@ def create_task_enrich_doi():
         task = q.enqueue(run_task_enrich_dois, partition, index_name, new_index_name)
         response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
     return jsonify(response_objects), 202
+
 
 @main_blueprint.route("/create_index", methods=["POST"])
 def create_task_import_elastic_search():
@@ -234,10 +228,8 @@ def create_task_import_elastic_search():
 
 @main_blueprint.route("/dump_files", methods=["POST"])
 def create_task_dump_files():
-    args = request.get_json(force=True)
-    index_name = args.get("index_name")
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue(name="harvest-datacite", default_timeout=1500 * 3600)
-        task = q.enqueue(run_task_dump_files, index_name)
+        task = q.enqueue(run_task_dump_files)
         response_object = {"status": "success", "data": {"task_id": task.get_id()}}
     return jsonify(response_object), 202
