@@ -1,5 +1,5 @@
-import os
 from unittest import TestCase
+
 from project.server.main.views import get_partitions
 
 TESTED_MODULE = "project.server.main.views"

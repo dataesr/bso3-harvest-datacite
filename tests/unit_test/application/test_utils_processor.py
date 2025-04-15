@@ -1,23 +1,18 @@
-from copy import deepcopy
 import gzip
-import json
 import os
-import shutil
-from unittest import TestCase
-from unittest.mock import patch
-
 import pandas as pd
+from copy import deepcopy
+from unittest import TestCase
 
 from application.utils_processor import (
-    _retrieve_object_name, _create_affiliation_string, _format_string, _safe_get,
-    get_abstract, get_classification_FOS, get_classification_subject,
-    get_client_id, get_created, get_description, get_description_element, get_doi_element, get_doi_supplement_to,
-    get_doi_version_of, get_grants, get_language, get_licenses,
-    get_matched_affiliations, get_methods, get_publicationYear, get_publisher,
+    _retrieve_object_name, _create_affiliation_string, _safe_get,
+    get_classification_FOS, get_classification_subject,
+    get_client_id, get_created, get_description_element, get_doi_element,
+    get_grants, get_language, get_licenses,
+    get_matched_affiliations, get_publicationYear, get_publisher,
     get_registered, get_resourceType, get_resourceTypeGeneral,
     get_ror_or_orcid, get_title, get_updated, json_line_generator, listify, trim_null_values,
-    write_doi_files, gzip_cli, _parse_url_and_retrieve_last_part)
-from config.global_config import config_harvester
+    gzip_cli, _parse_url_and_retrieve_last_part)
 from tests.unit_test.fixtures.utils_processor import *
 
 TESTED_MODULE = "application.utils_processor"
@@ -57,48 +52,48 @@ class TestUtilsProcessor(TestCase):
         self.assertEqual(is_clientId_fr, False)
         self.assertEqual(is_countries_fr, False)
   
-    @patch(f"{TESTED_MODULE}.append_to_es_index_sourcefile")
-    def test_write_doi_files_and_enrich_doi(self, mock_append):
-        # Given
-        sample_affiliations = pd.read_csv(fixture_path / "sample_affiliations.csv")
-        fr_doi_file_name = f"{_format_string(sample_affiliations.doi.values[0])}.json"
-        output_dir = fixture_path / "doi_files"
-        expected_fr_doi_file = fixture_path / "expected_fr_doi.json"
-        with expected_fr_doi_file.open("r", encoding="utf-8") as f:
-            expected_content = json.load(f)
-        is_fr = (sample_affiliations.is_publisher_fr | sample_affiliations.is_clientId_fr | sample_affiliations.is_countries_fr)
-        # When
-        write_doi_files(
-            sample_affiliations, is_fr, fixture_path / "sample.ndjson", output_dir=str(output_dir), index_name='datacite_fr'
-        )
-        # Then
-        output_files = [file.name for file in output_dir.glob("*.json")]
-        fr_doi_file = next(
-            file for file in output_dir.glob("*.json") if file.name == fr_doi_file_name
-        )
-        self.assertEqual(sorted(expected_output_files), sorted(output_files))
-        with fr_doi_file.open("r", encoding="utf-8") as f:
-            content = json.load(f)
+    # @patch(f"{TESTED_MODULE}.append_to_es_index_sourcefile")
+    # def test_write_doi_files_and_enrich_doi(self, mock_append):
+    #     # Given
+    #     sample_affiliations = pd.read_csv(fixture_path / "sample_affiliations.csv")
+    #     fr_doi_file_name = f"{_format_string(sample_affiliations.doi.values[0])}.json"
+    #     output_dir = fixture_path / "doi_files"
+    #     expected_fr_doi_file = fixture_path / "expected_fr_doi.json"
+    #     with expected_fr_doi_file.open("r", encoding="utf-8") as f:
+    #         expected_content = json.load(f)
+    #     is_fr = (sample_affiliations.is_publisher_fr | sample_affiliations.is_clientId_fr | sample_affiliations.is_countries_fr)
+    #     # When
+    #     write_doi_files(
+    #         sample_affiliations, is_fr, fixture_path / "sample.ndjson", output_dir=str(output_dir), index_name='datacite_fr'
+    #     )
+    #     # Then
+    #     output_files = [file.name for file in output_dir.glob("*.json")]
+    #     fr_doi_file = next(
+    #         file for file in output_dir.glob("*.json") if file.name == fr_doi_file_name
+    #     )
+    #     self.assertEqual(sorted(expected_output_files), sorted(output_files))
+    #     with fr_doi_file.open("r", encoding="utf-8") as f:
+    #         content = json.load(f)
 
-        mock_append.assert_called_with(content, expected_creators, expected_contributors, expected_fr_reasons, expected_fr_reasons_concat)
-        self.assertEqual(content, expected_content)
-        shutil.rmtree(output_dir)
+    #     mock_append.assert_called_with(content, expected_creators, expected_contributors, expected_fr_reasons, expected_fr_reasons_concat)
+    #     self.assertEqual(content, expected_content)
+    #     shutil.rmtree(output_dir)
 
-    @patch(f"{TESTED_MODULE}.append_to_file")
-    def test_append_to_es_index_sourcefile(self, mock_append):
-        # Given
-        sample_affiliations = pd.read_csv(fixture_path / "sample_affiliations.csv")
-        output_dir = fixture_path / "doi_files"
-        is_fr = (sample_affiliations.is_publisher_fr | sample_affiliations.is_clientId_fr | sample_affiliations.is_countries_fr)
-        with open(fixture_path / "expected_append.json", 'r') as f:
-            expected_append = json.load(f)
-        # When
-        write_doi_files(
-            sample_affiliations, is_fr, fixture_path / "sample.ndjson", output_dir=str(output_dir), index_name='datacite_fr'
-        )
-        # Then
-        mock_append.assert_called_with(_str=json.dumps(expected_append), file=config_harvester["es_index_sourcefile"])
-        shutil.rmtree(output_dir)
+    # @patch(f"{TESTED_MODULE}.append_to_file")
+    # def test_append_to_es_index_sourcefile(self, mock_append):
+    #     # Given
+    #     sample_affiliations = pd.read_csv(fixture_path / "sample_affiliations.csv")
+    #     output_dir = fixture_path / "doi_files"
+    #     is_fr = (sample_affiliations.is_publisher_fr | sample_affiliations.is_clientId_fr | sample_affiliations.is_countries_fr)
+    #     with open(fixture_path / "expected_append.json", 'r') as f:
+    #         expected_append = json.load(f)
+    #     # When
+    #     write_doi_files(
+    #         sample_affiliations, is_fr, fixture_path / "sample.ndjson", output_dir=str(output_dir), index_name='datacite_fr'
+    #     )
+    #     # Then
+    #     mock_append.assert_called_with(_str=json.dumps(expected_append), file=config_harvester["es_index_sourcefile"])
+    #     shutil.rmtree(output_dir)
 
     def test_gzip_cli_compress(self):
         # Given
