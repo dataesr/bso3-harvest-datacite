@@ -1,14 +1,14 @@
+import os
+import pandas as pd
+import pickle
+import re
+import requests
 from datetime import datetime
 from glob import glob
 from pathlib import Path
 from retry import retry
 from time import time
 from urllib import parse
-import os
-import pandas as pd
-import pickle
-import re
-import requests
 
 from adapters.api.affiliation_matcher import AffiliationMatcher
 from adapters.databases.harvest_state_repository import HarvestStateRepository
@@ -324,7 +324,7 @@ def get_french_authors():
     return pickle.load(open('/data/french_authors.pkl', 'rb'))
 
 EXCLUDED_FULL_NAMES = ['anne houles']
-df_excluded_last_names = pd.read_csv('/src/project/server/main/excluded_last_names.csv')
+df_excluded_last_names = pd.read_csv('excluded_last_names.csv')
 EXCLUDED_LAST_NAMES = [normalize(x) for x in df_excluded_last_names.key.to_list()]
 logger.debug(f'{len(EXCLUDED_LAST_NAMES)} EXCLUDED_LAST_NAMES loaded')
 

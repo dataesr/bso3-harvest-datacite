@@ -12,7 +12,7 @@ from application.utils_processor import (
     _retrieve_object_name, _create_affiliation_string, _format_string, _safe_get,
     get_abstract, get_classification_FOS, get_classification_subject,
     get_client_id, get_created, get_description, get_description_element, get_doi_element, get_doi_supplement_to,
-    get_doi_version_of, get_grants, get_language, get_license,
+    get_doi_version_of, get_grants, get_language, get_licenses,
     get_matched_affiliations, get_methods, get_publicationYear, get_publisher,
     get_registered, get_resourceType, get_resourceTypeGeneral,
     get_ror_or_orcid, get_title, get_updated, json_line_generator, listify, trim_null_values,
@@ -640,51 +640,51 @@ class TestGetters(TestCase):
         # Then
         self.assertEqual(created, expected_created)
 
-    def test_get_license(self):
+    def test_get_licenses(self):
         # Given
         expected_license = "cc-by-nc-4.0"
         # When
-        license = get_license(TestGetters.standard_doi)
+        license = get_licenses(TestGetters.standard_doi)
         # Then
         self.assertEqual(license, expected_license)
 
-    def test_get_license_KeyError_handling(self):
+    def test_get_licenses_KeyError_handling(self):
         # Given
         doi = deepcopy(TestGetters.standard_doi)
         del doi["attributes"]["rightsList"]
         expected_license = ""
         # When
-        license = get_license(doi)
+        license = get_licenses(doi)
         # Then
         self.assertEqual(license, expected_license)
 
-    def test_get_license_empty_list(self):
+    def test_get_licenses_empty_list(self):
         # Given
         doi = deepcopy(TestGetters.standard_doi)
         doi["attributes"]["rightsList"] = []
         expected_license = ""
         # When
-        license = get_license(doi)
+        license = get_licenses(doi)
         # Then
         self.assertEqual(license, expected_license)
 
-    def test_get_license_list_w_None(self):
+    def test_get_licenses_list_w_None(self):
         # Given
         doi = deepcopy(TestGetters.standard_doi)
         doi["attributes"]["rightsList"] = [None]
         expected_license = ""
         # When
-        license = get_license(doi)
+        license = get_licenses(doi)
         # Then
         self.assertEqual(license, expected_license)
 
-    def test_get_license_list_w_None_element(self):
+    def test_get_licenses_list_w_None_element(self):
         # Given
         doi = deepcopy(TestGetters.standard_doi)
         doi["attributes"]["rightsList"] = [{"rightsIdentifier": None}]
         expected_license = ""
         # When
-        license = get_license(doi)
+        license = get_licenses(doi)
         # Then
         self.assertEqual(license, expected_license)
 

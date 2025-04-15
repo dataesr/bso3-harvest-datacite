@@ -1,21 +1,18 @@
 import json
 import numpy as np
 import os
-from copy import deepcopy
+import pandas as pd
 from json import JSONDecodeError
-from os import PathLike
 from pathlib import Path
 from typing import Dict, List, Union
 
-import pandas as pd
-from project.server.main.re3data import find_re3 
-from project.server.main.strings import normalize
-from project.server.main.utils import get_mbytes, get_most_frequent
-
-from config.exceptions import FileLoadingException
-from config.global_config import config_harvester, COMPRESSION_SUFFIX, MOUNTED_VOLUME_PATH
+from config.global_config import COMPRESSION_SUFFIX, MOUNTED_VOLUME_PATH
 from config.logger_config import LOGGER_LEVEL
+from config.exceptions import FileLoadingException
 from project.server.main.logger import get_logger
+from project.server.main.strings import normalize
+from project.server.main.utils import get_mbytes
+
 
 logger = get_logger(__name__, level=LOGGER_LEVEL)
 
@@ -681,7 +678,7 @@ def _create_affiliation_string(affiliation: Dict, exclude_list: List):
         return " ".join(map(str, filter(None, processed_affiliation.values()))).lower()
 
 
-def _get_path(folder_name: Union[str, PathLike]):
+def _get_path(folder_name: Union[str, os.PathLike]):
     current_path = Path.cwd()
     if isinstance(folder_name, str):
         current_path = Path(folder_name)
