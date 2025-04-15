@@ -730,6 +730,6 @@ def run_task_dump_files():
     for struct_id in locals_publications.keys():
         for filename in [f"bso-datasets-{struct_id}.jsonl", f"bso-datasets-{struct_id}.csv"]:
             if os.path.exists(filename):
-                upload_object("bso_dump", source=f"{LOCAL_DATA_FOLDER}a/{filename}", target=filename)
+                upload_object("bso_dump", source=f"{LOCAL_DATA_FOLDER}/{filename}", target=filename)
                 os.remove(f"{LOCAL_DATA_FOLDER}/{filename}")
     return
