@@ -625,7 +625,7 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
                         is_doi_kept = append_to_es_index_sourcefile(doi, index_name, bso3_local_affiliations_dict)
                         if is_doi_kept:
                             nb_new_doi += 1
-                        known_natural_keys.add(natural_key) # only for french
+                        known_natural_keys = set(list(known_natural_keys) + [natural_key])# only for french
                     #known_dois.add(doi['id'])
             logger.debug(f'{nb_new_doi} doi added to {index_name} - country {nb_new_country} - publisher {nb_new_publisher} - client {nb_new_client}')
             logger.debug(f"known_natural_keys={len(known_natural_keys)} / known_dois = {len(known_dois)}")
@@ -701,23 +701,21 @@ def run_task_consolidate_processed_files(file_prefix):
 
 
 def run_task_dump_files():
-    # Download files from "bso3-local" Swift container
-    bso_locals = get_list_files("bso3-local", "")
-    bso_locals = [local.replace(".csv", "") for local in bso_locals]
+    LOCAL_DATA_FOLDER = "/data"
+    # Download local files from "bso3-local" Swift container
+    struct_ids = get_list_files("bso3-local", "")
+    struct_ids = [struct_id.replace(".csv", "") for struct_id in struct_ids]
     locals_publications = {}
-    for struct_id in bso_locals:
+    for struct_id in struct_ids:
         locals_publications[struct_id] = []
-    for struct_id in locals_publications.keys():
-        filename = f"bso-datasets-{struct_id}.jsonl"
-        if os.path.exists(filename):
-            os.remove(filename)
-    # Download latest dump of bso-datasets and read it by chunk of 1000 lines
-    bso_datasets_latest_dump = "bso-datacite-latest.jsonl.gz"
-    download_object("bso_dump", bso_datasets_latest_dump, bso_datasets_latest_dump)
-    dfs = pd.read_json("bso-datacite-latest.jsonl.gz", lines=True, chunksize=1000)
+    # Download latest dump of bso-datacite from "bso_dump" Swift container and read it by chunk of 1000 lines
+    bso_datasets_latest_dump = f"{LOCAL_DATA_FOLDER}/bso-datacite-latest.jsonl.gz"
+    download_object("bso_dump", "bso-datacite-latest.jsonl.gz", bso_datasets_latest_dump)
+    dfs = pd.read_json(bso_datasets_latest_dump, lines=True, chunksize=1000)
+    # Delete downloaded latest dump of bso-datacite
     if os.path.exists(bso_datasets_latest_dump):
         os.remove(bso_datasets_latest_dump)
-    # Locally creates files dedicated to each local BSO
+    # Locally creates JSONL and CSV files dedicated to each local BSO
     for df in dfs:
         datasets = df.to_dict(orient="records")
         for dataset in datasets:
@@ -725,11 +723,13 @@ def run_task_dump_files():
             bso_local_affiliations_from_publications = bso_local_affiliations_from_publications if isinstance(bso_local_affiliations_from_publications, list) else []
             for bso_local_affiliations_from_publication in bso_local_affiliations_from_publications:
                 if bso_local_affiliations_from_publication in locals_publications.keys():
-                    to_jsonl([dataset], f"bso-datasets-{bso_local_affiliations_from_publication}.jsonl", "a")
-    # Then upload the dedicated files to OVH Swift "bso_dump" container and delete them
+                    to_jsonl([dataset], f"{LOCAL_DATA_FOLDER}/bso-datasets-{bso_local_affiliations_from_publication}.jsonl", "a")
+                    data = pd.read_json(f"{LOCAL_DATA_FOLDER}/bso-datasets-{bso_local_affiliations_from_publication}.jsonl", lines=True)
+                    data.to_csv(f"{LOCAL_DATA_FOLDER}/bso-datasets-{bso_local_affiliations_from_publication}.csv", index=False)
+    # Upload the dedicated JSONL and CSV files into "bso_dump" Swift container and delete them
     for struct_id in locals_publications.keys():
-        filename = f"bso-datasets-{struct_id}.jsonl"
-        if os.path.exists(filename):
-            upload_object("bso_dump", source=filename, target=filename)
-            os.remove(filename)
+        for filename in [f"bso-datasets-{struct_id}.jsonl", f"bso-datasets-{struct_id}.csv"]:
+            if os.path.exists(filename):
+                upload_object("bso_dump", source=f"{LOCAL_DATA_FOLDER}a/{filename}", target=filename)
+                os.remove(f"{LOCAL_DATA_FOLDER}/{filename}")
     return
