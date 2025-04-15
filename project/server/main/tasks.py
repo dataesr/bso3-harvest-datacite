@@ -488,7 +488,7 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
         logger.debug(f'treating {dump_file}')
         nb_new_doi, nb_new_country, nb_new_publisher, nb_new_client = 0, 0, 0, 0
         logger.debug(f'start reading {dump_file}')
-        df_dois = pd.read_json(dump_file, lines=True, chunksize=10000)
+        df_dois = pd.read_json(dump_file, lines=True, chunksize=1000)
         for c in df_dois:
             logger.debug('new chunk ...')
             dump_objects = c.to_dict(orient='records')
@@ -581,16 +581,7 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
                                         fr_reasons.append('french_ror')
                             if affiliation:
                                 local_matches = {}
-                                #aff_str = _create_affiliation_string(affiliation, exclude_list = [])
                                 aff_str = str(affiliation)
-                                #if aff_str in matches:
-                                #    local_matches = matches[aff_str]
-                                #for f in local_matches:
-                                #    affiliation[f] = local_matches[f]
-                                #    if 'countries' in affiliation:
-                                #        countries += affiliation['countries']
-                                #    if affiliation not in affiliations:
-                                #        affiliations.append(affiliation)
                                 aff_str_normalized = normalize(aff_str)
                                 for k in ['france', 'french', 'umr ', 'cnrs', 'ifremer', 'cnes', 'saclay', 'sorbonne', 'paris', ' lyon', 'marseille', 'lille', 'nantes', 'rennes', 'inrae', 'inserm', 'montpellier', 'toulouse', 'strasbourg', 'lorraine', 'toulon', 'pierre simon laplace', 'grenoble', 'roscoff', 'agrocampus', 'nanterre', 'orleans', 'paul sabatier', 'caen', 'normandie', 'jean perrin', 'bordeaux', 'ecole polytechnique', 'reims', 'ardenne', 'la reunion', 'poitiers', 'ecole normale superieure', 'saint etienne', 'onera', 'cirm', 'savoie', 'salpetriere', 'cochin', 'inria', 'inra', 'cea', 'mondor', 'roussy', 'necker', 'necker', 'nancy', 'tours', 'avicenne', 'lariboisiere']:
                                     if k in aff_str_normalized:
@@ -638,6 +629,8 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
                     #known_dois.add(doi['id'])
             logger.debug(f'{nb_new_doi} doi added to {index_name} - country {nb_new_country} - publisher {nb_new_publisher} - client {nb_new_client}')
             logger.debug(f"known_natural_keys={len(known_natural_keys)} / known_dois = {len(known_dois)}")
+        if '0000.jsonl.gz' in dump_file:
+            known_natural_keys = {}
     run_task_import_elastic_search(index_name, new_index_name)
     #for i, file in enumerate(partition_files):
     #    logger.debug(f"Processing {i} / {len(partition_files)}")
