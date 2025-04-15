@@ -323,10 +323,12 @@ def update_french_authors():
 def get_french_authors():
     return pickle.load(open('/data/french_authors.pkl', 'rb'))
 
-EXCLUDED_FULL_NAMES = ['anne houles']
-df_excluded_last_names = pd.read_csv('./excluded_last_names.csv')
+
+EXCLUDED_FULL_NAMES = ["anne houles"]
+last_names_url = "https://raw.githubusercontent.com/dataesr/bso3-harvest-datacite/refs/heads/main/project/server/main/excluded_last_names.csv"
+df_excluded_last_names = pd.read_csv(last_names_url)
 EXCLUDED_LAST_NAMES = [normalize(x) for x in df_excluded_last_names.key.to_list()]
-logger.debug(f'{len(EXCLUDED_LAST_NAMES)} EXCLUDED_LAST_NAMES loaded')
+logger.debug(f"{len(EXCLUDED_LAST_NAMES)} EXCLUDED_LAST_NAMES loaded")
 
 
 from tempfile import mkdtemp
@@ -337,8 +339,8 @@ CHUNK_SIZE = 128
 def get_last_ror_dump_url():
     ROR_URL = "https://zenodo.org/api/communities/ror-data/records?q=&sort=newest"
     response = requests.get(url=ROR_URL).json()
-    ror_dump_url = response['hits']['hits'][0]['files'][-1]['links']['self']
-    logger.debug(f'Last ROR dump url found: {ror_dump_url}')
+    ror_dump_url = response["hits"]["hits"][0]["files"][-1]["links"]["self"]
+    logger.debug(f"Last ROR dump url found: {ror_dump_url}")
     return ror_dump_url
 
 
