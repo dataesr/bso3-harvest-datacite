@@ -458,13 +458,13 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
     """
     # sort partition files to start by the lastest
     partition_files.sort(reverse=True)
-    #affiliations_matches = get_affiliations_matches()
-    #merged_affiliations = get_merged_affiliations(partition_files)
-    #is_fr = (merged_affiliations.is_publisher_fr | merged_affiliations.is_clientId_fr | merged_affiliations.is_countries_fr)
-    #fr_doi_file_name = merged_affiliations[is_fr].doi_file_name.to_list()
-    #merged_affiliations_fr = merged_affiliations[merged_affiliations.is_fr].set_index('doi')
-    #merged_affiliations_fr['doi'] = merged_affiliations_fr.index
-    #fr_dois = set(merged_affiliations_fr.doi.to_list())
+    # affiliations_matches = get_affiliations_matches()
+    # merged_affiliations = get_merged_affiliations(partition_files)
+    # is_fr = (merged_affiliations.is_publisher_fr | merged_affiliations.is_clientId_fr | merged_affiliations.is_countries_fr)
+    # fr_doi_file_name = merged_affiliations[is_fr].doi_file_name.to_list()
+    # merged_affiliations_fr = merged_affiliations[merged_affiliations.is_fr].set_index('doi')
+    # merged_affiliations_fr['doi'] = merged_affiliations_fr.index
+    # fr_dois = set(merged_affiliations_fr.doi.to_list())
     output_dir = './dois/'
 
     if not os.path.isdir(output_dir):

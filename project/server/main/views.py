@@ -1,5 +1,5 @@
 import datetime
-from glob import glob
+# from glob import glob
 import os
 from typing import List
 
@@ -33,7 +33,7 @@ main_blueprint = Blueprint(
 
 logger = get_logger(__name__)
 
-
+# @deprecated("This function is not use anymore")
 def get_partitions(files: List[str], number_of_partitions: int = None, partition_size: int = None) -> List[List[str]]:
     """Return a list of partitions of files.
     If partition_size > len(files), returns one partition
@@ -74,6 +74,7 @@ def get_status(task_id):
     return jsonify(response_object)
 
 
+# @deprecated("This endpoint is not use anymore")
 @main_blueprint.route("/harvest_dois", methods=["GET"])
 def create_task_harvest_dois():
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -99,6 +100,7 @@ def create_task_harvest_dois():
     return jsonify(response_object), 202
 
 
+# @deprecated("This endpoint is not use anymore")
 @main_blueprint.route("/process", methods=["POST"])
 def create_task_process_dois():
     args = request.get_json(force=True)
@@ -133,6 +135,7 @@ def create_task_process_dois():
     return jsonify(response_objects), 202
 
 
+# @deprecated("This endpoint is not use anymore")
 @main_blueprint.route("/affiliations", methods=["POST"])
 def create_task_affiliations():
     args = request.get_json(force=True)
@@ -175,20 +178,20 @@ def create_task_enrich_doi():
         get_list_re3data_repositories()
         enrich_re3data()
     response_objects = []
-    partition_size = args.get("partition_size", 8)
+    # partition_size = args.get("partition_size", 8)
     index_name = args.get("index_name")
-    new_index_name = args.get("new_index_name")
+    # new_index_name = args.get("new_index_name")
     output_filename =  f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl'
     logger.debug(f'remove {output_filename}')
     os.system(f'rm -rf {output_filename}')
-    #datacite_dump_files = glob(os.path.join(
-    #    config_harvester['raw_dump_folder_name'],
-    #    '*' + config_harvester['datacite_file_extension'])
-    #)
-    #partitions = get_partitions(datacite_dump_files, partition_size=partition_size)
-    #partition = get_partitions(datacite_dump_files, number_of_partitions=1)[0] # only one partition
-    #datacite_dump_files.sort(reverse=True)
-    #partition = datacite_dump_files
+    # datacite_dump_files = glob(os.path.join(
+    #     config_harvester['raw_dump_folder_name'],
+    #     '*' + config_harvester['datacite_file_extension'])
+    # )
+    # partitions = get_partitions(datacite_dump_files, partition_size=partition_size)
+    # partition = get_partitions(datacite_dump_files, number_of_partitions=1)[0] # only one partition
+    # datacite_dump_files.sort(reverse=True)
+    # partition = datacite_dump_files
     datacite_files = []
     for f in os.listdir('/data/dois/'):
         if f.startswith('updated'):
@@ -207,13 +210,14 @@ def create_task_enrich_doi():
         update_pdbs()
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue(name="harvest-datacite", default_timeout=1500 * 3600)
-        #for partition in partitions:
-            #task = q.enqueue(run_task_enrich_dois, partition, index_name)
-        task = q.enqueue(run_task_enrich_dois, partition, index_name, new_index_name)
+        # for partition in partitions:
+            # task = q.enqueue(run_task_enrich_dois, partition, index_name)
+        task = q.enqueue(run_task_enrich_dois, partition, index_name, index_name)
         response_objects.append({"status": "success", "data": {"task_id": task.get_id()}})
     return jsonify(response_objects), 202
 
 
+# @deprecated("This endpoint is not use anymore")
 @main_blueprint.route("/create_index", methods=["POST"])
 def create_task_import_elastic_search():
     args = request.get_json(force=True)
