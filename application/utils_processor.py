@@ -342,7 +342,7 @@ def get_updated(doi):
 
 
 def get_publisher(doi):
-    return _safe_get("", doi, "attributes", "publisher")
+    return _safe_get("", doi, "attributes", "publisher", "name")
 
 def get_natural_key(doi):
     naturalKeyElts = []

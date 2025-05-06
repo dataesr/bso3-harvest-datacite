@@ -54,12 +54,14 @@ class AffiliationMatcher(AbstractAffiliationMatcher):
                 exc_info=True)
             return []
 
+    # @deprecated("This function is not use anymore")
     def is_publisher_fr(self, publisher: str) -> bool:
         """Matches for french publishers according to the business rules
         from https://github.com/Barometre-de-la-Science-Ouverte/bso3-harvest-datacite/blob/dcdump/business_rules.csv"""
         normalized_publisher = self._normalizer(publisher)
         return normalized_publisher in self.french_publishers
 
+    # @deprecated("This function is not use anymore")
     def is_clientId_fr(self, clientId: str) -> bool:
         """Matches for french clientId according to the business rules
         from https://github.com/Barometre-de-la-Science-Ouverte/bso3-harvest-datacite/blob/dcdump/business_rules.csv"""
