@@ -611,7 +611,7 @@ def _concat_affiliation(doi: Dict, objects_to_use_for_concatenation: str, origin
 
         doi_id: Union[str, List[str]] = str(doi["id"]).lower()
         doi_file_name: Union[str, List[str]] = str(doi["mapped_id"]).lower()
-        doi_publisher: Union[str, List[str]] = str(_safe_get("", doi, "attributes", "publisher")).lower()
+        doi_publisher: Union[str, List[str]] = str(get_publisher(doi)).lower()
         doi_client_id: Union[str, List[str]] = str(_safe_get("", doi, "relationships", "client", "data", "id"))
         list_affiliation_of_object: List[Dict[str, Union[str, List[str]]]]
 
