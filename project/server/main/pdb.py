@@ -32,10 +32,10 @@ def load_pdbs():
     logger.debug(f'{len(pdbs)} pdbs loaded')
     return pdbs
 
-def save_pdbs():
+def save_pdbs(ix, total_ix):
     global pdbs
     pickle.dump(pdbs, open('/data/pdbs.pickle', 'wb'))
-    logger.debug(f'{len(pdbs)} pdbs saved')
+    logger.debug(f'{len(pdbs)} pdbs saved - iteration {ix}/{total_ix}')
 
 def get_one_pdb(pdb):
     global pdbs
@@ -50,12 +50,13 @@ def update_pdbs():
     load_pdbs()
     pdb_ids = get_all_pdb_entry_ids()
     ix = 0
+    total_ix = len(pdb_ids)
     for pdb in pdb_ids:
         elt = get_one_pdb(pdb)
         ix += elt['update']
-        if ix % 1000 == 0:
-            save_pdbs()
-    save_pdbs()
+        if ix % 10000 == 0:
+            save_pdbs(ix, total_ix)
+    save_pdbs(ix, total_ix)
 
 def parse_pdb(e, bso_doi_dict):
     elt = {}
