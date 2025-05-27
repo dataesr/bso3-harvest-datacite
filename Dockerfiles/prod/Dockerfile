@@ -51,14 +51,14 @@ RUN pip3 install -r requirements.txt
 RUN pip3 install -r requirements-dev.txt
 RUN npm install elasticdump -g
 
-COPY --from=golang:1.18 /usr/local/go/ /usr/local/go/
-ENV PATH="/usr/local/go/bin:${PATH}"
+#COPY --from=golang:1.18 /usr/local/go/ /usr/local/go/
+#ENV PATH="/usr/local/go/bin:${PATH}"
 
 COPY . /src
 
-RUN go version
-RUN cd /src && git clone https://github.com/miku/dcdump.git
+#RUN go version
+#RUN cd /src && git clone https://github.com/miku/dcdump.git
 
-COPY affiliation_main.go /src/dcdump/cmd/main.go
+#COPY affiliation_main.go /src/dcdump/cmd/main.go
 
-RUN cd /src/dcdump && git checkout 3691d32a4b6d6029847acd5ce13eadc2e370a29f && make
+#RUN cd /src/dcdump && git checkout 3691d32a4b6d6029847acd5ce13eadc2e370a29f && make
