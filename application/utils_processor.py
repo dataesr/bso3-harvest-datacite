@@ -399,7 +399,10 @@ def append_to_es_index_sourcefile(doi, index_name, bso3_local_dict = {}):
 
     global re3_existing_signatures
     if len(re3_existing_signatures) == 0:
-        re3_existing_signatures = json.load(open(f'{MOUNTED_VOLUME_PATH}/re3data_dict.json', 'r'))
+        try:
+            re3_existing_signatures = json.load(open(f'{MOUNTED_VOLUME_PATH}/re3data_dict.json', 'r'))
+        except:
+            logger.debug('no re3data data')
 
     creators = get_creators(doi)
     contributors = get_contributors(doi)
