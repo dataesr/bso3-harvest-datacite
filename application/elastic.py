@@ -1,16 +1,19 @@
 from elasticsearch import Elasticsearch
-from config.global_config import config_harvester
 from project.server.main.logger import get_logger
+
+import os
 
 client = None
 logger = get_logger(__name__)
 
+ES_URL = os.getenv("ES_URL")
+ES_LOGIN_BSO3_BACK = os.getenv('ES_LOGIN_BSO3_BACK')
+ES_PASSWORD_BSO3_BACK = os.getenv('ES_PASSWORD_BSO3_BACK')
 
 def get_client():
     global client
     if client is None:
-        client = Elasticsearch(config_harvester["ES_URL"], http_auth=(config_harvester["ES_LOGIN_BSO3_BACK"],
-                                                                      config_harvester["ES_PASSWORD_BSO3_BACK"]))
+        client = Elasticsearch(ES_URL, http_auth=(ES_LOGIN_BSO3_BACK, ES_PASSWORD_BSO3_BACK))
     return client
 
 
