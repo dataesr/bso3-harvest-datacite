@@ -46,8 +46,11 @@ def run_task_import_elastic_search(index_name, new_index_name):
         source=f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl.gz',
         target=f'bso-datacite-latest.jsonl.gz',
     )
-    es_url_without_http = config_harvester["ES_URL"].replace("https://", "").replace("http://", "")
-    es_host = f"https://{config_harvester['ES_LOGIN_BSO3_BACK']}:{parse.quote(config_harvester['ES_PASSWORD_BSO3_BACK'])}@{es_url_without_http}"
+
+    es_url_without_http = os.getenv("ES_URL").replace("https://", "").replace("http://", "")
+    ES_LOGIN_BSO3_BACK = os.getenv('ES_LOGIN_BSO3_BACK')
+    ES_PASSWORD_BSO3_BACK = os.getenv('ES_PASSWORD_BSO3_BACK')
+    es_host = f"https://{ES_LOGIN_BSO3_BACK}:{parse.quote(ES_PASSWORD_BSO3_BACK)}@{es_url_without_http}"
     logger.debug("loading datacite index")
     reset_index(index=new_index_name)
     elasticimport = (
