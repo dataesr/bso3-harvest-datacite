@@ -734,7 +734,9 @@ def run_task_dump_files():
     # Upload the dedicated JSONL and CSV files into "bso_dump" Swift container and delete them
     for struct_id in locals_publications.keys():
         for filename in [f"bso-datasets-{struct_id}.jsonl", f"bso-datasets-{struct_id}.csv"]:
-            if os.path.exists(filename):
+            if os.path.exists(f"{LOCAL_DATA_FOLDER}/{filename}"):
                 upload_object("bso_dump", source=f"{LOCAL_DATA_FOLDER}/{filename}", target=filename)
                 os.remove(f"{LOCAL_DATA_FOLDER}/{filename}")
+            else:
+                logger.debug(f"Missing file \"{LOCAL_DATA_FOLDER}/{filename}\"")
     return
