@@ -348,6 +348,7 @@ def get_last_ror_dump_url():
 
 
 def download_ror_data() -> list:
+    SCHEMA_VERSION = "2.1"
     ROR_DUMP_URL = get_last_ror_dump_url()
     logger.debug(f'download ROR from {ROR_DUMP_URL}')
     ror_downloaded_file = 'ror_data_dump.zip'
@@ -358,10 +359,21 @@ def download_ror_data() -> list:
             file.write(chunk)
     with ZipFile(file=ror_downloaded_file, mode='r') as file:
         file.extractall(ror_unzipped_folder)
+    #for data_file in os.listdir(ror_unzipped_folder):
+    #    if data_file.endswith('v2.json'):
+    #        with open(f'{ror_unzipped_folder}/{data_file}', 'r') as file:
+    #            data = json.load(file)
+
+    found_version = False
     for data_file in os.listdir(ror_unzipped_folder):
-        if data_file.endswith('v2.json'):
+        if data_file.endswith('.json'):
             with open(f'{ror_unzipped_folder}/{data_file}', 'r') as file:
                 data = json.load(file)
+                # Check schema version
+                if SCHEMA_VERSION == data[0].get("admin", {}).get("last_modified", {}).get("schema_version"):
+                    found_version = True
+                    break
+
     os.remove(path=ror_downloaded_file)
     shutil.rmtree(path=ror_unzipped_folder)
     return data
