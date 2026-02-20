@@ -736,13 +736,16 @@ def run_task_dump_files():
     for df in dfs:
         datasets = df.to_dict(orient="records")
         for dataset in datasets:
-            bso_local_affiliations_from_publications = dataset.get("bso_local_affiliations_from_publications", [])
-            bso_local_affiliations_from_publications = bso_local_affiliations_from_publications if isinstance(bso_local_affiliations_from_publications, list) else []
-            for bso_local_affiliations_from_publication in bso_local_affiliations_from_publications:
-                if bso_local_affiliations_from_publication in locals_publications.keys():
-                    to_jsonl([dataset], f"{LOCAL_DATA_FOLDER}/bso-datasets-{bso_local_affiliations_from_publication}.jsonl", "a")
-                    data = pd.read_json(f"{LOCAL_DATA_FOLDER}/bso-datasets-{bso_local_affiliations_from_publication}.jsonl", lines=True)
-                    data.to_csv(f"{LOCAL_DATA_FOLDER}/bso-datasets-{bso_local_affiliations_from_publication}.csv", index=False)
+            bso3_local_affiliations = dataset.get("bso3_local_affiliations", [])
+            bso3_local_affiliations = bso3_local_affiliations if isinstance(bso3_local_affiliations, list) else []
+            for bso3_local_affiliation in bso3_local_affiliations:
+                if bso3_local_affiliation in locals_publications.keys():
+                    to_jsonl([dataset], f"{LOCAL_DATA_FOLDER}/bso-datasets-{bso3_local_affiliation}.jsonl", "a")
+                    data = pd.read_json(f"{LOCAL_DATA_FOLDER}/bso-datasets-{bso3_local_affiliation}.jsonl", lines=True)
+                    for field in ["description", "methods"]:
+                        if field in data.columns:
+                            del data[field]
+                    data.to_csv(f"{LOCAL_DATA_FOLDER}/bso-datasets-{bso3_local_affiliation}.csv", index=False)
     # Upload the dedicated JSONL and CSV files into "bso_dump" Swift container and delete them
     for struct_id in locals_publications.keys():
         for filename in [f"bso-datasets-{struct_id}.jsonl", f"bso-datasets-{struct_id}.csv"]:
