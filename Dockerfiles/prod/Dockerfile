@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN  apt-get update \
@@ -9,12 +9,12 @@ RUN  apt-get update \
 
 #RUN echo "deb [ arch=amd64,arm64 ] http://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/3.4 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-3.4.list
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.8 \
+RUN apt update && apt install -y --no-install-recommends \
+    python3.10 \
     python3-pip \
-    python3.8-dev \
-    libpython3.8 \
-    libpython3.8-dev \
+    python3.10-dev \
+    libpython3.10 \
+    libpython3.10-dev \
     jq \
     locales \
     locales-all \
@@ -31,11 +31,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN curl https://bootstrap.pypa.io/pip/3.8/get-pip.py -o get-pip.py && python3.8 get-pip.py
+RUN curl https://bootstrap.pypa.io/pip/get-pip.py -o get-pip.py && python3.10 get-pip.py
 
 # Install last version of NodeJS
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-RUN apt-get install -y nodejs
+RUN apt remove -y libnode72
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+RUN apt update && apt install -y nodejs
 
 WORKDIR /src
 
