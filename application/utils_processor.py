@@ -794,6 +794,8 @@ def normalize_publisher(doi):
         return 'Inorganic Crystal Structure Database (ICSD)'
     if 'sage journal' in x.lower():
         return 'SAGE'
+    if normalize("ICOS ERIC -- Carbon Portal") in normalized_input:
+        return "ICOS ERIC - Carbon Portal"
     return x
 
 def normalize_format(a):
