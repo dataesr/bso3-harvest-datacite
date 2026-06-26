@@ -395,6 +395,7 @@ def get_french_rors():
 
 
 def build_bso3_local_dict():
+    logger.debug(f'building build_bso3_local_dict')
     bso3_local_dict = {}
     os.system(f'mkdir -p /data/bso3_local')
     cmd =  init_cmd + f' download bso3-local -D /data/bso3_local --skip-identical'
@@ -412,6 +413,7 @@ def build_bso3_local_dict():
             for local_affiliation in local_affiliations:
                 if local_affiliation not in bso3_local_dict[elt_id]['affiliations']:
                     bso3_local_dict[elt_id]['affiliations'].append(local_affiliation)
+    logger.debug(f"done bso3_local_dict with {len(bso3_local_dict)} elts")
     return bso3_local_dict
 
 
@@ -471,6 +473,7 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
         it is enriched with informations from Affiliation Matcher
         - write a file for creating an ES index with french affiliation containing dois infos
     """
+    logger.debug(f'start run_task_enrich_dois with {len(partition_files)} files')
     # sort partition files to start by the lastest
     partition_files.sort(reverse=True)
     # affiliations_matches = get_affiliations_matches()
@@ -485,9 +488,12 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
 
-    bso_doi_dict = get_bso_publications() 
+    bso_doi_dict = get_bso_publications()
+    logger.debug(f"bso_doi_dict {len(bso_doi_dict)} elts")
     french_authors_dict = get_french_authors()
+    logger.debug(f"french_authors_dict {len(french_authors_dict)} elts")
     french_rors = get_french_rors()
+    logger.debug(f"french_rors {len(french_rors)} elts")
 
     #matches = get_affiliations_matches(index_name)
     output_file = f'{MOUNTED_VOLUME_PATH}/{index_name}.jsonl'
