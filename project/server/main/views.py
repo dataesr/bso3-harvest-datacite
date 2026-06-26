@@ -199,7 +199,7 @@ def create_task_enrich_doi():
                 if f2.endswith('.jsonl.gz'):
                     datacite_files.append(f'/data/dois/{f}/{f2}')
     datacite_files.sort()
-    partition = datacite_files[0:1]
+    partition = datacite_files
     logger.debug(f"nb partition = {len(partition)} || {partition}")
     if args.get('update_publications', True):
         update_bso_publications()
