@@ -31,6 +31,8 @@ def get_client_ids_infos():
         cons = ((rel.get("consortium") or {}).get("data") or {}).get("id")
         client_ids = [c["id"] for c in rel["clients"]["data"]] or [None]
         for cid in client_ids:  # une ligne par entrepôt
+            if not isinstance(cid, str):
+                continue
             ca = clients.get(cid, {})
             elt = {
                 "provider_id": p["id"],
