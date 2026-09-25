@@ -27,10 +27,12 @@ from project.server.main.pdb import load_pdbs, treat_pdb
 from project.server.main.strings import normalize
 from project.server.main.utils import to_jsonl
 from project.server.main.utils_swift import download_object, get_list_files, init_cmd, upload_object
+from project.server.main.clients import get_client_ids_infos
 import dask.dataframe as dd
 
 
 logger = get_logger(__name__)
+
 
 
 def run_task_import_elastic_search(index_name, new_index_name):
@@ -473,6 +475,9 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
         it is enriched with informations from Affiliation Matcher
         - write a file for creating an ES index with french affiliation containing dois infos
     """
+    client_id_infos = get_client_ids_infos()
+    CLIENT_ID_FR = [c['client_id'] for c in list(client_id_infos.values()) if c['provider_country']=='FR']
+
     logger.debug(f'start run_task_enrich_dois with {len(partition_files)} files')
     # sort partition files to start by the lastest
     partition_files.sort(reverse=True)
@@ -624,9 +629,15 @@ def run_task_enrich_dois(partition_files, index_name, new_index_name):
                         if re.search(pattern, get_publisher(doi)):
                             fr_reasons.append('publisher')
                             nb_new_publisher += 1
-                    if get_client_id(doi).startswith('inist.'):
-                        fr_reasons.append("clientId")
-                        nb_new_client += 1
+                    current_client_id = get_client_id(doi)
+                    if current_client_id in client_id_infos:
+                        current_client_id_infos = client_id_infos[current_client_id]
+                        doi.update(current_client_id_infos)
+                        if get_client_id(doi).startswith(client_id_fr):
+                            fr_reasons.append("clientId")
+                            nb_new_client += 1
+                    else:
+                        logger.debug(f"client_id {current_client_id} not in map ???")
                     rors = list(set(rors))
                     bso_local_affiliations_from_publications = list(set(bso_local_affiliations_from_publications))
                     fr_reasons = list(set(fr_reasons))
