@@ -1,4 +1,5 @@
 import requests
+import json
 from retry import retry
 from project.server.main.logger import get_logger
 logger = get_logger(__name__)
@@ -24,7 +25,7 @@ def get_client_ids_infos():
 
     providers = fetch_all("providers")
     clients = {c["id"]: c["attributes"] for c in fetch_all("clients")}
-
+    hard_coded_map = json.load(open('client_id_hard_coded_names.json', 'r'))
     client_id_infos = {}
     for p in providers:
         a, rel = p["attributes"], p["relationships"]
@@ -35,18 +36,24 @@ def get_client_ids_infos():
                 continue
             ca = clients.get(cid, {})
             elt = {
-                "provider_id": p["id"],
-                "provider_name": a["name"],
-                "member_type": a["memberType"],
-                "provider_country": a["country"],
-                "provider_ror": a["rorId"], 
-                "consortium": cons,
-                "client_id": cid,
-                "client_name": ca.get("name"),
-                "client_type": ca.get("clientType"),   # repository, periodical…
-                "client_url": ca.get("url"),
-                "re3data": ca.get("re3data"),
+            "provider_id": p["id"],
+            "provider_name": a["name"],
+            "provider_display_name": a.get('displayName'),
+            "provider_member_type": a["memberType"],
+            "provider_country": a["country"],
+            "provider_region": a["region"],
+            "provider_ror": a["rorId"],
+            "provider_consortium": cons,
+            "client_id": cid,
+            "client_name": ca.get("name"),
+            "client_alternate_name": ca.get('alternateName'),
+            "client_year": ca.get('year'),
+            "client_type": ca.get("clientType"),   # repository, periodical…
+            "client_url": ca.get("url"),
+            "client_re3data": ca.get("re3data")
             }
+            if cid in hard_coded_map:
+                elt['client_name'] = hard_coded_map[cid]
             client_id_infos[cid] = elt
     logger.debug(f"{len(providers)} providers, {len(clients)} clients, {len(client_id_infos)} client_ids infos")
     return client_id_infos
