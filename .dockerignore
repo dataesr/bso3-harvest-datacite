@@ -1,4 +1,5 @@
-*.json
+**/*.json
+!client_id_hard_coded_names.json
 *.ndjson
 *.zip
 .coverage
