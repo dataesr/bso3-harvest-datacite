@@ -507,6 +507,11 @@ def append_to_es_index_sourcefile(doi, index_name, bso3_local_dict = {}):
         "update_date": get_updated(doi)
     }
 
+    for field in ["provider_id", "provider_name", "provider_display_name", "provider_country", "provider_region", "provider_ror", "provider_consortium",
+            "client_name", "client_alternate_name", "client_year", "client_type", "client_url", "client_re3data", "client_name"]:
+        enriched_doi[field] = doi.get(field)
+    enriched_doi["client_id_name"] = enriched_doi.get('client_id', 'client_id') + "###" + enriched_doi.get("client_name", "no_client_name")
+
     if enriched_doi.get('doi'):
         enriched_doi['id'] = 'doi'+enriched_doi.get('doi')
     else:
