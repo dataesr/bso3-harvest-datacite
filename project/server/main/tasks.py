@@ -62,6 +62,8 @@ def run_task_import_elastic_search(index_name, new_index_name):
     logger.debug("Import file into elasticsearch - start")
     os.system(elasticimport)
     logger.debug("Import file into elasticsearch - end")
+    os.system(f'rm -rf {MOUNTED_VOLUME_PATH}/{index_name}.jsonl.gz')
+    os.system(f'rm -rf {MOUNTED_VOLUME_PATH}/{index_name}.jsonl')
 
 
 def get_partition_size(source_metadata_file, total_partition_number):
